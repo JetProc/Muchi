@@ -80,7 +80,7 @@ export function Chapters({
   const [deleteTarget, setDeleteTarget] = useState<Cube | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [carouselRef, carouselApi] = useEmblaCarousel({
-    align: "start",
+    align: "center",
     containScroll: "trimSnaps",
     loop: chapters.length > 1,
   });
@@ -89,12 +89,6 @@ export function Chapters({
     : 0;
   const activeChapter = chapters[activeIndex] ?? chapters[0] ?? null;
   const activeEntries = activeChapter ? getCubeTracks(archive, activeChapter.id) : [];
-  const previousChapter = chapters.length > 1
-    ? chapters[(activeIndex - 1 + chapters.length) % chapters.length]
-    : null;
-  const nextChapter = chapters.length > 1
-    ? chapters[(activeIndex + 1) % chapters.length]
-    : null;
   const createDialogRef = useModalFocus<HTMLDivElement>(
     showForm || Boolean(pendingTrack),
     () => {
@@ -181,11 +175,8 @@ export function Chapters({
         <>
           <section
             className="chapter-stage"
-            id="active-chapter-stage"
-            role="tabpanel"
             aria-label={`${activeChapter.name} 챕터`}
             tabIndex={0}
-            style={chapterColorStyle(activeChapter.color)}
             onKeyDown={(event) => {
               if (event.key === "ArrowLeft") {
                 event.preventDefault();
@@ -201,15 +192,55 @@ export function Chapters({
               {chapters.length}개 중 {activeIndex + 1}번째, {activeChapter.name}
             </span>
             <div className="chapter-stage-inner">
-              <div className="chapter-stage-copy">
-                <span className="chapter-stage-number">{String(activeIndex + 1).padStart(2, "0")}</span>
-                <h2>{activeChapter.name}</h2>
-                <p>{activeChapter.description || "아직 문장이 붙지 않은 나의 음악 장면"}</p>
+              <div
+                className="chapter-lp-carousel"
+                ref={carouselRef}
+                role="region"
+                aria-roledescription="carousel"
+                aria-label="음악 챕터 둘러보기"
+              >
+                <div className="chapter-lp-stack" role="tablist" aria-label="음악 챕터 선택">
+                  {chapters.map((chapter, index) => {
+                    const entries = getCubeTracks(archive, chapter.id);
+                    const selected = index === activeIndex;
+                    return (
+                      <div className={`chapter-lp-slide${selected ? " is-active" : ""}`} role="presentation" key={chapter.id}>
+                        <button
+                          className="chapter-lp-card"
+                          type="button"
+                          role="tab"
+                          aria-label={`${chapter.name}, ${entries.length}곡`}
+                          aria-selected={selected}
+                          aria-controls="active-chapter-stage"
+                          tabIndex={selected ? 0 : -1}
+                          onClick={() => selectChapter(index)}
+                        >
+                          {/* The transparent LP cutout is already compressed and must preserve its exact alpha bounds. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/assets/chapter-lp.png" alt="" draggable={false} />
+                          <span className="chapter-lp-card-copy">
+                            <small>{String(index + 1).padStart(2, "0")}</small>
+                            <strong>{chapter.name}</strong>
+                            <span>{entries.length}곡</span>
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <ChapterCover archive={archive} chapter={activeChapter} shared />
-
-              <div className="chapter-stage-details">
+              <div
+                className="chapter-stage-details"
+                id="active-chapter-stage"
+                role="tabpanel"
+                aria-label={`${activeChapter.name} 챕터 정보`}
+              >
+                <div className="chapter-stage-meta">
+                  <strong>{String(activeIndex + 1).padStart(2, "0")} / {String(chapters.length).padStart(2, "0")}</strong>
+                  <span>{activeEntries.length}곡</span>
+                </div>
+                {activeChapter.description ? <p className="chapter-stage-description">{activeChapter.description}</p> : null}
                 {activeEntries.length ? (
                   <ol className="chapter-stage-tracks" aria-label="대표 수록곡">
                     {activeEntries.slice(0, 3).map(({ cubeTrack, track }, index) => (
@@ -217,11 +248,6 @@ export function Chapters({
                     ))}
                   </ol>
                 ) : <p className="chapter-stage-empty">아직 담긴 곡이 없어요.</p>}
-                <div className="chapter-stage-meta">
-                  <strong>{activeEntries.length}곡</strong>
-                  <span>최근 업데이트 {formatDate(activeChapter.updatedAt)}</span>
-                  <span>{activeIndex + 1} / {chapters.length}</span>
-                </div>
                 <Link
                   className="chapter-stage-enter"
                   href={`/chapter?id=${encodeURIComponent(activeChapter.id)}`}
@@ -232,65 +258,8 @@ export function Chapters({
                 </Link>
                 <button className="text-button chapter-stage-manage" type="button" onClick={() => setDeleteTarget(activeChapter)}>챕터 삭제</button>
               </div>
-
-              <div className="chapter-stage-navigation" aria-label="챕터 순서 이동">
-                <button type="button" onClick={() => moveStage(-1)} disabled={!previousChapter}>
-                  <strong>이전 챕터</strong>
-                  <span>{previousChapter?.name ?? "없음"}</span>
-                </button>
-                <button type="button" onClick={() => moveStage(1)} disabled={!nextChapter}>
-                  <strong>다음 챕터</strong>
-                  <span>{nextChapter?.name ?? "없음"}</span>
-                </button>
-              </div>
             </div>
           </section>
-
-          <div
-            className="chapter-stage-carousel"
-            ref={carouselRef}
-            role="region"
-            aria-roledescription="carousel"
-            aria-label="음악 챕터 둘러보기"
-          >
-            <div className="chapter-stage-switcher" role="tablist" aria-label="음악 챕터 선택">
-              {chapters.map((chapter, index) => {
-                const entries = getCubeTracks(archive, chapter.id);
-                const selected = index === activeIndex;
-                return (
-                  <div className="chapter-stage-slide" role="presentation" key={chapter.id}>
-                    <button
-                      className={`chapter-stage-switch${selected ? " is-active" : ""}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={selected}
-                      aria-controls="active-chapter-stage"
-                      tabIndex={selected ? 0 : -1}
-                      onClick={() => selectChapter(index)}
-                      onKeyDown={(event) => {
-                        if (event.key === "ArrowLeft") {
-                          event.preventDefault();
-                          moveStage(-1);
-                        }
-                        if (event.key === "ArrowRight") {
-                          event.preventDefault();
-                          moveStage(1);
-                        }
-                      }}
-                      style={chapterColorStyle(chapter.color)}
-                    >
-                      <span className="chapter-stage-switch-copy">
-                        <small>{String(index + 1).padStart(2, "0")}</small>
-                        <strong>{chapter.name}</strong>
-                        <span>{entries.length}곡</span>
-                      </span>
-                      <ChapterCover archive={archive} chapter={chapter} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </>
       ) : (
         <EmptyState

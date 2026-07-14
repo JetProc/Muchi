@@ -139,7 +139,7 @@ test("uses whitespace and tone instead of decorative divider lines", async () =>
   assert.match(css, /\.chapter-stats\s*{[^}]*gap:\s*8px;/s);
 });
 
-test("turns the chapter index into an accessible Embla carousel", async () => {
+test("turns the chapter index into an accessible overlapping LP carousel", async () => {
   const [source, packageJsonSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -152,6 +152,9 @@ test("turns the chapter index into an accessible Embla carousel", async () => {
   assert.match(source, /ref=\{carouselRef\}/);
   assert.match(source, /aria-roledescription="carousel"/);
   assert.doesNotMatch(source, /stageTouchStart|onTouchStart=/);
+  assert.match(source, /className="chapter-lp-stack" role="tablist"/);
+  assert.match(source, /src="\/assets\/chapter-lp\.png"/);
+  assert.match(source, /className="chapter-lp-card-copy"/);
   assert.match(source, /event\.key === "ArrowLeft"/);
   assert.match(source, /event\.key === "ArrowRight"/);
   assert.match(source, /role="tablist" aria-label="음악 챕터 선택"/);

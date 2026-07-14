@@ -159,7 +159,6 @@ img {
   align-items: center;
   min-height: 70px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--paper) 92%, transparent);
   backdrop-filter: blur(16px);
   view-transition-name: editorial-header;
@@ -208,9 +207,7 @@ img {
 }
 
 .header-index i {
-  width: 42px;
-  height: 1px;
-  background: currentColor;
+  display: none;
 }
 
 .header-links {
@@ -421,7 +418,6 @@ html[data-motion-intent="tab"]::view-transition-new(root) {
   grid-template-columns: repeat(4, 1fr);
   min-height: calc(64px + env(safe-area-inset-bottom));
   padding: 0 8px env(safe-area-inset-bottom);
-  border-top: 1px solid var(--line);
   background: color-mix(in srgb, var(--paper) 94%, transparent);
   backdrop-filter: blur(18px);
   view-transition-name: editorial-navigation;
@@ -497,9 +493,9 @@ h2 {
   justify-content: center;
   min-height: 44px;
   padding: 0 15px;
-  border: 1px solid var(--ink);
+  border: 0;
   color: var(--ink);
-  background: transparent;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.08em;
@@ -522,24 +518,22 @@ h2 {
 .button-primary,
 .button-cyan {
   color: var(--paper-soft);
-  border-color: var(--ink);
   background: var(--ink);
 }
 
 .button-primary:hover:not(:disabled),
 .button-cyan:hover:not(:disabled) {
   color: var(--ink);
-  border-color: var(--signal);
   background: var(--signal);
 }
 
 .button-ghost {
-  border-color: var(--line-strong);
+  background: transparent;
 }
 
 .button-danger {
   color: var(--oxblood);
-  border-color: var(--oxblood);
+  background: color-mix(in srgb, var(--oxblood) 8%, transparent);
 }
 
 .button:disabled {
@@ -554,9 +548,9 @@ h2 {
   min-height: 44px;
   padding: 0 12px;
   place-items: center;
-  border: 1px solid currentColor;
+  border: 0;
   color: inherit;
-  background: transparent;
+  background: color-mix(in srgb, currentColor 7%, transparent);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -579,9 +573,8 @@ h2 {
 .select {
   width: 100%;
   border: 0;
-  border-bottom: 1px solid var(--line-strong);
   color: var(--ink);
-  background: transparent;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
   outline: none;
   transition: border-color 180ms ease, background 180ms ease;
 }
@@ -589,12 +582,12 @@ h2 {
 .input,
 .select {
   min-height: 50px;
-  padding: 0 2px;
+  padding: 0 14px;
 }
 
 .textarea {
   min-height: 124px;
-  padding: 14px 2px;
+  padding: 14px;
   resize: vertical;
 }
 
@@ -606,8 +599,7 @@ h2 {
 .input:focus,
 .textarea:focus,
 .select:focus {
-  border-color: var(--signal);
-  background: color-mix(in srgb, var(--paper-soft) 72%, transparent);
+  background: color-mix(in srgb, var(--signal) 9%, var(--paper-soft));
 }
 
 .field {
@@ -671,9 +663,9 @@ h2 {
   align-items: center;
   min-height: 30px;
   padding: 4px 9px;
-  border: 1px solid var(--line-strong);
+  border: 0;
   color: var(--ink-soft);
-  background: transparent;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
   font-size: 10px;
   line-height: 1.25;
   transition: color 220ms ease, background 220ms ease, transform 220ms var(--ease-editorial), max-width 240ms ease, opacity 180ms ease;
@@ -695,7 +687,6 @@ button.tag {
 .tag-kind {
   margin-left: 6px;
   padding-left: 6px;
-  border-left: 1px solid currentColor;
   opacity: 0.65;
   font-size: 8px;
 }
@@ -717,7 +708,6 @@ button.tag {
   display: grid;
   gap: 24px;
   padding: 20px 0 40px;
-  border-bottom: 1px solid var(--line);
 }
 
 .page-header h1 {
@@ -868,7 +858,6 @@ button.tag {
   justify-content: space-between;
   padding-bottom: 16px;
   color: var(--dust-light);
-  border-bottom: 1px solid var(--paper-line);
 }
 
 .album-feature {
@@ -996,7 +985,8 @@ button.tag {
 }
 
 .chapter-preview-list {
-  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
 }
 
 .chapter-preview-line {
@@ -1006,14 +996,14 @@ button.tag {
   min-height: 72px;
   gap: 12px;
   padding: 14px 0;
-  border-bottom: 1px solid var(--line);
-  transition: padding 240ms var(--ease-editorial), color 180ms ease;
+  transition: padding 240ms var(--ease-editorial), color 180ms ease, background 180ms ease;
 }
 
 .chapter-preview-line:hover {
   padding-right: 8px;
   padding-left: 8px;
   color: var(--oxblood);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
 .chapter-preview-line > span,
@@ -1033,8 +1023,6 @@ button.tag {
 
 .empty-inline {
   padding: 30px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
 }
 
 .home-manifesto {
@@ -1057,8 +1045,7 @@ button.tag {
 
 .home-manifesto .button {
   color: var(--paper-soft);
-  border-color: var(--paper-soft);
-  background: transparent;
+  background: color-mix(in srgb, var(--paper-soft) 12%, transparent);
 }
 
 .home-manifesto .button:hover {
@@ -1067,13 +1054,13 @@ button.tag {
 }
 
 .chapter-index {
-  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 28px;
 }
 
 .chapter-index-item {
   position: relative;
   padding: 28px 0;
-  border-bottom: 1px solid var(--line);
 }
 
 .chapter-index-link {
@@ -1132,7 +1119,6 @@ button.tag {
   display: grid;
   gap: 28px;
   padding-bottom: 44px;
-  border-bottom: 1px solid var(--line);
 }
 
 .chapter-hero-copy h1 {
@@ -1157,9 +1143,8 @@ button.tag {
 .chapter-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   margin-top: 20px;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
 }
 
 .chapter-stats span {
@@ -1168,15 +1153,11 @@ button.tag {
   align-content: center;
   gap: 3px;
   padding: 10px;
-  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
   color: var(--dust-text);
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.08em;
-}
-
-.chapter-stats span:last-child {
-  border-right: 0;
 }
 
 .chapter-stats strong {
@@ -1188,7 +1169,7 @@ button.tag {
 
 .track-list {
   display: grid;
-  border-top: 1px solid var(--line);
+  gap: 4px;
 }
 
 .track-line {
@@ -1198,9 +1179,15 @@ button.tag {
   gap: 11px;
   min-width: 0;
   padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+  transition: background 180ms ease, padding 180ms var(--ease-editorial);
   animation: track-enter 440ms var(--ease-editorial) both;
   animation-delay: var(--track-delay, 0ms);
+}
+
+.track-line:hover {
+  padding-right: 8px;
+  padding-left: 8px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
 @keyframes track-enter {
@@ -1296,7 +1283,6 @@ button.tag {
 .memory-form,
 .settings-list {
   padding: 28px 0;
-  border-bottom: 1px solid var(--line);
 }
 
 .search-panel {
@@ -1398,10 +1384,13 @@ button.tag {
   min-height: 78px;
   padding: 10px 0;
   border: 0;
-  border-bottom: 1px solid var(--line);
   text-align: left;
   background: transparent;
   cursor: pointer;
+}
+
+.chapter-choice:hover {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
 .chapter-choice > span:first-child,
@@ -1432,13 +1421,14 @@ button.tag {
 
 .settings-list {
   margin-top: 20px;
+  display: grid;
+  gap: 14px;
 }
 
 .setting-row {
   display: grid;
   gap: 18px;
   padding: 24px 0;
-  border-bottom: 1px solid var(--line);
 }
 
 .setting-row h3 {
@@ -1456,8 +1446,8 @@ button.tag {
   width: 54px;
   height: 44px;
   padding: 0;
-  border: 1px solid var(--line-strong);
-  background: transparent;
+  border: 0;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   cursor: pointer;
 }
 
@@ -1482,8 +1472,6 @@ button.tag {
   min-height: 280px;
   place-items: center;
   padding: 42px 18px;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
   text-align: center;
 }
 
@@ -1499,10 +1487,9 @@ button.tag {
 }
 
 .notice {
-  padding: 13px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  padding: 13px 14px;
   color: var(--ink-soft);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
   font-size: 11px;
 }
 
@@ -1556,8 +1543,8 @@ button.tag {
 
 .welcome-steps {
   display: grid;
+  gap: 4px;
   margin-top: 26px;
-  border-top: 1px solid var(--line);
 }
 
 .welcome-step {
@@ -1565,7 +1552,7 @@ button.tag {
   justify-content: space-between;
   gap: 14px;
   padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
   font-size: 11px;
 }
 
@@ -1601,7 +1588,7 @@ button.tag {
   align-items: center;
   min-height: 62px;
   overflow: hidden;
-  border: 1px solid var(--paper-line);
+  border: 0;
   color: var(--paper-soft);
   background: var(--ink);
   animation: mini-player-in 420ms var(--ease-editorial) both;
@@ -1654,7 +1641,7 @@ button.tag {
   min-width: 62px;
   min-height: 60px;
   border: 0;
-  border-left: 1px solid var(--paper-line);
+  background: color-mix(in srgb, var(--paper-soft) 8%, transparent);
 }
 
 .mini-player-progress {
@@ -1711,7 +1698,6 @@ button.tag {
 .full-player .button,
 .full-player .text-button {
   color: var(--paper-soft);
-  border-color: var(--paper-soft);
 }
 
 .full-player .button:hover {
@@ -1964,8 +1950,6 @@ button.tag {
     bottom: auto;
     min-height: 48px;
     padding: 0 28px;
-    border-top: 0;
-    border-bottom: 1px solid var(--line);
   }
 
   .text-navigation a {

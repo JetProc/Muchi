@@ -111,6 +111,18 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.doesNotMatch(source, /<details className="capture-secondary">/);
 });
 
+test("uses whitespace and tone instead of decorative divider lines", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.doesNotMatch(
+    css,
+    /border-(?:top|right|bottom|left):\s*1px solid var\(--line\)/,
+  );
+  assert.doesNotMatch(css, /border:\s*1px solid var\(--line-strong\)/);
+  assert.match(css, /\.track-list\s*{[^}]*gap:\s*4px;/s);
+  assert.match(css, /\.chapter-stats\s*{[^}]*gap:\s*8px;/s);
+});
+
 test("redirects legacy presentation routes to the chapter archive", async () => {
   const redirects = [
     ["/cubes", "/chapters"],

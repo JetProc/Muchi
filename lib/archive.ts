@@ -41,14 +41,16 @@ export type EntitySource = "seed" | "user";
 export type CubeColor = (typeof CUBE_COLORS)[number];
 export type MotionPreference = "system" | "reduce" | "full";
 export type Season = "spring" | "summer" | "autumn" | "winter";
-export type TagCategory =
-  | "genre"
-  | "emotion"
-  | "energy"
-  | "texture"
-  | "situation"
-  | "period"
-  | "custom";
+export const TAG_CATEGORIES = [
+  "genre",
+  "emotion",
+  "energy",
+  "texture",
+  "situation",
+  "period",
+  "custom",
+] as const;
+export type TagCategory = (typeof TAG_CATEGORIES)[number];
 
 export type MemoryPeriod =
   | { kind: "month"; year: number | null; month: number }
@@ -311,14 +313,7 @@ function compactUnreferencedEntities(data: ArchiveData): ArchiveData {
     Object.entries(data.tracks).filter(([trackId]) => referenced.has(trackId as TrackId)),
   ) as Record<TrackId, TrackReference>;
 
-  const referencedTagIds = new Set(
-    Object.values(data.cubeTracks).flatMap((item) => item.tagIds),
-  );
-  const tags = Object.fromEntries(
-    Object.entries(data.tags).filter(([tagId]) => referencedTagIds.has(tagId)),
-  );
-
-  return { ...data, tracks, tags };
+  return { ...data, tracks };
 }
 
 function validateMemoryPeriod(value: MemoryPeriod): MemoryPeriod {
@@ -1149,6 +1144,148 @@ export function setCubeTrackTags(
   );
 }
 
+export function createTags(
+  archive: ArchiveEnvelopeV1,
+  inputs: Array<string | TagInput>,
+  now = nowIso(),
+): { archive: ArchiveEnvelopeV1; tags: TagDefinition[]; created: number } {
+  const tags = { ...archive.data.tags };
+  const byNormalized = new Map(
+    Object.values(tags).map((tag) => [tag.normalizedLabel, tag] as const),
+  );
+  const result: TagDefinition[] = [];
+  const seen = new Set<string>();
+  let created = 0;
+
+  for (const input of inputs) {
+    const category = typeof input === "string" ? "custom" : (input.category ?? "custom");
+    if (!TAG_CATEGORIES.includes(category)) {
+      throw new ArchiveDomainError("invalid-input", "지원하지 않는 태그 카테고리입니다.");
+    }
+    const label = cleanText(
+      typeof input === "string" ? input : input.label,
+      "태그",
+      ARCHIVE_LIMITS.tagLabel,
+      true,
+    );
+    const normalizedLabel = normalizeTagLabel(label);
+    if (seen.has(normalizedLabel)) continue;
+    seen.add(normalizedLabel);
+
+    const existing = byNormalized.get(normalizedLabel);
+    if (existing) {
+      result.push(existing);
+      continue;
+    }
+
+    const id = createId("tag");
+    const tag: TagDefinition = {
+      id,
+      label,
+      normalizedLabel,
+      category,
+      source: "user",
+      createdAt: now,
+    };
+    tags[id] = tag;
+    byNormalized.set(normalizedLabel, tag);
+    result.push(tag);
+    created += 1;
+  }
+
+  return {
+    archive: created
+      ? withData(archive, { ...archive.data, tags }, now)
+      : archive,
+    tags: result,
+    created,
+  };
+}
+
+export function updateTag(
+  archive: ArchiveEnvelopeV1,
+  tagId: string,
+  input: { label?: string; category?: TagCategory },
+  now = nowIso(),
+): ArchiveEnvelopeV1 {
+  const current = assertRecord(archive.data.tags, tagId, "태그");
+  const label = input.label === undefined
+    ? current.label
+    : cleanText(input.label, "태그", ARCHIVE_LIMITS.tagLabel, true);
+  const category = input.category ?? current.category;
+  if (!TAG_CATEGORIES.includes(category)) {
+    throw new ArchiveDomainError("invalid-input", "지원하지 않는 태그 카테고리입니다.");
+  }
+  const normalizedLabel = normalizeTagLabel(label);
+  const duplicate = Object.values(archive.data.tags).find(
+    (tag) => tag.id !== tagId && tag.normalizedLabel === normalizedLabel,
+  );
+  if (duplicate) {
+    throw new ArchiveDomainError("duplicate", "이미 같은 이름의 태그가 있습니다.");
+  }
+  const next: TagDefinition = { ...current, label, normalizedLabel, category };
+  return withData(
+    archive,
+    { ...archive.data, tags: { ...archive.data.tags, [tagId]: next } },
+    now,
+  );
+}
+
+export function deleteTag(
+  archive: ArchiveEnvelopeV1,
+  tagId: string,
+  now = nowIso(),
+): ArchiveEnvelopeV1 {
+  assertRecord(archive.data.tags, tagId, "태그");
+  const tags = { ...archive.data.tags };
+  delete tags[tagId];
+  const changedCubeIds = new Set<string>();
+  const cubeTracks = Object.fromEntries(
+    Object.entries(archive.data.cubeTracks).map(([id, item]) => {
+      if (!item.tagIds.includes(tagId)) return [id, item];
+      changedCubeIds.add(item.cubeId);
+      return [id, { ...item, tagIds: item.tagIds.filter((value) => value !== tagId), updatedAt: now }];
+    }),
+  );
+  const cubes = Object.fromEntries(
+    Object.entries(archive.data.cubes).map(([id, cube]) => [
+      id,
+      changedCubeIds.has(id) ? { ...cube, updatedAt: now } : cube,
+    ]),
+  );
+  return withData(archive, { ...archive.data, tags, cubeTracks, cubes }, now);
+}
+
+export function setCubeTrackTagIds(
+  archive: ArchiveEnvelopeV1,
+  cubeTrackId: string,
+  inputTagIds: string[],
+  now = nowIso(),
+): ArchiveEnvelopeV1 {
+  const cubeTrack = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const tagIds = [...new Set(inputTagIds)];
+  if (tagIds.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
+    throw new ArchiveDomainError(
+      "limit-exceeded",
+      `태그는 곡마다 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
+    );
+  }
+  tagIds.forEach((tagId) => assertRecord(archive.data.tags, tagId, "태그"));
+  const nextCubeTrack = { ...cubeTrack, tagIds, updatedAt: now };
+  return withData(
+    archive,
+    {
+      ...archive.data,
+      cubeTracks: { ...archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
+      cubes: {
+        ...archive.data.cubes,
+        [cubeTrack.cubeId]: { ...archive.data.cubes[cubeTrack.cubeId], updatedAt: now },
+      },
+    },
+    now,
+  );
+}
+
 export function reorderCubeTracks(
   archive: ArchiveEnvelopeV1,
   cubeId: string,
@@ -1614,9 +1751,7 @@ function isTagDefinition(value: unknown): value is TagDefinition {
     value.label.length <= ARCHIVE_LIMITS.tagLabel &&
     typeof value.normalizedLabel === "string" &&
     value.normalizedLabel === normalizeTagLabel(value.label) &&
-    ["genre", "emotion", "energy", "texture", "situation", "period", "custom"].includes(
-      value.category as string,
-    ) &&
+    TAG_CATEGORIES.includes(value.category as TagCategory) &&
     (value.source === "seed" || value.source === "user") &&
     validIsoDate(value.createdAt)
   );

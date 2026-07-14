@@ -3,22 +3,22 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
   type FormEvent,
 } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import {
+  ARCHIVE_LIMITS,
   CUBE_COLORS,
+  TAG_CATEGORIES,
   addTrackToCube,
   createCube,
   deleteCube,
   getCubeTracks,
   moveInboxTrackToCube,
-  normalizeTagLabel,
   removeCubeTrack,
   reorderCubeTracks,
-  setCubeTrackTags,
+  setCubeTrackTagIds,
   updateCube,
   updateCubeTrack,
   type ArchiveEnvelopeV1,
@@ -51,7 +51,6 @@ import {
   COLOR_LABEL,
   SEASON_LABEL,
   TAG_CATEGORY_LABEL,
-  TAG_SUGGESTIONS,
   chapterColorStyle,
   formatDate,
   formatMemory,
@@ -464,10 +463,8 @@ export function MemoryPanel({
 }
 
 interface TagEditorProps {
-  labels: string[];
-  recentTags: TagDefinition[];
-  customTag: string;
-  matchingTags: TagDefinition[];
+  tags: TagDefinition[];
+  selectedTagIds: string[];
   character: string;
   periodKind: "none" | "month" | "season";
   year: string;
@@ -476,9 +473,7 @@ interface TagEditorProps {
   place: string;
   people: string;
   memo: string;
-  toggleTag: (label: string) => void;
-  addCustomTag: () => void;
-  setCustomTag: (value: string) => void;
+  toggleTag: (tagId: string) => void;
   setCharacter: (value: string) => void;
   setPeriodKind: (value: "none" | "month" | "season") => void;
   setYear: (value: string) => void;
@@ -491,10 +486,8 @@ interface TagEditorProps {
 
 export function TagEditor(props: TagEditorProps) {
   const {
-    labels,
-    recentTags,
-    customTag,
-    matchingTags,
+    tags,
+    selectedTagIds,
     character,
     periodKind,
     year,
@@ -504,8 +497,6 @@ export function TagEditor(props: TagEditorProps) {
     people,
     memo,
     toggleTag,
-    addCustomTag,
-    setCustomTag,
     setCharacter,
     setPeriodKind,
     setYear,
@@ -517,10 +508,15 @@ export function TagEditor(props: TagEditorProps) {
   } = props;
   return (
     <>
-      <div className="field"><span className="field-label">추천 태그 · 여러 개 선택 가능</span><div className="filter-row">{TAG_SUGGESTIONS.map(({ label, category }) => <button key={label} className={`tag${labels.includes(label) ? " is-selected" : ""}`} type="button" onClick={() => toggleTag(label)} aria-pressed={labels.includes(label)}>#{label}<small className="tag-kind">{TAG_CATEGORY_LABEL[category]}</small></button>)}</div></div>
-      {recentTags.length ? <div className="field"><span className="field-label">최근에 쓴 나의 태그</span><div className="filter-row">{recentTags.map((tag) => <button key={tag.id} className={`tag${labels.some((label) => normalizeTagLabel(label) === tag.normalizedLabel) ? " is-selected" : ""}`} type="button" onClick={() => toggleTag(tag.label)} aria-pressed={labels.some((label) => normalizeTagLabel(label) === tag.normalizedLabel)}>#{tag.label}</button>)}</div></div> : null}
-      {labels.length ? <div className="field"><span className="field-label">선택한 나의 태그</span><div className="tag-row">{labels.map((label) => <span className="tag" key={label}>#{label}<button className="tag-remove" type="button" onClick={() => toggleTag(label)} aria-label={`${label} 태그 제거`}>REMOVE</button></span>)}</div></div> : null}
-      <div className="field"><label htmlFor="custom-tag">나만의 태그</label><div className="search-form" style={{ marginTop: 0 }}><input id="custom-tag" className="input" value={customTag} onChange={(event) => setCustomTag(event.target.value)} maxLength={40} placeholder="예: 불안했던 청춘" onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomTag(); } }} /><button className="button" type="button" onClick={addCustomTag}>태그 추가</button></div>{matchingTags.length ? <div className="filter-row" style={{ marginTop: 8 }} aria-label="비슷한 기존 태그">{matchingTags.map((tag) => <button className="tag" type="button" key={tag.id} onClick={() => toggleTag(tag.label)}>기존 #{tag.label}</button>)}</div> : null}</div>
+      <div className="field managed-tag-field">
+        <div className="managed-tag-heading"><span className="field-label">등록된 태그 칩 · 여러 개 선택 가능</span><span className="field-hint">{selectedTagIds.length} / {ARCHIVE_LIMITS.tagsPerCubeTrack}</span></div>
+        {tags.length ? <div className="managed-tag-groups">{TAG_CATEGORIES.map((category) => {
+          const categoryTags = tags.filter((tag) => tag.category === category);
+          if (!categoryTags.length) return null;
+          return <div className="managed-tag-group" key={category}><span>{TAG_CATEGORY_LABEL[category]}</span><div className="filter-row">{categoryTags.map((tag) => <button key={tag.id} className={`tag${selectedTagIds.includes(tag.id) ? " is-selected" : ""}`} type="button" onClick={() => toggleTag(tag.id)} aria-pressed={selectedTagIds.includes(tag.id)}>#{tag.label}</button>)}</div></div>;
+        })}</div> : <div className="notice"><span>먼저 자주 쓸 태그 칩을 만들어두면 여기서 바로 고를 수 있어요.</span></div>}
+        <Link className="text-link" href="/tags" intent="tab">태그 칩 만들기·관리</Link>
+      </div>
       <div className="field"><label htmlFor="character">성격 문장</label><input id="character" className="input" value={character} onChange={(event) => setCharacter(event.target.value)} maxLength={100} placeholder="예: 차갑지만 이상하게 나를 안심시키는 곡" /></div>
       <div className="field"><span className="field-label">기억한 시기</span><div className="form-grid"><select className="select" value={periodKind} onChange={(event) => setPeriodKind(event.target.value as typeof periodKind)} aria-label="기억한 시기 종류"><option value="none">시기 없음</option><option value="month">연도 + 월</option><option value="season">연도 + 계절</option></select>{periodKind !== "none" ? <input className="input" value={year} onChange={(event) => setYear(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" placeholder="연도 (선택)" aria-label="기억한 연도" /> : null}{periodKind === "month" ? <select className="select" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="기억한 월">{Array.from({ length: 12 }, (_, index) => <option value={index + 1} key={index + 1}>{index + 1}월</option>)}</select> : null}{periodKind === "season" ? <select className="select" value={season} onChange={(event) => setSeason(event.target.value as keyof typeof SEASON_LABEL)} aria-label="기억한 계절">{Object.entries(SEASON_LABEL).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select> : null}</div></div>
       <div className="form-grid"><div className="field"><label htmlFor="place">장소</label><input id="place" className="input" value={place} onChange={(event) => setPlace(event.target.value)} maxLength={60} placeholder="첫 자취방, 한강변…" /></div><div className="field"><label htmlFor="people">함께한 사람</label><input id="people" className="input" value={people} onChange={(event) => setPeople(event.target.value)} maxLength={60} placeholder="친구, 혼자, 가족…" /></div></div>
@@ -549,9 +545,8 @@ export function Memory({
   const cubeTrack = cubeTrackId ? archive.data.cubeTracks[cubeTrackId] : null;
   const track = cubeTrack ? archive.data.tracks[cubeTrack.trackId] : null;
   const cube = cubeTrack ? archive.data.cubes[cubeTrack.cubeId] : null;
-  const currentTags = cubeTrack ? cubeTrack.tagIds.map((id) => archive.data.tags[id]).filter((tag): tag is TagDefinition => Boolean(tag)) : [];
-  const [labels, setLabels] = useState<string[]>([]);
-  const [customTag, setCustomTag] = useState("");
+  const availableTags = Object.values(archive.data.tags).sort((left, right) => left.label.localeCompare(right.label, "ko"));
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [character, setCharacter] = useState("");
   const [periodKind, setPeriodKind] = useState<"none" | "month" | "season">("none");
   const [year, setYear] = useState("");
@@ -565,32 +560,10 @@ export function Memory({
     assigning,
     () => setAssigning(false),
   );
-  const recentTags = useMemo(() => {
-    const seen = new Set<string>();
-    const tags: TagDefinition[] = [];
-    Object.values(archive.data.cubeTracks)
-      .filter((item) => item.id !== cubeTrackId)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .forEach((item) => item.tagIds.forEach((tagId) => {
-        const tag = archive.data.tags[tagId];
-        if (!tag || seen.has(tag.normalizedLabel)) return;
-        seen.add(tag.normalizedLabel);
-        tags.push(tag);
-      }));
-    return tags.slice(0, 8);
-  }, [archive, cubeTrackId]);
-  const matchingTags = useMemo(() => {
-    const needle = normalizeTagLabel(customTag);
-    if (!needle) return [];
-    return Object.values(archive.data.tags)
-      .filter((tag) => tag.normalizedLabel.includes(needle) && !labels.some((label) => normalizeTagLabel(label) === tag.normalizedLabel))
-      .slice(0, 6);
-  }, [archive.data.tags, customTag, labels]);
-
   useEffect(() => {
     if (!cubeTrack) return;
     const hydrationTimer = window.setTimeout(() => {
-      setLabels(currentTags.map((tag) => tag.label));
+      setSelectedTagIds(cubeTrack.tagIds.filter((tagId) => Boolean(archive.data.tags[tagId])));
       setCharacter(cubeTrack.character);
       setPlace(cubeTrack.place);
       setPeople(cubeTrack.people);
@@ -612,19 +585,10 @@ export function Memory({
   const activeTrack = track;
   const activeCube = cube;
 
-  function toggleTag(label: string) {
-    setLabels((current) => current.includes(label)
-      ? current.filter((item) => item !== label)
-      : [...current, label].slice(0, 20));
-  }
-
-  function addCustomTag() {
-    const clean = customTag.trim();
-    if (!clean) return;
-    if (!labels.some((item) => item.normalize("NFKC").toLocaleLowerCase("ko-KR") === clean.normalize("NFKC").toLocaleLowerCase("ko-KR"))) {
-      setLabels((current) => [...current, clean].slice(0, 20));
-    }
-    setCustomTag("");
+  function toggleTag(tagId: string) {
+    setSelectedTagIds((current) => current.includes(tagId)
+      ? current.filter((item) => item !== tagId)
+      : [...current, tagId].slice(0, ARCHIVE_LIMITS.tagsPerCubeTrack));
   }
 
   function save(event: FormEvent) {
@@ -641,13 +605,7 @@ export function Memory({
         people,
         memo,
       });
-      const tagInputs = labels.map((label) => {
-        const normalized = normalizeTagLabel(label);
-        const existing = Object.values(archive.data.tags).find((tag) => tag.normalizedLabel === normalized);
-        const suggestion = TAG_SUGGESTIONS.find((tag) => normalizeTagLabel(tag.label) === normalized);
-        return { label, category: existing?.category ?? suggestion?.category ?? "custom" };
-      });
-      const withTags = setCubeTrackTags(withDetails, activeCubeTrack.id, tagInputs);
+      const withTags = setCubeTrackTagIds(withDetails, activeCubeTrack.id, selectedTagIds);
       if (commit(withTags, "이 곡의 새로운 표정을 저장했어요.")) {
         router.push(`/chapter?id=${encodeURIComponent(activeCube.id)}`, "back", activeCube.id);
       }
@@ -680,10 +638,8 @@ export function Memory({
         <MemoryPanel cube={cube} cubeTrack={cubeTrack} track={track} preview={preview} />
         <form className="memory-form form-stack" onSubmit={save}>
           <TagEditor
-            labels={labels}
-            recentTags={recentTags}
-            customTag={customTag}
-            matchingTags={matchingTags}
+            tags={availableTags}
+            selectedTagIds={selectedTagIds}
             character={character}
             periodKind={periodKind}
             year={year}
@@ -693,8 +649,6 @@ export function Memory({
             people={people}
             memo={memo}
             toggleTag={toggleTag}
-            addCustomTag={addCustomTag}
-            setCustomTag={setCustomTag}
             setCharacter={setCharacter}
             setPeriodKind={setPeriodKind}
             setYear={setYear}

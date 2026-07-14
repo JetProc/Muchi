@@ -80,6 +80,7 @@ test("renders every primary chapter archive destination with its stable shell", 
     "/search",
     "/recap",
     "/settings",
+    "/tags",
   ];
 
   for (const pathname of destinations) {
@@ -326,7 +327,7 @@ test("keeps the same song's tags and memory independent in each cube", async () 
   );
   const disposableTagId = removable.data.cubeTracks[dawnRadio.id].tagIds[0];
   const removed = archiveDomain.removeCubeTrack(removable, dawnRadio.id);
-  assert.equal(removed.data.tags[disposableTagId], undefined);
+  assert.ok(removed.data.tags[disposableTagId]);
 });
 
 test("stores a stable registration date and groups registered tracks into searchable monthly chapters", async () => {
@@ -419,4 +420,76 @@ test("migrates existing archives with registration dates and monthly chapters", 
       .map((entry) => entry.track.id),
     [track.id],
   );
+});
+
+test("manages a reusable tag library independently from track memories", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const empty = archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z");
+  const created = archiveDomain.createTags(empty, [
+    { label: "잔잔한", category: "energy" },
+    { label: "몽환적인", category: "texture" },
+    { label: " 잔잔한 ", category: "emotion" },
+  ], "2026-07-02T00:00:00.000Z");
+
+  assert.equal(created.created, 2);
+  assert.equal(Object.keys(created.archive.data.tags).length, 2);
+  const calm = Object.values(created.archive.data.tags)
+    .find((tag) => tag.normalizedLabel === "잔잔한");
+  assert.ok(calm);
+  assert.equal(calm.category, "energy");
+
+  const renamed = archiveDomain.updateTag(
+    created.archive,
+    calm.id,
+    { label: "고요한", category: "emotion" },
+    "2026-07-03T00:00:00.000Z",
+  );
+  assert.equal(renamed.data.tags[calm.id].label, "고요한");
+  assert.equal(renamed.data.tags[calm.id].category, "emotion");
+
+  const roundTrip = archiveDomain.parseArchive(archiveDomain.serializeArchive(renamed));
+  assert.equal(roundTrip.status, "ok");
+  assert.equal(Object.keys(roundTrip.archive.data.tags).length, 2);
+});
+
+test("selects only existing tags and removes deleted tags from every memory", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const seed = archiveDomain.createSeedArchive();
+  const cubeTrack = Object.values(seed.data.cubeTracks)[0];
+  const selectedTagIds = Object.keys(seed.data.tags).slice(0, 2);
+  const selected = archiveDomain.setCubeTrackTagIds(
+    seed,
+    cubeTrack.id,
+    selectedTagIds,
+    "2026-07-04T00:00:00.000Z",
+  );
+  assert.deepEqual(selected.data.cubeTracks[cubeTrack.id].tagIds, selectedTagIds);
+  assert.throws(
+    () => archiveDomain.setCubeTrackTagIds(selected, cubeTrack.id, ["missing:tag"]),
+    /태그.*찾을 수 없습니다/,
+  );
+
+  const removed = archiveDomain.deleteTag(
+    selected,
+    selectedTagIds[0],
+    "2026-07-05T00:00:00.000Z",
+  );
+  assert.equal(removed.data.tags[selectedTagIds[0]], undefined);
+  assert.ok(
+    Object.values(removed.data.cubeTracks)
+      .every((entry) => !entry.tagIds.includes(selectedTagIds[0])),
+  );
+});
+
+test("uses managed tag chips instead of suggestions or free-form memory tags", async () => {
+  const [memorySource, managerSource] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-tags.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(memorySource, /TAG_SUGGESTIONS|id="custom-tag"/);
+  assert.match(memorySource, /href="\/tags"/);
+  assert.match(managerSource, /id="bulk-tags"/);
+  assert.match(managerSource, /쉼표 또는 줄바꿈/);
+  assert.match(managerSource, /TAG_CATEGORIES\.map/);
 });

@@ -9,6 +9,7 @@ export type AppView =
   | "memory"
   | "search"
   | "recap"
+  | "tags"
   | "settings";
 
 export type ArchiveCommit = (

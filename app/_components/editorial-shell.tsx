@@ -26,6 +26,7 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
   search: { label: "SEARCH", path: "/search", index: "04" },
   recap: { label: "RECAP", path: "/recap", index: "05" },
   settings: { label: "SETTINGS", path: "/settings", index: "06" },
+  tags: { label: "TAGS", path: "/tags", index: "07" },
 };
 
 const MOBILE_NAV: AppView[] = ["home", "chapters", "capture", "search"];

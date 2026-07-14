@@ -45,6 +45,7 @@ import {
   Search,
   Settings,
 } from "./editorial-views-discovery";
+import { TagManager } from "./editorial-views-tags";
 import type { AppView } from "./editorial-types";
 
 export type { AppView } from "./editorial-types";
@@ -291,6 +292,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         return <Recap archive={archive} preview={preview} />;
       case "settings":
         return <Settings archive={archive} commit={commit} notify={notify} storageBlocked={storageBlocked} setStorageBlocked={setStorageBlocked} />;
+      case "tags":
+        return <TagManager archive={archive} commit={commit} notify={notify} />;
       default:
         return <Home archive={archive} preview={preview} />;
     }

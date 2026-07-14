@@ -23,21 +23,6 @@ export const COLOR_LABEL: Record<CubeColor, string> = {
   blue: "깊은 밤",
 };
 
-export const TAG_SUGGESTIONS: Array<{ label: string; category: TagCategory }> = [
-  { label: "그리운", category: "emotion" },
-  { label: "따뜻한", category: "emotion" },
-  { label: "불안한", category: "emotion" },
-  { label: "질주하는", category: "energy" },
-  { label: "몽환적인", category: "texture" },
-  { label: "차가운", category: "texture" },
-  { label: "도시적인", category: "situation" },
-  { label: "새벽", category: "period" },
-  { label: "드라이브", category: "situation" },
-  { label: "여름밤", category: "period" },
-  { label: "인디 록", category: "genre" },
-  { label: "청춘", category: "custom" },
-];
-
 export const TAG_CATEGORY_LABEL: Record<TagCategory, string> = {
   genre: "장르",
   emotion: "감정",

@@ -1,12 +1,13 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type FormEvent,
 } from "react";
+import useEmblaCarousel from "embla-carousel-react";
 import {
   CUBE_COLORS,
   addTrackToCube,
@@ -79,10 +80,14 @@ export function Chapters({
   const [color, setColor] = useState<CubeColor>("violet");
   const [deleteTarget, setDeleteTarget] = useState<Cube | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [carouselRef, carouselApi] = useEmblaCarousel({
+    align: "start",
+    containScroll: "trimSnaps",
+    loop: chapters.length > 1,
+  });
   const activeIndex = chapters.length
     ? Math.min(selectedIndex, chapters.length - 1)
     : 0;
-  const stageTouchStart = useRef<{ x: number; y: number } | null>(null);
   const activeChapter = chapters[activeIndex] ?? chapters[0] ?? null;
   const activeEntries = activeChapter ? getCubeTracks(archive, activeChapter.id) : [];
   const previousChapter = chapters.length > 1
@@ -103,11 +108,31 @@ export function Chapters({
     () => setDeleteTarget(null),
   );
 
+  const syncCarouselSelection = useCallback(() => {
+    if (!carouselApi) return;
+    setSelectedIndex(carouselApi.selectedScrollSnap());
+  }, [carouselApi]);
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    carouselApi.on("select", syncCarouselSelection);
+    carouselApi.on("reInit", syncCarouselSelection);
+    return () => {
+      carouselApi.off("select", syncCarouselSelection);
+      carouselApi.off("reInit", syncCarouselSelection);
+    };
+  }, [carouselApi, syncCarouselSelection]);
+
   function moveStage(direction: -1 | 1) {
     if (chapters.length < 2) return;
-    setSelectedIndex((current) => (
-      Math.min(current, chapters.length - 1) + direction + chapters.length
-    ) % chapters.length);
+    const targetIndex = (activeIndex + direction + chapters.length) % chapters.length;
+    setSelectedIndex(targetIndex);
+    carouselApi?.scrollTo(targetIndex);
+  }
+
+  function selectChapter(index: number) {
+    setSelectedIndex(index);
+    carouselApi?.scrollTo(index);
   }
 
   function submit(event: FormEvent) {
@@ -172,21 +197,6 @@ export function Chapters({
                 moveStage(1);
               }
             }}
-            onTouchStart={(event) => {
-              const touch = event.touches[0];
-              stageTouchStart.current = { x: touch.clientX, y: touch.clientY };
-            }}
-            onTouchEnd={(event) => {
-              const start = stageTouchStart.current;
-              const touch = event.changedTouches[0];
-              stageTouchStart.current = null;
-              if (!start || !touch) return;
-              const deltaX = touch.clientX - start.x;
-              const deltaY = touch.clientY - start.y;
-              if (Math.abs(deltaX) > 52 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25) {
-                moveStage(deltaX > 0 ? -1 : 1);
-              }
-            }}
           >
             <span className="sr-only" aria-live="polite">
               {chapters.length}개 중 {activeIndex + 1}번째, {activeChapter.name}
@@ -237,31 +247,50 @@ export function Chapters({
             </div>
           </section>
 
-          <div className="chapter-stage-switcher" role="tablist" aria-label="음악 챕터 선택">
-            {chapters.map((chapter, index) => {
-              const entries = getCubeTracks(archive, chapter.id);
-              const selected = index === activeIndex;
-              return (
-                <button
-                  className={`chapter-stage-switch${selected ? " is-active" : ""}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  aria-controls="active-chapter-stage"
-                  tabIndex={selected ? 0 : -1}
-                  key={chapter.id}
-                  onClick={() => setSelectedIndex(index)}
-                  style={chapterColorStyle(chapter.color)}
-                >
-                  <span className="chapter-stage-switch-copy">
-                    <small>{String(index + 1).padStart(2, "0")}</small>
-                    <strong>{chapter.name}</strong>
-                    <span>{entries.length}곡</span>
-                  </span>
-                  <ChapterCover archive={archive} chapter={chapter} />
-                </button>
-              );
-            })}
+          <div
+            className="chapter-stage-carousel"
+            ref={carouselRef}
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="음악 챕터 둘러보기"
+          >
+            <div className="chapter-stage-switcher" role="tablist" aria-label="음악 챕터 선택">
+              {chapters.map((chapter, index) => {
+                const entries = getCubeTracks(archive, chapter.id);
+                const selected = index === activeIndex;
+                return (
+                  <div className="chapter-stage-slide" role="presentation" key={chapter.id}>
+                    <button
+                      className={`chapter-stage-switch${selected ? " is-active" : ""}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      aria-controls="active-chapter-stage"
+                      tabIndex={selected ? 0 : -1}
+                      onClick={() => selectChapter(index)}
+                      onKeyDown={(event) => {
+                        if (event.key === "ArrowLeft") {
+                          event.preventDefault();
+                          moveStage(-1);
+                        }
+                        if (event.key === "ArrowRight") {
+                          event.preventDefault();
+                          moveStage(1);
+                        }
+                      }}
+                      style={chapterColorStyle(chapter.color)}
+                    >
+                      <span className="chapter-stage-switch-copy">
+                        <small>{String(index + 1).padStart(2, "0")}</small>
+                        <strong>{chapter.name}</strong>
+                        <span>{entries.length}곡</span>
+                      </span>
+                      <ChapterCover archive={archive} chapter={chapter} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </>
       ) : (

@@ -47,6 +47,39 @@ const CAPTURE_DRAFT_KEY = "music-world:capture-draft:v1";
 const SEARCH_RESULT_BATCH_SIZE = 10;
 const SEARCH_RESULT_REVEAL_DELAY_MS = 240;
 
+const COMMUNITY_PREVIEW = [
+  {
+    id: "same-song",
+    eyebrow: "SAME SONG",
+    title: "Radio",
+    artist: "The Volunteers",
+    author: "@midsummer",
+    chapter: "비가 오던 귀갓길",
+    memo: "같은 노래인데도 그날의 속도는 조금 느렸다.",
+    tag: "#한밤중",
+  },
+  {
+    id: "similar-tag",
+    eyebrow: "SIMILAR TAG",
+    title: "Bags",
+    artist: "Clairo",
+    author: "@paperplane",
+    chapter: "말하지 못한 여름",
+    memo: "창문을 열어 두고 끝까지 듣던 오후.",
+    tag: "#여름",
+  },
+  {
+    id: "weekly-chapter",
+    eyebrow: "WEEKLY CHAPTER",
+    title: "Pink + White",
+    artist: "Frank Ocean",
+    author: "@bluehour",
+    chapter: "낮이 길어진 뒤",
+    memo: "계절이 바뀌는 걸 가장 먼저 알려준 곡.",
+    tag: "#빛나는",
+  },
+] as const;
+
 type HomeMemory = ReturnType<typeof getCubeTracks>[number] & { chapter: Cube };
 
 export function AlbumHero({
@@ -171,42 +204,154 @@ export function Home({
   const memories = chapters
     .flatMap((chapter) => getCubeTracks(archive, chapter.id).map((entry) => ({ ...entry, chapter })))
     .sort((a, b) => b.cubeTrack.updatedAt.localeCompare(a.cubeTrack.updatedAt));
+  const inboxEntries = Object.values(archive.data.inbox)
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+    .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+  const continueEntry = inboxEntries[0] ?? null;
+  const continueTrack = continueEntry ? archive.data.tracks[continueEntry.trackId] : null;
+  const summaryMonthKey = Object.values(archive.data.tracks)
+    .flatMap((track) => track.registeredAt ? [track.registeredAt.slice(0, 7)] : [])
+    .sort()
+    .at(-1) ?? archive.updatedAt.slice(0, 7);
+  const [summaryYear, summaryMonth] = summaryMonthKey.split("-");
+  const monthlyTracks = Object.values(archive.data.tracks)
+    .filter((track) => track.registeredAt?.startsWith(summaryMonthKey));
+  const monthlyMemories = memories
+    .filter(({ cubeTrack }) => cubeTrack.createdAt.startsWith(summaryMonthKey));
+  const monthlyChapterCount = new Set(monthlyMemories.map(({ chapter }) => chapter.id)).size;
+  const monthlyTagCount = new Set(monthlyMemories.flatMap(({ tags }) => tags.map((tag) => tag.id))).size;
 
   return (
     <div className="page-content home-view">
       <AlbumHero memories={memories} preview={preview} />
 
-      <section className="chapter-preview" aria-labelledby="chapter-preview-title">
-        <div className="editorial-section-head">
-          <div>
-            <span className="section-label">YOUR INDEX</span>
-            <h2 id="chapter-preview-title">나의 챕터</h2>
+      {continueEntry && continueTrack ? (
+        <section className="home-section home-continue" aria-labelledby="home-continue-title">
+          <div className="home-section-inner">
+            <div className="editorial-section-head">
+              <div>
+                <span className="section-label">CONTINUE</span>
+                <h2 id="home-continue-title">기억 이어가기</h2>
+              </div>
+              <Link className="text-link" href="/inbox">{inboxEntries.length}곡 남음</Link>
+            </div>
+            <TrackLine
+              track={continueTrack}
+              index={0}
+              preview={preview}
+              context={`${formatDate(continueEntry.capturedAt)} 저장 · 아직 챕터 없음`}
+              actions={<Link className="text-link" href="/inbox">정리하기</Link>}
+            />
           </div>
-          <Link className="text-link" href="/chapters" intent="tab">VIEW ALL</Link>
+        </section>
+      ) : null}
+
+      <section className="home-section chapter-preview" aria-labelledby="chapter-preview-title">
+        <div className="home-section-inner">
+          <div className="editorial-section-head">
+            <div>
+              <span className="section-label">YOUR INDEX</span>
+              <h2 id="chapter-preview-title">나의 챕터</h2>
+            </div>
+            <Link className="text-link" href="/chapters" intent="tab">전체 보기</Link>
+          </div>
+          {chapters.length ? (
+            <div className="chapter-preview-list" aria-label="챕터 가로 목록">
+              {chapters.slice(0, 6).map((chapter, index) => (
+                <Link
+                  className="chapter-preview-line"
+                  href={`/chapter?id=${encodeURIComponent(chapter.id)}`}
+                  intent="shared"
+                  sharedId={chapter.id}
+                  key={chapter.id}
+                >
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <strong>{chapter.name}</strong>
+                  <small>{getCubeTracks(archive, chapter.id).length} TRACKS</small>
+                </Link>
+              ))}
+            </div>
+          ) : <p className="empty-inline">아직 챕터 없음</p>}
         </div>
-        {chapters.length ? (
-          <div className="chapter-preview-list">
-            {chapters.slice(0, 4).map((chapter, index) => (
-              <Link
-                className="chapter-preview-line"
-                href={`/chapter?id=${encodeURIComponent(chapter.id)}`}
-                intent="shared"
-                sharedId={chapter.id}
-                key={chapter.id}
-              >
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{chapter.name}</strong>
-                <small>{getCubeTracks(archive, chapter.id).length} TRACKS</small>
-              </Link>
-            ))}
-          </div>
-        ) : <p className="empty-inline">첫 챕터를 만들면 이곳에 당신의 음악 장면이 놓입니다.</p>}
       </section>
 
-      <section className="home-manifesto">
-        <span className="section-label">A NOTE TO MY FUTURE SELF</span>
-        <p>좋아했던 음악이 사라지지 않도록,<br />곡보다 먼저 그때의 나를 기록합니다.</p>
-        <Link className="button button-primary" href="/capture" intent="modal">ADD A MEMORY</Link>
+      <section className="home-section home-discovery" aria-labelledby="home-discovery-title">
+        <div className="home-section-inner">
+          <div className="editorial-section-head">
+            <div>
+              <span className="section-label">COMMUNITY PREVIEW</span>
+              <h2 id="home-discovery-title">다른 사람의 장면</h2>
+            </div>
+          </div>
+          <div className="community-preview-list">
+            {COMMUNITY_PREVIEW.map((moment) => (
+              <article className="community-moment" key={moment.id}>
+                <div className="community-moment-meta">
+                  <span>{moment.eyebrow}</span>
+                  <span>{moment.author}</span>
+                </div>
+                <h3>{moment.chapter}</h3>
+                <p>{moment.memo}</p>
+                <div className="community-moment-track">
+                  <span>{moment.title} · {moment.artist}</span>
+                  <span>{moment.tag}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="home-section home-recent" aria-labelledby="home-recent-title">
+        <div className="home-section-inner">
+          <div className="editorial-section-head">
+            <div>
+              <span className="section-label">RECENT TRACKS</span>
+              <h2 id="home-recent-title">최근 음악</h2>
+            </div>
+            <Link className="text-link" href="/search">기록 찾기</Link>
+          </div>
+          {memories.length ? (
+            <div className="track-list">
+              {memories.slice(0, 5).map((memory, index) => (
+                <TrackLine
+                  key={memory.cubeTrack.id}
+                  track={memory.track}
+                  index={index}
+                  preview={preview}
+                  tags={memory.tags}
+                  context={memory.chapter.name}
+                  sharedId={memory.cubeTrack.id}
+                  actions={(
+                    <Link
+                      className="text-link"
+                      href={`/memory?id=${encodeURIComponent(memory.cubeTrack.id)}`}
+                      intent="shared"
+                      sharedId={memory.cubeTrack.id}
+                    >
+                      기억 보기
+                    </Link>
+                  )}
+                />
+              ))}
+            </div>
+          ) : <p className="empty-inline">아직 기록 없음</p>}
+        </div>
+      </section>
+
+      <section className="home-section home-monthly" aria-labelledby="home-monthly-title">
+        <div className="home-section-inner home-monthly-inner">
+          <div>
+            <span className="section-label">MONTHLY NOTE · {summaryYear}.{summaryMonth}</span>
+            <h2 id="home-monthly-title">이번 기록의 밀도</h2>
+          </div>
+          <dl className="home-monthly-stats">
+            <div><dt>곡</dt><dd>{monthlyTracks.length}</dd></div>
+            <div><dt>챕터</dt><dd>{monthlyChapterCount}</dd></div>
+            <div><dt>태그</dt><dd>{monthlyTagCount}</dd></div>
+          </dl>
+          <Link className="text-link" href="/recap">되돌아보기</Link>
+        </div>
       </section>
     </div>
   );

@@ -659,7 +659,7 @@ h2 {
 .album-hero :focus-visible,
 .mini-player :focus-visible,
 .full-player :focus-visible,
-.home-manifesto :focus-visible {
+.home-monthly :focus-visible {
   outline-color: var(--signal);
 }
 
@@ -856,8 +856,8 @@ button.tag {
 .album-hero {
   position: relative;
   isolation: isolate;
-  min-height: calc(100svh - 134px);
-  padding: 18px 16px 30px;
+  min-height: 0;
+  padding: 18px 16px 26px;
   color: var(--paper-soft);
   background: var(--ink);
   transition: background 460ms ease;
@@ -891,14 +891,15 @@ button.tag {
 
 .album-feature {
   display: grid;
-  gap: 24px;
-  padding-top: 24px;
+  grid-template-columns: minmax(104px, 34vw) minmax(0, 1fr);
+  align-items: end;
+  gap: 18px;
+  padding-top: 12px;
 }
 
 .album-feature-art {
   display: block;
-  width: min(100%, 520px);
-  margin: 0 auto;
+  width: 100%;
 }
 
 .album-feature-art .track-art {
@@ -909,7 +910,7 @@ button.tag {
 
 .album-feature-copy {
   position: relative;
-  min-height: 206px;
+  min-height: 0;
 }
 
 .album-feature-copy .section-label {
@@ -918,8 +919,8 @@ button.tag {
 
 .album-feature-copy h1 {
   max-width: 820px;
-  margin-top: 10px;
-  font-size: clamp(52px, 15vw, 124px);
+  margin-top: 8px;
+  font-size: clamp(28px, 9.5vw, 44px);
 }
 
 .album-artist {
@@ -1008,31 +1009,57 @@ button.tag {
   background: var(--signal);
 }
 
-.chapter-preview,
-.home-manifesto {
-  padding: 64px 16px;
+.home-section {
+  padding: 60px 16px;
+}
+
+.home-section-inner {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+}
+
+.home-continue {
+  padding-top: 48px;
+  padding-bottom: 40px;
+}
+
+.home-continue .track-line {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
 .chapter-preview-list {
   display: grid;
-  gap: 4px;
+  grid-auto-columns: minmax(238px, 78vw);
+  grid-auto-flow: column;
+  gap: 10px;
+  margin-right: -16px;
+  padding-right: 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.chapter-preview-list::-webkit-scrollbar {
+  display: none;
 }
 
 .chapter-preview-line {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
-  align-items: baseline;
-  min-height: 72px;
-  gap: 12px;
-  padding: 14px 0;
-  transition: padding 240ms var(--ease-editorial), color 180ms ease, background 180ms ease;
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  align-items: start;
+  min-height: 150px;
+  gap: 10px;
+  padding: 18px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  scroll-snap-align: start;
+  transition: color 180ms ease, background 180ms ease;
 }
 
 .chapter-preview-line:hover {
-  padding-right: 8px;
-  padding-left: 8px;
   color: var(--oxblood);
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  background: color-mix(in srgb, var(--oxblood) 8%, transparent);
 }
 
 .chapter-preview-line > span,
@@ -1045,41 +1072,120 @@ button.tag {
 
 .chapter-preview-line strong {
   font-family: var(--font-serif);
-  font-size: 25px;
+  font-size: 24px;
   font-weight: 400;
   letter-spacing: -0.025em;
+}
+
+.chapter-preview-line small {
+  grid-column: 2;
+  align-self: end;
 }
 
 .empty-inline {
   padding: 30px 0;
 }
 
-.home-manifesto {
-  color: var(--paper-soft);
-  background: var(--oxblood);
-}
-
-.home-manifesto .section-label {
-  color: var(--paper-deep);
-}
-
-.home-manifesto p {
-  max-width: 860px;
-  margin: 24px 0 32px;
-  font-family: var(--font-serif);
-  font-size: clamp(34px, 9vw, 70px);
-  line-height: 1.18;
-  letter-spacing: -0.035em;
-}
-
-.home-manifesto .button {
-  color: var(--paper-soft);
-  background: color-mix(in srgb, var(--paper-soft) 12%, transparent);
-}
-
-.home-manifesto .button:hover {
-  color: var(--oxblood);
+.home-discovery {
   background: var(--paper-soft);
+}
+
+.community-preview-list {
+  display: grid;
+  gap: 34px;
+}
+
+.community-moment {
+  min-width: 0;
+}
+
+.community-moment-meta,
+.community-moment-track {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--dust-text);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.community-moment h3 {
+  margin-top: 14px;
+  font-family: var(--font-serif);
+  font-size: clamp(26px, 7vw, 34px);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.community-moment p {
+  margin: 10px 0 22px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.community-moment-track span:first-child {
+  overflow: hidden;
+  color: var(--ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-recent .track-list {
+  gap: 6px;
+}
+
+.home-monthly {
+  color: var(--paper-soft);
+  background: var(--ink);
+}
+
+.home-monthly-inner {
+  display: grid;
+  gap: 34px;
+}
+
+.home-monthly h2 {
+  margin-top: 8px;
+  font-size: clamp(34px, 9vw, 58px);
+}
+
+.home-monthly .section-label,
+.home-monthly dt {
+  color: var(--dust-light);
+}
+
+.home-monthly .text-link {
+  width: fit-content;
+  color: var(--paper-soft);
+}
+
+.home-monthly-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0;
+}
+
+.home-monthly-stats div {
+  display: grid;
+  gap: 4px;
+}
+
+.home-monthly-stats dt {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.home-monthly-stats dd {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(34px, 11vw, 56px);
+  line-height: 1;
 }
 
 .chapter-index {
@@ -2454,8 +2560,8 @@ button.tag {
   }
 
   .album-hero {
-    min-height: calc(100svh - 114px);
-    padding: 20px 24px 34px;
+    min-height: 0;
+    padding: 20px 24px 28px;
   }
 
   .hero-folio {
@@ -2463,21 +2569,22 @@ button.tag {
   }
 
   .album-feature {
-    gap: 28px;
-    padding-top: 28px;
+    grid-template-columns: minmax(104px, 34vw) minmax(0, 1fr);
+    gap: 18px;
+    padding-top: 12px;
   }
 
   .album-feature-art {
-    width: min(80vw, 306px);
+    width: 100%;
   }
 
   .album-feature-copy {
-    min-height: 176px;
+    min-height: 0;
   }
 
   .album-feature-copy h1 {
     margin-top: 9px;
-    font-size: clamp(42px, 12vw, 52px);
+    font-size: clamp(28px, 9vw, 42px);
   }
 
   .album-artist {
@@ -2498,26 +2605,22 @@ button.tag {
     margin-top: 24px;
   }
 
-  .chapter-preview,
-  .home-manifesto {
-    padding: 78px 24px;
+  .home-section {
+    padding: 64px 24px;
+  }
+
+  .home-continue {
+    padding-top: 52px;
+    padding-bottom: 42px;
+  }
+
+  .chapter-preview-list {
+    margin-right: -24px;
+    padding-right: 24px;
   }
 
   .chapter-preview-line {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
-    min-height: 66px;
-    gap: 10px;
-    padding: 12px 0;
-  }
-
-  .chapter-preview-line strong {
-    font-size: 21px;
-  }
-
-  .home-manifesto p {
-    margin-top: 28px;
-    margin-bottom: 36px;
-    font-size: clamp(29px, 8vw, 38px);
+    min-height: 148px;
   }
 
   .chapter-index {
@@ -2777,24 +2880,37 @@ button.tag {
   }
 
   .album-hero {
-    min-height: clamp(640px, 78svh, 720px);
-    padding: 24px 28px 34px;
+    min-height: 520px;
+    padding: 24px 28px 32px;
   }
 
   .album-feature {
-    grid-template-columns: minmax(320px, 0.9fr) minmax(300px, 1.1fr);
+    grid-template-columns: minmax(260px, 360px) minmax(300px, 1fr);
     align-items: end;
-    gap: clamp(36px, 6vw, 100px);
-    padding-top: 34px;
+    gap: clamp(34px, 6vw, 76px);
+    padding-top: 22px;
   }
 
   .album-feature-copy {
-    padding-bottom: 30px;
+    padding-bottom: 18px;
   }
 
-  .chapter-preview,
-  .home-manifesto {
-    padding: 92px 28px;
+  .album-feature-copy h1 {
+    font-size: clamp(54px, 8vw, 86px);
+  }
+
+  .home-section {
+    padding: 80px 28px;
+  }
+
+  .community-preview-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(26px, 4vw, 58px);
+  }
+
+  .home-monthly-inner {
+    grid-template-columns: minmax(260px, 1fr) minmax(300px, 0.8fr) auto;
+    align-items: end;
   }
 
   .chapter-index-link {
@@ -2955,7 +3071,7 @@ button.tag {
 
   .album-hero {
     display: grid;
-    min-height: clamp(680px, calc(100svh - 130px), 760px);
+    min-height: 560px;
     align-content: center;
     padding-right: 48px;
     padding-left: 48px;
@@ -2966,18 +3082,17 @@ button.tag {
     grid-column: 1 / -1;
   }
 
-  .chapter-preview,
-  .home-manifesto {
+  .home-section {
     padding-right: 48px;
     padding-left: 48px;
   }
 
   .chapter-preview-line {
-    min-height: 88px;
+    min-height: 162px;
   }
 
   .chapter-preview-line strong {
-    font-size: 34px;
+    font-size: 29px;
   }
 }
 

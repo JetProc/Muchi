@@ -185,6 +185,27 @@ test("turns the chapter index into an accessible overlapping LP carousel", async
   assert.match(source, />\s*챕터 들어가기\s*</);
 });
 
+test("keeps the home focused on personal archives with a restrained community preview", async () => {
+  const [source, css] = await Promise.all([
+    readFile(
+      new URL("../app/_components/editorial-views-primary.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /className="home-section home-continue"/);
+  assert.match(source, /className="home-section chapter-preview"/);
+  assert.match(source, /className="home-section home-discovery"/);
+  assert.match(source, /COMMUNITY PREVIEW/);
+  assert.match(source, /다른 사람의 장면/);
+  assert.match(source, /className="home-section home-recent"/);
+  assert.match(source, /className="home-section home-monthly"/);
+  assert.doesNotMatch(source, /className="home-manifesto"/);
+  assert.match(css, /\.chapter-preview-list\s*\{[^}]*overflow-x:\s*auto;/s);
+  assert.match(css, /\.album-hero\s*\{[^}]*min-height:\s*0;/s);
+});
+
 test("removes redundant helper copy while preserving safety-critical text", async () => {
   const paths = [
     "editorial-ui.tsx",

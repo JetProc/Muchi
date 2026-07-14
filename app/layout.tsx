@@ -3,34 +3,34 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "MUMU — 나만의 음악 세계",
+    default: "MUMU — 나만의 음악 매거진",
     template: "%s · MUMU",
   },
   description:
-    "좋아했던 음악을 나만의 태그와 기억으로 보관하고, 큐브로 이어진 음악 세계를 만드는 개인 아카이브.",
+    "좋아했던 음악에 태그와 기억을 더해 나만의 챕터로 엮는 개인 음악 아카이브.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
   },
   applicationName: "MUMU",
   openGraph: {
-    title: "MUMU — 나만의 음악 세계",
-    description: "노래가 기억이 되고, 기억이 하나의 세계가 되는 곳",
+    title: "MUMU — 나만의 음악 매거진",
+    description: "음악을 들었던 순간을 나만의 언어로 편집하는 개인 아카이브",
     type: "website",
     locale: "ko_KR",
     images: [
       {
         url: "/og.png",
-        width: 1747,
-        height: 909,
-        alt: "MUMU 음악 세계의 세 큐브와 캐릭터",
+        width: 1738,
+        height: 905,
+        alt: "MUMU 개인 음악 매거진의 앨범 아트와 기억",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MUMU — 나만의 음악 세계",
-    description: "노래가 기억이 되고, 기억이 하나의 세계가 되는 곳",
+    title: "MUMU — 나만의 음악 매거진",
+    description: "음악을 들었던 순간을 나만의 언어로 편집하는 개인 아카이브",
     images: ["/og.png"],
   },
 };

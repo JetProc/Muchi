@@ -1,9 +1,15 @@
 const CACHE_PREFIX = "music-world-shell";
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3-editorial";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
 
-const APP_SHELL = ["/", OFFLINE_URL, "/manifest.webmanifest", "/favicon.svg"];
+const APP_SHELL = [
+  "/",
+  "/chapters",
+  OFFLINE_URL,
+  "/manifest.webmanifest",
+  "/favicon.png",
+];
 const STATIC_DESTINATIONS = new Set([
   "font",
   "image",

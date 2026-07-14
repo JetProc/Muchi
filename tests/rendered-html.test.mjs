@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
 
@@ -44,53 +44,89 @@ async function loadArchiveDomain() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
-test("server-renders a deterministic MUMU archive shell", async () => {
+test("server-renders a deterministic MUMU editorial archive shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /<html lang="ko">/);
-  assert.match(html, /<title>MUMU — 나만의 음악 세계<\/title>/);
-  assert.match(html, /노래가 기억이 되고/);
-  assert.match(html, /음악 세계를 불러오고 있어요/);
-  assert.match(html, /이 브라우저에 저장된 큐브와 기억을 확인하는 중입니다/);
+  assert.match(html, /<title>MUMU — 나만의 음악 매거진<\/title>/);
+  assert.match(html, /좋아했던 음악에 태그와 기억을 더해/);
+  assert.match(html, /개인 음악 아카이브/);
   assert.match(html, /href="\/capture"/);
-  assert.match(html, /href="\/world"/);
+  assert.match(html, /href="\/chapters"/);
   assert.match(html, /id="main-content" tabindex="-1"/);
   assert.match(html, /property="og:image" content="\/og\.png"/);
+  assert.doesNotMatch(html, /큐브|음악 세계|캐릭터/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Codex is working/i);
+
+  const componentDirectory = new URL("../app/_components/", import.meta.url);
+  const componentFiles = (await readdir(componentDirectory))
+    .filter((name) => /\.(?:ts|tsx)$/.test(name));
+  const componentSources = await Promise.all(
+    componentFiles.map((name) => readFile(new URL(name, componentDirectory), "utf8")),
+  );
+  assert.doesNotMatch(componentSources.join("\n"), /큐브|음악 세계|캐릭터/);
 });
 
-test("renders every primary archive destination with its stable route shell", async () => {
-  const destinations = new Map([
-    ["/capture", "곡 저장"],
-    ["/inbox", "임시 보관함"],
-    ["/cubes", "내 큐브"],
-    ["/search", "내 기록 검색"],
-    ["/recap", "회고"],
-    ["/world", "음악 세계"],
-    ["/settings", "설정"],
-  ]);
+test("renders every primary chapter archive destination with its stable shell", async () => {
+  const destinations = [
+    "/capture",
+    "/inbox",
+    "/chapters",
+    "/chapter?id=cube%3Adawn",
+    "/memory?id=context%3Adawn-radio",
+    "/search",
+    "/recap",
+    "/settings",
+  ];
 
-  for (const [pathname, expectedLabel] of destinations) {
+  for (const pathname of destinations) {
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
     const html = await response.text();
-    assert.match(html, new RegExp(`<strong>${expectedLabel}<\\/strong> · 오늘의 음악 세계`), pathname);
-    assert.match(html, /음악 세계를 불러오고 있어요/, pathname);
+    assert.match(html, /<title>MUMU — 나만의 음악 매거진<\/title>/, pathname);
+    assert.match(html, /id="main-content" tabindex="-1"/, pathname);
+    assert.doesNotMatch(html, /큐브|음악 세계|캐릭터/, pathname);
   }
 
   const offlineResponse = await render("/offline");
   assert.equal(offlineResponse.status, 200);
-  assert.match(await offlineResponse.text(), /잠시 연결이 끊겼어요/);
+  const offlineHtml = await offlineResponse.text();
+  assert.match(offlineHtml, /잠시 연결이 끊겼어요/);
+  assert.match(offlineHtml, /내 음악 아카이브로 돌아가기/);
+});
 
-  const componentSource = await readFile(
-    new URL("../app/_components/music-world-app.tsx", import.meta.url),
+test("prioritizes song search over secondary link import in the Add view", async () => {
+  const source = await readFile(
+    new URL("../app/_components/editorial-views-primary.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(componentSource, /음악 링크로 먼저 저장하세요/);
-  assert.match(componentSource, /Spotify · Apple Music · YouTube · Melon 링크/);
+  const searchIndex = source.indexOf('<span className="section-label">MUSIC SEARCH</span>');
+  const linkIndex = source.indexOf('<span className="section-label">OTHER WAY</span>');
+
+  assert.ok(searchIndex >= 0, "primary song search label should exist");
+  assert.ok(linkIndex > searchIndex, "link import should follow song search");
+  assert.match(source, /<details className="capture-secondary">/);
+});
+
+test("redirects legacy presentation routes to the chapter archive", async () => {
+  const redirects = [
+    ["/cubes", "/chapters"],
+    ["/cube?id=cube%3Adawn", "/chapter?id=cube%3Adawn"],
+    ["/context?id=context%3Adawn-radio", "/memory?id=context%3Adawn-radio"],
+    ["/world", "/chapters"],
+  ];
+
+  for (const [legacyPath, expectedPath] of redirects) {
+    const response = await render(legacyPath);
+    assert.ok([307, 308].includes(response.status), legacyPath);
+    const location = response.headers.get("location");
+    assert.ok(location, legacyPath);
+    const redirected = new URL(location, "http://localhost");
+    assert.equal(`${redirected.pathname}${redirected.search}`, expectedPath, legacyPath);
+  }
 });
 
 test("accepts supported music links without allowing arbitrary upstream hosts", async () => {
@@ -125,12 +161,15 @@ test("ships the PWA shell and removes the disposable starter", async () => {
 
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(manifest, /display:\s*"standalone"/);
+  assert.match(manifest, /나만의 챕터/);
+  assert.match(serviceWorker, /v3-editorial/);
+  assert.match(serviceWorker, /"\/chapters"/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
   assert.match(serviceWorker, /!isSameOrigin\(url\) \|\| request\.destination === "audio"/);
 
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
   await access(new URL("../public/og.png", import.meta.url));
-  await access(new URL("../public/favicon.svg", import.meta.url));
+  await access(new URL("../public/favicon.png", import.meta.url));
   await access(new URL("../public/sw.js", import.meta.url));
   await access(projectRoot);
 });

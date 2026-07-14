@@ -2,27 +2,27 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "음악 세계 아카이브",
-    short_name: "음악 세계",
+    name: "MUMU — 음악 기억 아카이브",
+    short_name: "MUMU",
     description:
-      "좋아했던 음악에 태그와 기억을 더해 나만의 음악 세계로 보존하는 아카이빙 서비스",
+      "좋아했던 음악에 태그와 기억을 더해 나만의 챕터로 보존하는 음악 아카이브",
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: "#0B1021",
-    theme_color: "#0B1021",
+    background_color: "#F1E8D8",
+    theme_color: "#17130F",
     lang: "ko-KR",
     icons: [
       {
-        src: "/favicon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/favicon.png",
+        sizes: "64x64",
+        type: "image/png",
         purpose: "any",
       },
       {
-        src: "/favicon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/favicon.png",
+        sizes: "64x64",
+        type: "image/png",
         purpose: "maskable",
       },
     ],

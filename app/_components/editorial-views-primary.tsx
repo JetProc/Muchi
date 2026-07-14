@@ -434,7 +434,7 @@ export function Capture({
         <span className="section-label" id="capture-search-label">MUSIC SEARCH</span>
         <form className="search-form capture-search-form" onSubmit={submit}>
           <label className="sr-only" htmlFor="itunes-query">곡명 또는 아티스트</label>
-          <input id="itunes-query" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="곡명 또는 아티스트" minLength={2} />
+          <input id="itunes-query" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="곡명 또는 아티스트" minLength={1} />
           <button className="button button-cyan" type="submit" disabled={loading || !online}>{loading ? <LoadingDots /> : "음악 찾기"}</button>
         </form>
         <p className="legal-note">검색 및 30초 미리듣기는 iTunes에서 제공됩니다.</p>

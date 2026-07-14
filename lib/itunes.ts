@@ -1,6 +1,5 @@
 import type { TrackReference } from "./archive";
 
-export const ITUNES_SEARCH_ENDPOINT = "https://itunes.apple.com/search";
 export const ITUNES_PREVIEW_ATTRIBUTION = "Provided courtesy of iTunes";
 export const ITUNES_PREVIEW_DURATION_SECONDS = 30;
 export const ITUNES_PREVIEW_USAGE_NOTICE =
@@ -139,10 +138,10 @@ function parseResponse(value: unknown): TrackReference[] {
 
 function normalizeQuery(query: string): { query: string; cacheKey: string } {
   const normalized = query.trim().replace(/\s+/g, " ");
-  if (normalized.length < 2) {
+  if (normalized.length < 1) {
     throw new ItunesSearchError(
       "invalid-query",
-      "곡명이나 아티스트를 두 글자 이상 입력해 주세요.",
+      "곡명이나 아티스트를 한 글자 이상 입력해 주세요.",
     );
   }
 
@@ -156,106 +155,63 @@ function normalizeQuery(query: string): { query: string; cacheKey: string } {
  * Searches the Korean iTunes storefront. Call only in response to an explicit
  * user action; this function does not debounce or search while typing.
  */
-export function searchItunesTracks(query: string): Promise<TrackReference[]> {
+export async function searchItunesTracks(query: string): Promise<TrackReference[]> {
   const requestSequence = ++latestRequestSequence;
-
-  let normalized: ReturnType<typeof normalizeQuery>;
-  try {
-    normalized = normalizeQuery(query);
-  } catch (error) {
-    return Promise.reject(error);
-  }
+  const normalized = normalizeQuery(query);
 
   const cached = searchCache.get(normalized.cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    return Promise.resolve([...cached.tracks]);
+    return [...cached.tracks];
   }
   if (cached) searchCache.delete(normalized.cacheKey);
 
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    return Promise.reject(
-      new ItunesSearchError(
-        "unsupported-environment",
-        "iTunes 검색은 브라우저에서만 사용할 수 있습니다.",
-      ),
+  if (typeof window === "undefined") {
+    throw new ItunesSearchError(
+      "unsupported-environment",
+      "iTunes 검색은 브라우저에서만 사용할 수 있습니다.",
     );
   }
 
-  return new Promise<TrackReference[]>((resolve, reject) => {
-    const callbackName = `__musicWorldItunes_${Date.now()}_${requestSequence}_${Math.random()
-      .toString(36)
-      .slice(2)}`;
-    const callbackTarget = window as unknown as Record<string, unknown>;
-    const script = document.createElement("script");
-    let settled = false;
-
-    const cleanup = () => {
-      window.clearTimeout(timeoutId);
-      script.remove();
-      delete callbackTarget[callbackName];
-    };
-
-    const fail = (error: ItunesSearchError) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(error);
-    };
-
-    const timeoutId = window.setTimeout(() => {
-      fail(
-        requestSequence === latestRequestSequence
-          ? new ItunesSearchError("timeout", "iTunes 검색 시간이 초과됐습니다.")
-          : new ItunesSearchError("stale", "더 최근 검색 요청이 있습니다."),
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`/api/music-search?${new URLSearchParams({
+      term: normalized.query,
+    }).toString()}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (requestSequence !== latestRequestSequence) {
+      throw new ItunesSearchError("stale", "더 최근 검색 요청이 있습니다.");
+    }
+    if (!response.ok) {
+      throw new ItunesSearchError(
+        response.status === 504 ? "timeout" : "network",
+        response.status === 504
+          ? "iTunes 검색 시간이 초과됐습니다."
+          : "iTunes 검색에 실패했습니다.",
       );
-    }, REQUEST_TIMEOUT_MS);
+    }
 
-    callbackTarget[callbackName] = (payload: unknown) => {
-      if (requestSequence !== latestRequestSequence) {
-        fail(new ItunesSearchError("stale", "더 최근 검색 요청이 있습니다."));
-        return;
-      }
-
-      try {
-        const tracks = parseResponse(payload);
-        searchCache.set(normalized.cacheKey, {
-          expiresAt: Date.now() + CACHE_TTL_MS,
-          tracks,
-        });
-        settled = true;
-        cleanup();
-        resolve([...tracks]);
-      } catch (error) {
-        fail(
-          error instanceof ItunesSearchError
-            ? error
-            : new ItunesSearchError(
-                "malformed-response",
-                "iTunes 검색 응답을 처리하지 못했습니다.",
-              ),
-        );
-      }
-    };
-
-    script.async = true;
-    script.src = new URL(
-      `${ITUNES_SEARCH_ENDPOINT}?${new URLSearchParams({
-        term: normalized.query,
-        country: "KR",
-        media: "music",
-        entity: "song",
-        limit: "10",
-        callback: callbackName,
-      }).toString()}`,
-    ).toString();
-    script.onerror = () => {
-      fail(
-        requestSequence === latestRequestSequence
-          ? new ItunesSearchError("network", "iTunes 검색에 실패했습니다.")
-          : new ItunesSearchError("stale", "더 최근 검색 요청이 있습니다."),
-      );
-    };
-
-    (document.head ?? document.documentElement).append(script);
-  });
+    const tracks = parseResponse(await response.json());
+    searchCache.set(normalized.cacheKey, {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      tracks,
+    });
+    return [...tracks];
+  } catch (error) {
+    if (requestSequence !== latestRequestSequence) {
+      throw new ItunesSearchError("stale", "더 최근 검색 요청이 있습니다.");
+    }
+    if (error instanceof ItunesSearchError) throw error;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ItunesSearchError("timeout", "iTunes 검색 시간이 초과됐습니다.");
+    }
+    throw new ItunesSearchError(
+      "network",
+      "iTunes 검색에 실패했습니다.",
+    );
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }

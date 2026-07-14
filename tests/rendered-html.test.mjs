@@ -105,6 +105,7 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   );
 
   assert.match(source, /className="capture-search-compact"/);
+  assert.match(source, /minLength=\{1\}/);
   assert.match(source, /const \[linkDialogOpen, setLinkDialogOpen\] = useState\(false\)/);
   assert.match(source, /className="dialog link-import-dialog"/);
   assert.match(source, /aria-modal="true" aria-labelledby="link-import-title"/);
@@ -162,6 +163,62 @@ test("accepts supported music links without allowing arbitrary upstream hosts", 
   const rejected = await rejectedResponse.json();
   assert.equal(rejected.status, "error");
   assert.equal(rejected.error.code, "unsupported-url");
+});
+
+test("proxies iTunes searches through a same-origin JSON endpoint", async () => {
+  const clientSource = await readFile(new URL("../lib/itunes.ts", import.meta.url), "utf8");
+  assert.match(clientSource, /fetch\(`\/api\/music-search\?/);
+  assert.doesNotMatch(clientSource, /document\.createElement\("script"\)|callbackTarget/);
+
+  const routeSource = await readFile(
+    new URL("../app/api/music-search/route.ts", import.meta.url),
+    "utf8",
+  );
+  const routeOutput = ts.transpileModule(routeSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  const route = await import(
+    `data:text/javascript;base64,${Buffer.from(routeOutput).toString("base64")}`
+  );
+
+  const originalFetch = globalThis.fetch;
+  let upstreamUrl;
+  let upstreamInit;
+  globalThis.fetch = async (input, init) => {
+    upstreamUrl = new URL(
+      typeof input === "string" || input instanceof URL ? input : input.url,
+    );
+    upstreamInit = init;
+    return Response.json({
+      resultCount: 1,
+      results: [{
+        kind: "song",
+        trackId: 1779782000,
+        trackName: "Radio",
+        artistName: "Lana Del Rey",
+      }],
+    });
+  };
+
+  try {
+    const response = await route.GET(
+      new Request("http://localhost/api/music-search?term=R"),
+    );
+    assert.equal(response.status, 200);
+    assert.equal(upstreamUrl.hostname, "itunes.apple.com");
+    assert.equal(upstreamUrl.searchParams.get("term"), "R");
+    assert.equal(upstreamUrl.searchParams.get("country"), "KR");
+    assert.equal(upstreamUrl.searchParams.get("entity"), "song");
+    assert.equal(upstreamInit.redirect, "manual");
+    assert.match(response.headers.get("content-type") ?? "", /^application\/json\b/i);
+    const payload = await response.json();
+    assert.equal(payload.results[0].trackName, "Radio");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("ships the PWA shell and removes the disposable starter", async () => {

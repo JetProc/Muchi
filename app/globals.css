@@ -216,6 +216,41 @@ img {
   gap: 14px;
 }
 
+.header-links .inbox-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  line-height: 1;
+}
+
+.header-links .settings-link {
+  display: inline-grid;
+  width: 44px;
+  place-items: center;
+  line-height: 1;
+}
+
+.header-links .settings-link::after {
+  right: 10px;
+  left: 10px;
+}
+
+.inbox-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--paper-soft);
+  background: var(--oxblood);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .header-links a,
 .text-button,
 .text-link {

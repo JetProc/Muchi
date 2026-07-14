@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
+import { Settings } from "lucide-react";
 import { ITUNES_PREVIEW_ATTRIBUTION } from "@/lib/itunes";
 import { useModalFocus } from "./editorial-accessibility";
 import {
@@ -230,10 +231,25 @@ export function EditorialShell({
           <span>{VIEW_META[view].label}</span>
         </div>
         <div className="header-links">
-          <Link href="/inbox" intent="tab">
-            INBOX{inboxCount ? ` ${String(inboxCount).padStart(2, "0")}` : ""}
+          <Link
+            className="inbox-link"
+            href="/inbox"
+            intent="tab"
+            aria-label={inboxCount ? `정리할 곡 ${inboxCount}곡 남음` : "정리할 곡 없음"}
+          >
+            <span>정리할 곡</span>
+            {inboxCount ? (
+              <span className="inbox-count" aria-hidden="true">{inboxCount}</span>
+            ) : null}
           </Link>
-          <Link href="/settings" intent="tab">SETTINGS</Link>
+          <Link
+            className="settings-link"
+            href="/settings"
+            intent="tab"
+            aria-label="환경 설정"
+          >
+            <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+          </Link>
         </div>
       </header>
 

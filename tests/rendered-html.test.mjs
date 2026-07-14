@@ -113,6 +113,20 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.doesNotMatch(source, /<details className="capture-secondary">/);
 });
 
+test("uses an accessible settings icon in the editorial header", async () => {
+  const [source, packageJsonSource] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+  const packageJson = JSON.parse(packageJsonSource);
+
+  assert.equal(typeof packageJson.dependencies["lucide-react"], "string");
+  assert.match(source, /import \{ Settings \} from "lucide-react"/);
+  assert.match(source, /className="settings-link"[^>]*aria-label="환경 설정"/s);
+  assert.match(source, /<Settings aria-hidden="true"/);
+  assert.doesNotMatch(source, /href="\/settings"[^>]*>SETTINGS<\/Link>/s);
+});
+
 test("uses whitespace and tone instead of decorative divider lines", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 

@@ -78,7 +78,7 @@ export function Search({
     <div className="page-content">
       <PageHeader eyebrow="SEARCH THE ARCHIVE" title="내 언어로 음악을 다시 찾기" copy="곡명보다 감정과 장면이 먼저 떠오를 때, 여러 태그를 겹쳐 검색해보세요." />
       <div className="search-editor form-stack">
-        <div className="field"><label htmlFor="archive-query">곡명, 아티스트, 챕터, 기억 검색</label><input id="archive-query" className="input search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="겨울, 새벽, Radio…" /></div>
+        <div className="field"><label htmlFor="archive-query">곡명, 아티스트, 챕터, 등록 월, 기억 검색</label><input id="archive-query" className="input search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="2026-07, 겨울, 새벽, Radio…" /></div>
         <div className="field"><span className="field-label">태그 필터 · 선택한 태그를 모두 포함</span><div className="filter-row">{tags.length ? tags.map((tag) => <button key={tag.id} className={`tag${tagIds.includes(tag.id) ? " is-selected" : ""}`} type="button" onClick={() => toggle(tag.id)} aria-pressed={tagIds.includes(tag.id)}>#{tag.label}</button>) : <span className="field-hint">기록한 태그가 아직 없어요.</span>}</div></div>
         {(query || tagIds.length) ? <button className="button button-ghost" type="button" onClick={() => { setQuery(""); setTagIds([]); }}>필터 초기화</button> : null}
       </div>

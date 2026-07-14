@@ -1,4 +1,4 @@
-export const ARCHIVE_SCHEMA_VERSION = 1 as const;
+export const ARCHIVE_SCHEMA_VERSION = 2 as const;
 export const ARCHIVE_SEED_VERSION = 1 as const;
 export const ARCHIVE_STORAGE_KEY = "music-world:archive:v1";
 
@@ -23,6 +23,12 @@ export const CUBE_COLORS = [
 ] as const;
 
 export const TRACK_PROVIDERS = ["itunes", "spotify", "youtube", "melon"] as const;
+
+const REGISTRATION_MONTH_FORMATTER = new Intl.DateTimeFormat("en", {
+  year: "numeric",
+  month: "2-digit",
+  timeZone: "Asia/Seoul",
+});
 
 export type TrackProvider = (typeof TRACK_PROVIDERS)[number];
 export type ItunesTrackId = `itunes:${number}`;
@@ -61,6 +67,7 @@ export interface TrackReference {
   artworkUrl: string | null;
   previewUrl: string | null;
   externalUrl: string | null;
+  registeredAt?: string;
 }
 
 export interface Cube {
@@ -214,13 +221,13 @@ export interface RecapEntry {
 }
 
 export type MigrationResult =
-  | { status: "ok"; archive: ArchiveEnvelopeV1; migrated: false }
+  | { status: "ok"; archive: ArchiveEnvelopeV1; migrated: boolean }
   | { status: "future-version"; schemaVersion: number }
   | { status: "invalid"; error: string };
 
 export type ParseArchiveResult =
   | { status: "empty" }
-  | { status: "ok"; archive: ArchiveEnvelopeV1; migrated: false }
+  | { status: "ok"; archive: ArchiveEnvelopeV1; migrated: boolean }
   | { status: "future-version"; schemaVersion: number }
   | { status: "invalid"; error: string; raw: string };
 
@@ -342,18 +349,26 @@ function trackIsEqual(left: TrackReference, right: TrackReference): boolean {
   );
 }
 
-function mergeTrack(current: TrackReference | undefined, incoming: TrackReference): TrackReference {
-  const normalized = normalizeTrack(incoming);
+function mergeTrack(
+  current: TrackReference | undefined,
+  incoming: TrackReference,
+  registeredAt: string,
+): TrackReference {
+  const normalized = normalizeTrack(
+    incoming,
+    current?.registeredAt ?? incoming.registeredAt ?? registeredAt,
+  );
   if (!current) return normalized;
   return {
     ...normalized,
+    registeredAt: current.registeredAt ?? normalized.registeredAt,
     artworkUrl: normalized.artworkUrl ?? current.artworkUrl,
     previewUrl: normalized.previewUrl ?? current.previewUrl,
     externalUrl: normalized.externalUrl ?? current.externalUrl,
   };
 }
 
-function normalizeTrack(track: TrackReference): TrackReference {
+function normalizeTrack(track: TrackReference, registeredAt: string): TrackReference {
   const id = makeProviderTrackId(track.provider, track.providerTrackId);
   if (track.id !== id) {
     throw new ArchiveDomainError("invalid-input", "음악 곡 식별자가 올바르지 않습니다.");
@@ -368,6 +383,9 @@ function normalizeTrack(track: TrackReference): TrackReference {
   ) {
     throw new ArchiveDomainError("invalid-input", "재생 시간이 올바르지 않습니다.");
   }
+  if (!validIsoDate(registeredAt)) {
+    throw new ArchiveDomainError("invalid-input", "곡 등록 날짜가 올바르지 않습니다.");
+  }
   return {
     ...track,
     id,
@@ -376,6 +394,7 @@ function normalizeTrack(track: TrackReference): TrackReference {
     album,
     genre,
     durationMs: track.durationMs === null ? null : Math.round(track.durationMs),
+    registeredAt,
   };
 }
 
@@ -455,6 +474,7 @@ function seedTrack(
     ...input,
     id: makeTrackId(input.providerTrackId),
     provider: "itunes",
+    registeredAt: SEED_NOW,
   };
 }
 
@@ -747,20 +767,50 @@ function seedCubeTrack(
   };
 }
 
+function registrationMonth(value: string): { key: string; year: number; month: number } {
+  if (!validIsoDate(value)) {
+    throw new ArchiveDomainError("invalid-input", "곡 등록 날짜가 올바르지 않습니다.");
+  }
+  const parts = REGISTRATION_MONTH_FORMATTER.formatToParts(new Date(value));
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  return { key: `${year}-${String(month).padStart(2, "0")}`, year, month };
+}
+
+function ensureMonthlyChapter(
+  archive: ArchiveEnvelopeV1,
+  trackId: TrackId,
+  registeredAt: string,
+  now: string,
+): ArchiveEnvelopeV1 {
+  const { key, year, month } = registrationMonth(registeredAt);
+  const chapterId = `month:${key}`;
+  const withChapter = archive.data.cubes[chapterId]
+    ? archive
+    : createCube(archive, {
+        id: chapterId,
+        name: `${year}년 ${month}월`,
+        description: `${year}년 ${month}월에 등록한 곡들`,
+        color: CUBE_COLORS[(month - 1) % CUBE_COLORS.length],
+      }, now).archive;
+  return addTrackToCube(withChapter, trackId, chapterId, now).archive;
+}
+
 export function captureTrack(
   archive: ArchiveEnvelopeV1,
   track: TrackReference,
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
-  const merged = mergeTrack(archive.data.tracks[track.id], track);
-  if (archive.data.tracks[merged.id] && trackIsEqual(archive.data.tracks[merged.id], merged)) {
-    return archive;
-  }
-  return withData(
-    archive,
-    { ...archive.data, tracks: { ...archive.data.tracks, [merged.id]: merged } },
-    now,
-  );
+  const merged = mergeTrack(archive.data.tracks[track.id], track, now);
+  const current = archive.data.tracks[merged.id];
+  const withTrack = current && trackIsEqual(current, merged)
+    ? archive
+    : withData(
+        archive,
+        { ...archive.data, tracks: { ...archive.data.tracks, [merged.id]: merged } },
+        now,
+      );
+  return ensureMonthlyChapter(withTrack, merged.id, merged.registeredAt ?? now, now);
 }
 
 export function captureTrackToInbox(
@@ -1201,6 +1251,7 @@ export function searchArchive(
         track.artist,
         track.album,
         track.genre,
+        registrationDateText(track.registeredAt),
         cube.name,
         cube.description,
         tags.map((tag) => tag.label).join(" "),
@@ -1222,7 +1273,13 @@ export function searchArchive(
       const track = archive.data.tracks[inbox.trackId];
       if (!track) continue;
       const searchable = normalizeSearch(
-        [track.title, track.artist, track.album, track.genre].join(" "),
+        [
+          track.title,
+          track.artist,
+          track.album,
+          track.genre,
+          registrationDateText(track.registeredAt),
+        ].join(" "),
       );
       if (!query || searchable.includes(query)) {
         results.push({ kind: "inbox", track, inbox, tags: [] });
@@ -1235,6 +1292,21 @@ export function searchArchive(
 
 function normalizeSearch(value: string): string {
   return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
+}
+
+function registrationDateText(registeredAt: string | undefined): string {
+  if (!registeredAt || !validIsoDate(registeredAt)) return "";
+  const { key, year, month } = registrationMonth(registeredAt);
+  const paddedMonth = String(month).padStart(2, "0");
+  return [
+    key,
+    `${year}-${month}`,
+    `${year}.${paddedMonth}`,
+    `${year}/${paddedMonth}`,
+    `${year} ${paddedMonth}`,
+    `${year} ${month}`,
+    `${year}년 ${month}월`,
+  ].join(" ");
 }
 
 function resultDate(result: ArchiveSearchResult): string {
@@ -1412,7 +1484,11 @@ export function resetArchive(
 }
 
 export function validateArchiveEnvelope(value: unknown): value is ArchiveEnvelopeV1 {
-  if (!isRecord(value) || value.schemaVersion !== 1 || value.seedVersion !== 1) return false;
+  if (
+    !isRecord(value)
+    || value.schemaVersion !== ARCHIVE_SCHEMA_VERSION
+    || value.seedVersion !== ARCHIVE_SEED_VERSION
+  ) return false;
   if (!validIsoDate(value.updatedAt) || !isRecord(value.data)) return false;
   const data = value.data;
   if (
@@ -1482,7 +1558,8 @@ function isTrackReference(value: unknown): value is TrackReference {
     (value.durationMs === null || (typeof value.durationMs === "number" && value.durationMs >= 0)) &&
     isNullableString(value.artworkUrl) &&
     isNullableString(value.previewUrl) &&
-    isNullableString(value.externalUrl)
+    isNullableString(value.externalUrl) &&
+    validIsoDate(value.registeredAt)
   );
 }
 
@@ -1585,10 +1662,80 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
+function legacyRegistrationDate(
+  trackId: string,
+  data: Record<string, unknown>,
+  fallback: string,
+): string {
+  const dates: string[] = [];
+  if (isRecord(data.inbox)) {
+    const inboxEntry = data.inbox[trackId];
+    if (isRecord(inboxEntry) && validIsoDate(inboxEntry.capturedAt)) {
+      dates.push(inboxEntry.capturedAt);
+    }
+  }
+  if (isRecord(data.cubeTracks)) {
+    Object.values(data.cubeTracks).forEach((entry) => {
+      if (isRecord(entry) && entry.trackId === trackId && validIsoDate(entry.createdAt)) {
+        dates.push(entry.createdAt);
+      }
+    });
+  }
+  return dates.sort((left, right) => Date.parse(left) - Date.parse(right))[0] ?? fallback;
+}
+
+function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
+  if (!isRecord(value.data) || !isRecord(value.data.tracks) || !validIsoDate(value.updatedAt)) {
+    return null;
+  }
+  const tracks = Object.fromEntries(
+    Object.entries(value.data.tracks).map(([trackId, track]) => [
+      trackId,
+      isRecord(track)
+        ? {
+            ...track,
+            registeredAt: validIsoDate(track.registeredAt)
+              ? track.registeredAt
+              : legacyRegistrationDate(trackId, value.data as Record<string, unknown>, value.updatedAt as string),
+          }
+        : track,
+    ]),
+  );
+  const candidate: unknown = {
+    ...value,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+    data: { ...value.data, tracks },
+  };
+  if (!validateArchiveEnvelope(candidate)) return null;
+
+  const userTrackIds = new Set<TrackId>();
+  Object.values(candidate.data.inbox).forEach((entry) => {
+    if (entry?.source === "user") userTrackIds.add(entry.trackId);
+  });
+  Object.values(candidate.data.cubeTracks).forEach((entry) => {
+    if (entry.source === "user") userTrackIds.add(entry.trackId);
+  });
+
+  let migrated = candidate;
+  userTrackIds.forEach((trackId) => {
+    const registeredAt = migrated.data.tracks[trackId]?.registeredAt;
+    if (registeredAt) {
+      migrated = ensureMonthlyChapter(migrated, trackId, registeredAt, migrated.updatedAt);
+    }
+  });
+  return migrated;
+}
+
 export function migrateArchive(value: unknown): MigrationResult {
   if (!isRecord(value)) return { status: "invalid", error: "저장 데이터가 객체가 아닙니다." };
   if (typeof value.schemaVersion === "number" && value.schemaVersion > ARCHIVE_SCHEMA_VERSION) {
     return { status: "future-version", schemaVersion: value.schemaVersion };
+  }
+  if (value.schemaVersion === 1) {
+    const migrated = migrateVersionOne(value);
+    return migrated
+      ? { status: "ok", archive: migrated, migrated: true }
+      : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
   if (!validateArchiveEnvelope(value)) {
     return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };

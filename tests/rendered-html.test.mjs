@@ -239,3 +239,95 @@ test("keeps the same song's tags and memory independent in each cube", async () 
   const removed = archiveDomain.removeCubeTrack(removable, dawnRadio.id);
   assert.equal(removed.data.tags[disposableTagId], undefined);
 });
+
+test("stores a stable registration date and groups registered tracks into searchable monthly chapters", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const firstTrack = {
+    id: archiveDomain.makeProviderTrackId("youtube", "M7lc1UVf-VE"),
+    provider: "youtube",
+    providerTrackId: "M7lc1UVf-VE",
+    title: "7월의 첫 곡",
+    artist: "월간 아티스트",
+    album: "",
+    genre: "",
+    durationMs: null,
+    artworkUrl: null,
+    previewUrl: null,
+    externalUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+  };
+  const secondTrack = {
+    ...firstTrack,
+    id: archiveDomain.makeProviderTrackId("youtube", "dQw4w9WgXcQ"),
+    providerTrackId: "dQw4w9WgXcQ",
+    title: "7월의 두 번째 곡",
+    externalUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  };
+  const julyStartInSeoul = "2026-06-30T15:30:00.000Z";
+  const laterInJuly = "2026-07-20T09:00:00.000Z";
+
+  const empty = archiveDomain.createEmptyArchive("2026-06-01T00:00:00.000Z");
+  const withFirst = archiveDomain.captureTrackToInbox(empty, firstTrack, julyStartInSeoul);
+  const withBoth = archiveDomain.captureTrackToInbox(withFirst, secondTrack, laterInJuly);
+  const recaptured = archiveDomain.captureTrackToInbox(
+    withBoth,
+    firstTrack,
+    "2026-08-01T00:00:00.000Z",
+  );
+
+  assert.equal(recaptured.data.tracks[firstTrack.id].registeredAt, julyStartInSeoul);
+  assert.equal(recaptured.data.tracks[secondTrack.id].registeredAt, laterInJuly);
+
+  const monthlyChapters = Object.values(recaptured.data.cubes)
+    .filter((chapter) => chapter.name === "2026년 7월");
+  assert.equal(monthlyChapters.length, 1);
+  const monthlyTrackIds = archiveDomain.getCubeTracks(recaptured, monthlyChapters[0].id)
+    .map((entry) => entry.track.id)
+    .sort();
+  assert.deepEqual(monthlyTrackIds, [firstTrack.id, secondTrack.id].sort());
+
+  for (const query of ["2026-07", "2026년 7월"]) {
+    const results = archiveDomain.searchArchive(recaptured, { query });
+    const foundTrackIds = results
+      .filter((result) => result.kind === "cube-track" && result.cube.id === monthlyChapters[0].id)
+      .map((result) => result.track.id)
+      .sort();
+    assert.deepEqual(foundTrackIds, [firstTrack.id, secondTrack.id].sort(), query);
+  }
+});
+
+test("migrates existing archives with registration dates and monthly chapters", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const track = {
+    id: archiveDomain.makeProviderTrackId("youtube", "M7lc1UVf-VE"),
+    provider: "youtube",
+    providerTrackId: "M7lc1UVf-VE",
+    title: "이전부터 저장한 곡",
+    artist: "기존 아티스트",
+    album: "",
+    genre: "",
+    durationMs: null,
+    artworkUrl: null,
+    previewUrl: null,
+    externalUrl: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+  };
+  const capturedAt = "2025-12-15T12:00:00.000Z";
+  const legacy = archiveDomain.createEmptyArchive("2025-12-20T00:00:00.000Z");
+  legacy.schemaVersion = 1;
+  legacy.data.tracks[track.id] = track;
+  legacy.data.inbox[track.id] = { trackId: track.id, capturedAt, source: "user" };
+
+  const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
+
+  assert.equal(parsed.status, "ok");
+  assert.equal(parsed.migrated, true);
+  assert.equal(parsed.archive.schemaVersion, archiveDomain.ARCHIVE_SCHEMA_VERSION);
+  assert.equal(parsed.archive.data.tracks[track.id].registeredAt, capturedAt);
+  const decemberChapter = Object.values(parsed.archive.data.cubes)
+    .find((chapter) => chapter.name === "2025년 12월");
+  assert.ok(decemberChapter);
+  assert.deepEqual(
+    archiveDomain.getCubeTracks(parsed.archive, decemberChapter.id)
+      .map((entry) => entry.track.id),
+    [track.id],
+  );
+});

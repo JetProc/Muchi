@@ -106,11 +106,17 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   );
 
   assert.match(source, /className="capture-search-compact"/);
+  assert.match(source, /<h1>곡 검색<\/h1>/);
+  assert.match(source, /type="search"/);
   assert.match(source, /minLength=\{1\}/);
+  assert.match(source, /enterKeyHint="search"/);
   assert.match(source, /const \[linkDialogOpen, setLinkDialogOpen\] = useState\(false\)/);
   assert.match(source, /className="dialog link-import-dialog"/);
   assert.match(source, /aria-modal="true" aria-labelledby="link-import-title"/);
   assert.doesNotMatch(source, /<details className="capture-secondary">/);
+  assert.doesNotMatch(source, />CLOSE<\/Link>/);
+  assert.doesNotMatch(source, /검색 및 30초 미리듣기는 iTunes에서 제공됩니다/);
+  assert.doesNotMatch(source, /검색하면 곡 목록이 여기에 표시됩니다/);
 });
 
 test("uses an accessible settings icon in the editorial header", async () => {
@@ -125,6 +131,14 @@ test("uses an accessible settings icon in the editorial header", async () => {
   assert.match(source, /className="settings-link"[^>]*aria-label="환경 설정"/s);
   assert.match(source, /<Settings aria-hidden="true"/);
   assert.doesNotMatch(source, /href="\/settings"[^>]*>SETTINGS<\/Link>/s);
+});
+
+test("releases the route transform so fixed dialogs stay anchored to the viewport", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const routeStageRule = css.match(/\.route-stage\s*\{([^}]*)\}/s)?.[1] ?? "";
+
+  assert.match(routeStageRule, /animation:\s*route-enter/);
+  assert.doesNotMatch(routeStageRule, /\bboth\b/);
 });
 
 test("uses whitespace and tone instead of decorative divider lines", async () => {
@@ -250,6 +264,7 @@ test("proxies iTunes searches through a same-origin JSON endpoint", async () => 
     assert.equal(upstreamUrl.searchParams.get("term"), "R");
     assert.equal(upstreamUrl.searchParams.get("country"), "KR");
     assert.equal(upstreamUrl.searchParams.get("entity"), "song");
+    assert.equal(upstreamUrl.searchParams.get("limit"), "30");
     assert.equal(upstreamInit.redirect, "manual");
     assert.match(response.headers.get("content-type") ?? "", /^application\/json\b/i);
     const payload = await response.json();
@@ -257,6 +272,22 @@ test("proxies iTunes searches through a same-origin JSON endpoint", async () => 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("reveals iTunes search results in batches of ten while scrolling", async () => {
+  const [captureSource, globalStyles] = await Promise.all([
+    readFile(
+      new URL("../app/_components/editorial-views-primary.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(captureSource, /SEARCH_RESULT_BATCH_SIZE\s*=\s*10/);
+  assert.match(captureSource, /results\.slice\(0, visibleResultCount\)/);
+  assert.match(captureSource, /new IntersectionObserver\(/);
+  assert.match(captureSource, /className="search-loading-spinner"/);
+  assert.match(globalStyles, /\.search-loading-spinner\s*\{/);
 });
 
 test("ships the PWA shell and removes the disposable starter", async () => {

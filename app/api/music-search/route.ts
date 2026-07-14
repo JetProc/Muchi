@@ -33,7 +33,7 @@ export async function GET(request: Request): Promise<Response> {
   endpoint.searchParams.set("country", "KR");
   endpoint.searchParams.set("media", "music");
   endpoint.searchParams.set("entity", "song");
-  endpoint.searchParams.set("limit", "10");
+  endpoint.searchParams.set("limit", "30");
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);

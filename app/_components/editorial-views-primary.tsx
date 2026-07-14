@@ -44,6 +44,8 @@ import { formatDate } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 
 const CAPTURE_DRAFT_KEY = "music-world:capture-draft:v1";
+const SEARCH_RESULT_BATCH_SIZE = 10;
+const SEARCH_RESULT_REVEAL_DELAY_MS = 240;
 
 type HomeMemory = ReturnType<typeof getCubeTracks>[number] & { chapter: Cube };
 
@@ -227,7 +229,9 @@ export function Capture({
   const [musicUrl, setMusicUrl] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<TrackReference[]>([]);
+  const [visibleResultCount, setVisibleResultCount] = useState(SEARCH_RESULT_BATCH_SIZE);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [linkLoading, setLinkLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -240,6 +244,11 @@ export function Capture({
   const [resultSource, setResultSource] = useState<"link" | "search" | null>(null);
   const chapters = Object.values(archive.data.cubes).sort((a, b) => a.sortOrder - b.sortOrder);
   const draftReady = useRef(false);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const visibleResults = resultSource === "search"
+    ? results.slice(0, visibleResultCount)
+    : results;
+  const hasMoreResults = resultSource === "search" && visibleResultCount < results.length;
   const assignDialogRef = useModalFocus<HTMLDivElement>(
     Boolean(assigning),
     () => setAssigning(null),
@@ -294,6 +303,32 @@ export function Capture({
     }
   }, [manualAlbum, manualArtist, manualTitle, musicUrl, query]);
 
+  useEffect(() => {
+    const trigger = loadMoreTriggerRef.current;
+    if (!trigger || !hasMoreResults) return;
+
+    let revealTimer: number | undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+
+      observer.disconnect();
+      setLoadingMore(true);
+      revealTimer = window.setTimeout(() => {
+        setVisibleResultCount((current) => Math.min(
+          current + SEARCH_RESULT_BATCH_SIZE,
+          results.length,
+        ));
+        setLoadingMore(false);
+      }, SEARCH_RESULT_REVEAL_DELAY_MS);
+    }, { rootMargin: "160px 0px" });
+
+    observer.observe(trigger);
+    return () => {
+      observer.disconnect();
+      if (revealTimer !== undefined) window.clearTimeout(revealTimer);
+    };
+  }, [hasMoreResults, results, visibleResultCount]);
+
   function clearCaptureDraft() {
     try {
       window.sessionStorage.removeItem(CAPTURE_DRAFT_KEY);
@@ -328,6 +363,8 @@ export function Capture({
         return;
       }
       setResults([payload.track]);
+      setVisibleResultCount(SEARCH_RESULT_BATCH_SIZE);
+      setLoadingMore(false);
       setResultSource("link");
       setLinkDialogOpen(false);
     } catch {
@@ -346,6 +383,8 @@ export function Capture({
       album: manualAlbum,
     });
     setResults([track]);
+    setVisibleResultCount(SEARCH_RESULT_BATCH_SIZE);
+    setLoadingMore(false);
     setResultSource("link");
     setManualFallback(null);
     setLinkError(null);
@@ -359,9 +398,12 @@ export function Capture({
       return;
     }
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
     try {
-      setResults(await searchItunesTracks(query));
+      const tracks = await searchItunesTracks(query);
+      setResults(tracks);
+      setVisibleResultCount(SEARCH_RESULT_BATCH_SIZE);
       setResultSource("search");
     } catch (cause) {
       if (cause instanceof ItunesSearchError && cause.code === "stale") return;
@@ -409,59 +451,76 @@ export function Capture({
 
   return (
     <div className="page-content capture-view">
-      <PageHeader
-        eyebrow="ADD A MEMORY"
-        title="곡 찾기"
-        copy="곡명이나 아티스트로 검색하세요. 저장한 곡은 등록한 달의 챕터에도 자동으로 모여요."
-        action={(
-          <div className="capture-header-actions">
-            <button
-              className="button button-ghost"
-              type="button"
-              onClick={() => {
-                setLinkError(null);
-                setManualFallback(null);
-                setLinkDialogOpen(true);
-              }}
-            >
-              공유 링크로 추가
-            </button>
-            <Link className="text-link" href="/" intent="back">CLOSE</Link>
-          </div>
-        )}
-      />
-      <section className="capture-search-compact" aria-labelledby="capture-search-label">
-        <span className="section-label" id="capture-search-label">MUSIC SEARCH</span>
+      <header className="capture-search-header">
+        <h1>곡 검색</h1>
+        <button
+          className="text-button"
+          type="button"
+          onClick={() => {
+            setLinkError(null);
+            setManualFallback(null);
+            setLinkDialogOpen(true);
+          }}
+        >
+          공유 링크로 추가
+        </button>
+      </header>
+      <section className="capture-search-compact" aria-label="음악 검색">
         <form className="search-form capture-search-form" onSubmit={submit}>
           <label className="sr-only" htmlFor="itunes-query">곡명 또는 아티스트</label>
-          <input id="itunes-query" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="곡명 또는 아티스트" minLength={1} />
-          <button className="button button-cyan" type="submit" disabled={loading || !online}>{loading ? <LoadingDots /> : "음악 찾기"}</button>
+          <input id="itunes-query" className="input" type="search" name="music-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="곡명 또는 아티스트 검색" minLength={1} enterKeyHint="search" autoComplete="off" />
+          <button className="button button-cyan" type="submit" disabled={loading || !online || !query.trim()}>{loading ? <LoadingDots /> : "검색"}</button>
         </form>
-        <p className="legal-note">검색 및 30초 미리듣기는 iTunes에서 제공됩니다.</p>
       </section>
 
       {error ? <div className="notice notice-danger" style={{ marginTop: 18 }} role="alert">{error}</div> : null}
 
-      <section className="section capture-results">
-        <div className="section-head"><div><h2>{results.length ? `${resultSource === "link" ? "가져온 음악" : "검색 결과"} ${results.length}곡` : "검색 결과"}</h2><p>일단 저장하거나 바로 챕터를 골라 당신의 언어를 덧붙일 수 있어요.</p></div></div>
-        {results.length ? (
-          <div className="track-list">
-            {results.map((track, index) => {
-              const contexts = Object.values(archive.data.cubeTracks).filter((entry) => entry.trackId === track.id);
-              return (
-                <TrackLine
-                  key={track.id}
-                  track={track}
-                  index={index}
-                  preview={preview}
-                  context={contexts.length ? `이미 ${contexts.length}개의 순간에 기록됨` : track.genre || "장르 정보 없음"}
-                  actions={<>{!track.previewUrl && track.externalUrl ? <a className="button button-ghost" href={track.externalUrl} target="_blank" rel="noopener noreferrer">원본 열기</a> : null}<button className="button" type="button" onClick={() => saveInbox(track)}>일단 저장</button><button className="button button-primary" type="button" onClick={() => setAssigning(track)}>챕터에 담기</button></>}
-                />
-              );
-            })}
+      {resultSource ? (
+        <section className="section capture-results" aria-live="polite" aria-busy={loadingMore}>
+          <div className="section-head">
+            <h2>
+              {results.length
+                ? resultSource === "link"
+                  ? `가져온 음악 ${results.length}곡`
+                  : `검색 결과 ${visibleResults.length}${results.length > SEARCH_RESULT_BATCH_SIZE ? ` / ${results.length}` : ""}곡`
+                : "검색 결과 없음"}
+            </h2>
           </div>
-        ) : <div className="capture-search-empty">검색하면 곡 목록이 여기에 표시됩니다.</div>}
-      </section>
+          {results.length ? (
+            <>
+              <div className="track-list">
+                {visibleResults.map((track, index) => {
+                  const contexts = Object.values(archive.data.cubeTracks).filter((entry) => entry.trackId === track.id);
+                  return (
+                    <TrackLine
+                      key={track.id}
+                      track={track}
+                      index={index}
+                      preview={preview}
+                      context={contexts.length ? `이미 ${contexts.length}개의 순간에 기록됨` : track.genre || "장르 정보 없음"}
+                      actions={<>{!track.previewUrl && track.externalUrl ? <a className="button button-ghost" href={track.externalUrl} target="_blank" rel="noopener noreferrer">원본 열기</a> : null}<button className="button" type="button" onClick={() => saveInbox(track)}>일단 저장</button><button className="button button-primary" type="button" onClick={() => setAssigning(track)}>챕터에 담기</button></>}
+                    />
+                  );
+                })}
+              </div>
+              {hasMoreResults ? (
+                <div ref={loadMoreTriggerRef} className="search-load-more" role="status">
+                  {loadingMore ? (
+                    <>
+                      <span className="search-loading-spinner" aria-hidden="true" />
+                      <span>다음 곡을 불러오는 중</span>
+                    </>
+                  ) : (
+                    <span>스크롤하면 다음 10곡을 불러와요</span>
+                  )}
+                </div>
+              ) : resultSource === "search" && results.length > SEARCH_RESULT_BATCH_SIZE ? (
+                <p className="search-results-end">검색 결과를 모두 확인했어요.</p>
+              ) : null}
+            </>
+          ) : null}
+        </section>
+      ) : null}
 
       {linkDialogOpen ? (
         <div ref={linkDialogRef} className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="link-import-title">
@@ -470,14 +529,12 @@ export function Capture({
             <h2 id="link-import-title">공유 링크로 곡 추가</h2>
             {!manualFallback ? (
               <>
-                <p>Spotify, Apple Music, YouTube 또는 Melon 링크를 붙여넣으세요.</p>
                 <form className="form-stack link-import-form" onSubmit={importLink}>
                   <div className="field">
                     <label htmlFor="music-url">음악 공유 링크</label>
                     <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="https://…" required autoComplete="url" />
                   </div>
                   {linkError ? <div className="notice notice-danger" role="alert">{linkError}</div> : null}
-                  <p className="legal-note">정보가 부족한 링크는 원본을 보존한 채 곡명과 아티스트만 추가로 확인합니다.</p>
                   <div className="dialog-actions">
                     <button className="button button-ghost" type="button" onClick={() => setLinkDialogOpen(false)}>취소</button>
                     <button className="button button-primary" type="submit" disabled={linkLoading || !online}>{linkLoading ? <LoadingDots /> : "링크 가져오기"}</button>
@@ -486,7 +543,6 @@ export function Capture({
               </>
             ) : (
               <form className="form-stack link-import-form" onSubmit={finishManualImport}>
-                <p className="field-hint">원본 링크는 안전하게 보관했어요. 부족한 정보만 채워주세요.</p>
                 <div className="form-grid"><div className="field"><label htmlFor="manual-title">곡명 *</label><input id="manual-title" className="input" value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} maxLength={200} required /></div><div className="field"><label htmlFor="manual-artist">아티스트 *</label><input id="manual-artist" className="input" value={manualArtist} onChange={(event) => setManualArtist(event.target.value)} maxLength={200} required /></div></div>
                 <div className="field"><label htmlFor="manual-album">앨범 · 선택</label><input id="manual-album" className="input" value={manualAlbum} onChange={(event) => setManualAlbum(event.target.value)} maxLength={200} /></div>
                 <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={() => setManualFallback(null)}>뒤로</button><button className="button button-primary" type="submit">이 곡 확인하기</button></div>

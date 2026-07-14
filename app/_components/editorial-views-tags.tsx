@@ -16,6 +16,10 @@ import { TAG_CATEGORY_LABEL } from "./editorial-format";
 import { EmptyState, PageHeader } from "./editorial-ui";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 
+const MANUAL_TAG_CATEGORIES = TAG_CATEGORIES.filter(
+  (category) => category !== "period",
+);
+
 function parseBulkTags(value: string): string[] {
   const seen = new Set<string>();
   return value
@@ -127,7 +131,7 @@ export function TagManager({
       <div className="tag-manager-grid">
         <form className="panel tag-bulk-panel form-stack" onSubmit={submitBulk}>
           <div><span className="section-label">BULK CREATE</span><h2>한 번에 태그 만들기</h2></div>
-          <div className="field"><label htmlFor="bulk-category">카테고리</label><select id="bulk-category" className="select" value={bulkCategory} onChange={(event) => setBulkCategory(event.target.value as TagCategory)}>{TAG_CATEGORIES.map((category) => <option value={category} key={category}>{TAG_CATEGORY_LABEL[category]}</option>)}</select></div>
+          <div className="field"><label htmlFor="bulk-category">카테고리</label><select id="bulk-category" className="select" value={bulkCategory} onChange={(event) => setBulkCategory(event.target.value as TagCategory)}>{MANUAL_TAG_CATEGORIES.map((category) => <option value={category} key={category}>{TAG_CATEGORY_LABEL[category]}</option>)}</select></div>
           <div className="field"><label htmlFor="bulk-tags">태그 이름</label><textarea id="bulk-tags" className="textarea tag-bulk-input" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} placeholder={"새벽, 드라이브, 비 오는 날\n오래된 친구\n퇴근길"} /><span className="field-hint">{newCandidates.length}개 추가 예정{duplicateCount ? ` · 기존 태그 ${duplicateCount}개 제외` : ""}</span></div>
           {newCandidates.length ? <div className="tag-preview" aria-label="추가할 태그 미리보기">{newCandidates.slice(0, 24).map((label) => <span className="tag" key={normalizeTagLabel(label)}>#{label}</span>)}{newCandidates.length > 24 ? <span className="tag">+{newCandidates.length - 24}</span> : null}</div> : null}
           <button className="button button-primary" type="submit" disabled={!newCandidates.length}>{newCandidates.length ? `${newCandidates.length}개 태그 추가` : "추가할 태그 입력"}</button>
@@ -142,10 +146,15 @@ export function TagManager({
               <section className="tag-category-section" key={category}>
                 <div className="tag-category-head"><h3>{TAG_CATEGORY_LABEL[category]}</h3><span>{categoryTags.length}</span></div>
                 <div className="tag-manager-list">
-                  {categoryTags.map((tag) => editingId === tag.id ? (
+                  {categoryTags.map((tag) => category === "period" ? (
+                    <div className="tag-manager-row" key={tag.id}>
+                      <div className="tag-manager-copy"><span className="tag">#{tag.label}</span><small>{usageByTag.get(tag.id) ?? 0}개 기억에서 사용</small></div>
+                      <span className="field-hint">추가일 기준 자동</span>
+                    </div>
+                  ) : editingId === tag.id ? (
                     <form className="tag-manager-row tag-manager-edit" key={tag.id} onSubmit={(event) => saveEdit(event, tag.id)}>
                       <input className="input" value={editLabel} onChange={(event) => setEditLabel(event.target.value)} maxLength={40} aria-label="태그 이름" autoFocus />
-                      <select className="select" value={editCategory} onChange={(event) => setEditCategory(event.target.value as TagCategory)} aria-label="태그 카테고리">{TAG_CATEGORIES.map((item) => <option value={item} key={item}>{TAG_CATEGORY_LABEL[item]}</option>)}</select>
+                      <select className="select" value={editCategory} onChange={(event) => setEditCategory(event.target.value as TagCategory)} aria-label="태그 카테고리">{MANUAL_TAG_CATEGORIES.map((item) => <option value={item} key={item}>{TAG_CATEGORY_LABEL[item]}</option>)}</select>
                       <div className="tag-manager-actions"><button className="button button-primary" type="submit">저장</button><button className="button" type="button" onClick={() => setEditingId(null)}>취소</button></div>
                     </form>
                   ) : (

@@ -415,7 +415,11 @@ test("keeps the same song's tags and memory independent in each cube", async () 
   });
 
   assert.deepEqual(withMemory.data.cubeTracks[winterRadio.id], winterBefore);
-  assert.equal(withMemory.data.cubeTracks[dawnRadio.id].tagIds.length, 3);
+  const dawnTags = withMemory.data.cubeTracks[dawnRadio.id].tagIds.map(
+    (tagId) => withMemory.data.tags[tagId],
+  );
+  assert.equal(dawnTags.length, 4);
+  assert.equal(dawnTags.filter((tag) => tag.category === "period").length, 1);
   assert.equal(
     withMemory.data.cubeTracks[dawnRadio.id].character,
     "도시를 가르는 야간 주행곡",
@@ -502,6 +506,20 @@ test("stores a stable registration date and groups registered tracks into search
     .sort();
   assert.deepEqual(monthlyTrackIds, [firstTrack.id, secondTrack.id].sort());
 
+  const julyPeriodTags = Object.values(recaptured.data.tags)
+    .filter((tag) => tag.category === "period" && tag.label === "2026년 7월");
+  assert.equal(julyPeriodTags.length, 1);
+  assert.ok(
+    archiveDomain.getCubeTracks(recaptured, monthlyChapters[0].id)
+      .every((entry) => entry.cubeTrack.tagIds.includes(julyPeriodTags[0].id)),
+  );
+  assert.equal(
+    Object.values(recaptured.data.tags)
+      .filter((tag) => tag.category === "period" && tag.label === "2026년 8월")
+      .length,
+    0,
+  );
+
   for (const query of ["2026-07", "2026년 7월"]) {
     const results = archiveDomain.searchArchive(recaptured, { query });
     const foundTrackIds = results
@@ -547,6 +565,13 @@ test("migrates existing archives with registration dates and monthly chapters", 
       .map((entry) => entry.track.id),
     [track.id],
   );
+  const decemberPeriodTag = Object.values(parsed.archive.data.tags)
+    .find((tag) => tag.category === "period" && tag.label === "2025년 12월");
+  assert.ok(decemberPeriodTag);
+  assert.ok(
+    archiveDomain.getCubeTracks(parsed.archive, decemberChapter.id)[0]
+      .cubeTrack.tagIds.includes(decemberPeriodTag.id),
+  );
 });
 
 test("manages a reusable tag library independently from track memories", async () => {
@@ -590,7 +615,9 @@ test("selects only existing tags and removes deleted tags from every memory", as
     selectedTagIds,
     "2026-07-04T00:00:00.000Z",
   );
-  assert.deepEqual(selected.data.cubeTracks[cubeTrack.id].tagIds, selectedTagIds);
+  const assignedTagIds = selected.data.cubeTracks[cubeTrack.id].tagIds;
+  assert.deepEqual(assignedTagIds.slice(1), selectedTagIds);
+  assert.equal(selected.data.tags[assignedTagIds[0]].category, "period");
   assert.throws(
     () => archiveDomain.setCubeTrackTagIds(selected, cubeTrack.id, ["missing:tag"]),
     /태그.*찾을 수 없습니다/,
@@ -617,6 +644,27 @@ test("uses managed tag chips instead of suggestions or free-form memory tags", a
   assert.doesNotMatch(memorySource, /TAG_SUGGESTIONS|id="custom-tag"/);
   assert.match(memorySource, /href="\/tags"/);
   assert.match(managerSource, /id="bulk-tags"/);
-  assert.match(managerSource, /쉼표 또는 줄바꿈/);
+  assert.match(managerSource, /\.split\(\/\[\\n,;\]\+\//);
   assert.match(managerSource, /TAG_CATEGORIES\.map/);
+});
+
+test("keeps memory editing to tags and memo with period controls inside tags", async () => {
+  const memorySource = await readFile(
+    new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(memorySource, /className="managed-tag-group period-tag-group"/);
+  assert.match(memorySource, /추가 시기 · 자동/);
+  assert.doesNotMatch(memorySource, /periodTags\.map\(\(tag\) => <button/);
+  assert.match(memorySource, /aria-label="기억한 시기 형식"/);
+  assert.match(memorySource, /<label htmlFor="memo">메모<\/label>/);
+  assert.doesNotMatch(
+    memorySource,
+    /htmlFor="character"|id="character"|htmlFor="place"|id="place"|htmlFor="people"|id="people"/,
+  );
+  assert.doesNotMatch(
+    memorySource,
+    /character=\{character\}|place=\{place\}|people=\{people\}/,
+  );
 });

@@ -1962,6 +1962,25 @@ button.tag {
   letter-spacing: 0.08em;
 }
 
+.period-tag-group {
+  gap: 10px;
+}
+
+.period-kind-row {
+  margin-top: 2px;
+}
+
+.period-tag-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.8fr);
+  gap: 8px;
+}
+
+.period-tag-detail .input,
+.period-tag-detail .select {
+  min-height: 44px;
+}
+
 .tag-manager-stats {
   justify-content: flex-start;
   flex-wrap: wrap;

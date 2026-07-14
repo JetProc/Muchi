@@ -718,7 +718,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
     },
   };
 
-  return {
+  const archive: ArchiveEnvelopeV1 = {
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
     seedVersion: ARCHIVE_SEED_VERSION,
     updatedAt: SEED_NOW,
@@ -731,6 +731,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       preferences: { ...DEFAULT_PREFERENCES },
     },
   };
+  return ensureAutomaticRegistrationPeriodTags(archive);
 }
 
 function seedCubeTrack(
@@ -770,6 +771,41 @@ function registrationMonth(value: string): { key: string; year: number; month: n
   const year = Number(parts.find((part) => part.type === "year")?.value);
   const month = Number(parts.find((part) => part.type === "month")?.value);
   return { key: `${year}-${String(month).padStart(2, "0")}`, year, month };
+}
+
+function ensureRegistrationPeriodTag(
+  archive: ArchiveEnvelopeV1,
+  trackId: TrackId,
+  now: string,
+): { archive: ArchiveEnvelopeV1; tagId: string } {
+  const track = assertRecord(archive.data.tracks, trackId, "곡");
+  const registeredAt = track.registeredAt ?? now;
+  const { key, year, month } = registrationMonth(registeredAt);
+  const label = `${year}년 ${month}월`;
+  const normalizedLabel = normalizeTagLabel(label);
+  const existing = Object.values(archive.data.tags).find(
+    (tag) => tag.category === "period" && tag.normalizedLabel === normalizedLabel,
+  );
+  if (existing) return { archive, tagId: existing.id };
+
+  const preferredId = `auto:period:${key}`;
+  const id = archive.data.tags[preferredId] ? createId("tag") : preferredId;
+  const tag: TagDefinition = {
+    id,
+    label,
+    normalizedLabel,
+    category: "period",
+    source: "user",
+    createdAt: registeredAt,
+  };
+  return {
+    archive: withData(
+      archive,
+      { ...archive.data, tags: { ...archive.data.tags, [id]: tag } },
+      now,
+    ),
+    tagId: id,
+  };
 }
 
 function ensureMonthlyChapter(
@@ -949,20 +985,45 @@ export function addTrackToCube(
 ): { archive: ArchiveEnvelopeV1; cubeTrack: CubeTrack; added: boolean } {
   assertRecord(archive.data.tracks, trackId, "곡");
   assertRecord(archive.data.cubes, cubeId, "큐브");
-  const existing = Object.values(archive.data.cubeTracks).find(
+  const period = ensureRegistrationPeriodTag(archive, trackId, now);
+  const existing = Object.values(period.archive.data.cubeTracks).find(
     (item) => item.trackId === trackId && item.cubeId === cubeId,
   );
-  if (existing) return { archive, cubeTrack: existing, added: false };
+  if (existing) {
+    if (
+      existing.tagIds.includes(period.tagId)
+      || existing.tagIds.length >= ARCHIVE_LIMITS.tagsPerCubeTrack
+    ) {
+      return { archive: period.archive, cubeTrack: existing, added: false };
+    }
+    const cubeTrack = {
+      ...existing,
+      tagIds: [period.tagId, ...existing.tagIds],
+      updatedAt: now,
+    };
+    return {
+      archive: withData(
+        period.archive,
+        {
+          ...period.archive.data,
+          cubeTracks: { ...period.archive.data.cubeTracks, [existing.id]: cubeTrack },
+        },
+        now,
+      ),
+      cubeTrack,
+      added: false,
+    };
+  }
 
   const id = createId("cube-track");
-  const sortOrder = Object.values(archive.data.cubeTracks).filter(
+  const sortOrder = Object.values(period.archive.data.cubeTracks).filter(
     (item) => item.cubeId === cubeId,
   ).length;
   const cubeTrack: CubeTrack = {
     id,
     cubeId,
     trackId,
-    tagIds: [],
+    tagIds: [period.tagId],
     character: "",
     memoryPeriod: null,
     place: "",
@@ -974,19 +1035,33 @@ export function addTrackToCube(
     updatedAt: now,
   };
   const cubes = {
-    ...archive.data.cubes,
-    [cubeId]: { ...archive.data.cubes[cubeId], updatedAt: now },
+    ...period.archive.data.cubes,
+    [cubeId]: { ...period.archive.data.cubes[cubeId], updatedAt: now },
   };
   const next = withData(
-    archive,
+    period.archive,
     {
-      ...archive.data,
+      ...period.archive.data,
       cubes,
-      cubeTracks: { ...archive.data.cubeTracks, [id]: cubeTrack },
+      cubeTracks: { ...period.archive.data.cubeTracks, [id]: cubeTrack },
     },
     now,
   );
   return { archive: next, cubeTrack, added: true };
+}
+
+function ensureAutomaticRegistrationPeriodTags(
+  archive: ArchiveEnvelopeV1,
+): ArchiveEnvelopeV1 {
+  return Object.values(archive.data.cubeTracks).reduce(
+    (current, cubeTrack) => addTrackToCube(
+      current,
+      cubeTrack.trackId,
+      cubeTrack.cubeId,
+      current.updatedAt,
+    ).archive,
+    archive,
+  );
 }
 
 export function moveInboxTrackToCube(
@@ -1079,21 +1154,24 @@ export function setCubeTrackTags(
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
   const cubeTrack = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
-  if (inputs.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
+  const period = ensureRegistrationPeriodTag(archive, cubeTrack.trackId, now);
+  if (inputs.length >= ARCHIVE_LIMITS.tagsPerCubeTrack) {
     throw new ArchiveDomainError(
       "limit-exceeded",
-      `태그는 곡마다 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
+      `자동 시기 태그를 포함해 곡마다 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
     );
   }
 
-  const tags = { ...archive.data.tags };
+  const tags = { ...period.archive.data.tags };
   const byNormalized = new Map(
     Object.values(tags).map((tag) => [tag.normalizedLabel, tag] as const),
   );
-  const tagIds: string[] = [];
-  const seen = new Set<string>();
+  const tagIds: string[] = [period.tagId];
+  const seen = new Set<string>([tags[period.tagId].normalizedLabel]);
 
   for (const input of inputs) {
+    const category = typeof input === "string" ? "custom" : (input.category ?? "custom");
+    if (category === "period") continue;
     const label = cleanText(
       typeof input === "string" ? input : input.label,
       "태그",
@@ -1115,7 +1193,7 @@ export function setCubeTrackTags(
       id,
       label,
       normalizedLabel,
-      category: typeof input === "string" ? "custom" : (input.category ?? "custom"),
+      category,
       source: "user",
       createdAt: now,
     };
@@ -1126,19 +1204,19 @@ export function setCubeTrackTags(
 
   const nextCubeTrack = { ...cubeTrack, tagIds, updatedAt: now };
   const data = compactUnreferencedEntities({
-    ...archive.data,
+    ...period.archive.data,
     tags,
-    cubeTracks: { ...archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
+    cubeTracks: { ...period.archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
     cubes: {
-      ...archive.data.cubes,
+      ...period.archive.data.cubes,
       [cubeTrack.cubeId]: {
-        ...archive.data.cubes[cubeTrack.cubeId],
+        ...period.archive.data.cubes[cubeTrack.cubeId],
         updatedAt: now,
       },
     },
   });
   return withData(
-    archive,
+    period.archive,
     data,
     now,
   );
@@ -1263,23 +1341,30 @@ export function setCubeTrackTagIds(
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
   const cubeTrack = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
-  const tagIds = [...new Set(inputTagIds)];
+  const period = ensureRegistrationPeriodTag(archive, cubeTrack.trackId, now);
+  const manualTagIds = [...new Set(inputTagIds)].filter((tagId) => {
+    const tag = assertRecord(period.archive.data.tags, tagId, "태그");
+    return tag.category !== "period";
+  });
+  const tagIds = [period.tagId, ...manualTagIds];
   if (tagIds.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
     throw new ArchiveDomainError(
       "limit-exceeded",
-      `태그는 곡마다 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
+      `자동 시기 태그를 포함해 곡마다 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
     );
   }
-  tagIds.forEach((tagId) => assertRecord(archive.data.tags, tagId, "태그"));
   const nextCubeTrack = { ...cubeTrack, tagIds, updatedAt: now };
   return withData(
-    archive,
+    period.archive,
     {
-      ...archive.data,
-      cubeTracks: { ...archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
+      ...period.archive.data,
+      cubeTracks: { ...period.archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
       cubes: {
-        ...archive.data.cubes,
-        [cubeTrack.cubeId]: { ...archive.data.cubes[cubeTrack.cubeId], updatedAt: now },
+        ...period.archive.data.cubes,
+        [cubeTrack.cubeId]: {
+          ...period.archive.data.cubes[cubeTrack.cubeId],
+          updatedAt: now,
+        },
       },
     },
     now,
@@ -1592,7 +1677,10 @@ export function removeSeedData(
   );
   const tags = Object.fromEntries(
     Object.entries(archive.data.tags).filter(
-      ([id, tag]) => tag.source !== "seed" || usedTagIds.has(id),
+      ([id, tag]) => (
+        usedTagIds.has(id)
+        || (tag.source !== "seed" && !id.startsWith("auto:period:"))
+      ),
     ),
   );
   const data = compactUnreferencedEntities({
@@ -1875,7 +1963,8 @@ export function migrateArchive(value: unknown): MigrationResult {
   if (!validateArchiveEnvelope(value)) {
     return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
-  return { status: "ok", archive: value, migrated: false };
+  const archive = ensureAutomaticRegistrationPeriodTags(value);
+  return { status: "ok", archive, migrated: archive !== value };
 }
 
 export function parseArchive(raw: string | null): ParseArchiveResult {

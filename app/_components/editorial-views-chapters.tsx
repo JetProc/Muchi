@@ -428,22 +428,16 @@ export function MemoryPanel({
 interface TagEditorProps {
   tags: TagDefinition[];
   selectedTagIds: string[];
-  character: string;
   periodKind: "none" | "month" | "season";
   year: string;
   month: string;
   season: keyof typeof SEASON_LABEL;
-  place: string;
-  people: string;
   memo: string;
   toggleTag: (tagId: string) => void;
-  setCharacter: (value: string) => void;
   setPeriodKind: (value: "none" | "month" | "season") => void;
   setYear: (value: string) => void;
   setMonth: (value: string) => void;
   setSeason: (value: keyof typeof SEASON_LABEL) => void;
-  setPlace: (value: string) => void;
-  setPeople: (value: string) => void;
   setMemo: (value: string) => void;
 }
 
@@ -451,39 +445,46 @@ export function TagEditor(props: TagEditorProps) {
   const {
     tags,
     selectedTagIds,
-    character,
     periodKind,
     year,
     month,
     season,
-    place,
-    people,
     memo,
     toggleTag,
-    setCharacter,
     setPeriodKind,
     setYear,
     setMonth,
     setSeason,
-    setPlace,
-    setPeople,
     setMemo,
   } = props;
+  const periodTags = tags.filter(
+    (tag) => tag.category === "period" && selectedTagIds.includes(tag.id),
+  );
   return (
     <>
       <div className="field managed-tag-field">
-        <div className="managed-tag-heading"><span className="field-label">등록된 태그 칩 · 여러 개 선택 가능</span><span className="field-hint">{selectedTagIds.length} / {ARCHIVE_LIMITS.tagsPerCubeTrack}</span></div>
-        {tags.length ? <div className="managed-tag-groups">{TAG_CATEGORIES.map((category) => {
-          const categoryTags = tags.filter((tag) => tag.category === category);
-          if (!categoryTags.length) return null;
-          return <div className="managed-tag-group" key={category}><span>{TAG_CATEGORY_LABEL[category]}</span><div className="filter-row">{categoryTags.map((tag) => <button key={tag.id} className={`tag${selectedTagIds.includes(tag.id) ? " is-selected" : ""}`} type="button" onClick={() => toggleTag(tag.id)} aria-pressed={selectedTagIds.includes(tag.id)}>#{tag.label}</button>)}</div></div>;
-        })}</div> : <div className="notice"><span>먼저 자주 쓸 태그 칩을 만들어두면 여기서 바로 고를 수 있어요.</span></div>}
+        <div className="managed-tag-heading"><span className="field-label">태그</span><span className="field-hint">{selectedTagIds.length} / {ARCHIVE_LIMITS.tagsPerCubeTrack}</span></div>
+        <div className="managed-tag-groups">
+          <div className="managed-tag-group period-tag-group">
+            <span>추가 시기 · 자동</span>
+            {periodTags.length ? <div className="filter-row">{periodTags.map((tag) => <span key={tag.id} className="tag is-selected">#{tag.label}</span>)}</div> : null}
+          </div>
+          <div className="managed-tag-group">
+            <span>기억한 시기</span>
+            <div className="filter-row period-kind-row" role="group" aria-label="기억한 시기 형식">
+              {(["none", "month", "season"] as const).map((kind) => <button key={kind} className={`tag${periodKind === kind ? " is-selected" : ""}`} type="button" onClick={() => setPeriodKind(kind)} aria-pressed={periodKind === kind}>{kind === "none" ? "미지정" : kind === "month" ? "월" : "계절"}</button>)}
+            </div>
+            {periodKind !== "none" ? <div className="period-tag-detail"><input className="input" value={year} onChange={(event) => setYear(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" placeholder="연도 (선택)" aria-label="기억한 연도" />{periodKind === "month" ? <select className="select" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="기억한 월">{Array.from({ length: 12 }, (_, index) => <option value={index + 1} key={index + 1}>{index + 1}월</option>)}</select> : <select className="select" value={season} onChange={(event) => setSeason(event.target.value as keyof typeof SEASON_LABEL)} aria-label="기억한 계절">{Object.entries(SEASON_LABEL).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>}</div> : null}
+          </div>
+          {TAG_CATEGORIES.filter((category) => category !== "period").map((category) => {
+            const categoryTags = tags.filter((tag) => tag.category === category);
+            if (!categoryTags.length) return null;
+            return <div className="managed-tag-group" key={category}><span>{TAG_CATEGORY_LABEL[category]}</span><div className="filter-row">{categoryTags.map((tag) => <button key={tag.id} className={`tag${selectedTagIds.includes(tag.id) ? " is-selected" : ""}`} type="button" onClick={() => toggleTag(tag.id)} aria-pressed={selectedTagIds.includes(tag.id)}>#{tag.label}</button>)}</div></div>;
+          })}
+        </div>
         <Link className="text-link" href="/tags" intent="tab">태그 칩 만들기·관리</Link>
       </div>
-      <div className="field"><label htmlFor="character">성격 문장</label><input id="character" className="input" value={character} onChange={(event) => setCharacter(event.target.value)} maxLength={100} placeholder="예: 차갑지만 이상하게 나를 안심시키는 곡" /></div>
-      <div className="field"><span className="field-label">기억한 시기</span><div className="form-grid"><select className="select" value={periodKind} onChange={(event) => setPeriodKind(event.target.value as typeof periodKind)} aria-label="기억한 시기 종류"><option value="none">시기 없음</option><option value="month">연도 + 월</option><option value="season">연도 + 계절</option></select>{periodKind !== "none" ? <input className="input" value={year} onChange={(event) => setYear(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" placeholder="연도 (선택)" aria-label="기억한 연도" /> : null}{periodKind === "month" ? <select className="select" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="기억한 월">{Array.from({ length: 12 }, (_, index) => <option value={index + 1} key={index + 1}>{index + 1}월</option>)}</select> : null}{periodKind === "season" ? <select className="select" value={season} onChange={(event) => setSeason(event.target.value as keyof typeof SEASON_LABEL)} aria-label="기억한 계절">{Object.entries(SEASON_LABEL).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select> : null}</div></div>
-      <div className="form-grid"><div className="field"><label htmlFor="place">장소</label><input id="place" className="input" value={place} onChange={(event) => setPlace(event.target.value)} maxLength={60} placeholder="첫 자취방, 한강변…" /></div><div className="field"><label htmlFor="people">함께한 사람</label><input id="people" className="input" value={people} onChange={(event) => setPeople(event.target.value)} maxLength={60} placeholder="친구, 혼자, 가족…" /></div></div>
-      <div className="field"><label htmlFor="memo">기억 메모</label><textarea id="memo" className="textarea" value={memo} onChange={(event) => setMemo(event.target.value)} maxLength={1000} placeholder="이 곡을 들으면 떠오르는 장면을 자유롭게 남겨보세요." /><span className="field-hint">{memo.length} / 1,000</span></div>
+      <div className="field"><label htmlFor="memo">메모</label><textarea id="memo" className="textarea" value={memo} onChange={(event) => setMemo(event.target.value)} maxLength={1000} placeholder="떠오르는 장면" /><span className="field-hint">{memo.length} / 1,000</span></div>
     </>
   );
 }
@@ -510,13 +511,10 @@ export function Memory({
   const cube = cubeTrack ? archive.data.cubes[cubeTrack.cubeId] : null;
   const availableTags = Object.values(archive.data.tags).sort((left, right) => left.label.localeCompare(right.label, "ko"));
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [character, setCharacter] = useState("");
   const [periodKind, setPeriodKind] = useState<"none" | "month" | "season">("none");
   const [year, setYear] = useState("");
   const [month, setMonth] = useState("1");
   const [season, setSeason] = useState<keyof typeof SEASON_LABEL>("spring");
-  const [place, setPlace] = useState("");
-  const [people, setPeople] = useState("");
   const [memo, setMemo] = useState("");
   const [assigning, setAssigning] = useState(false);
   const assignDialogRef = useModalFocus<HTMLDivElement>(
@@ -527,9 +525,6 @@ export function Memory({
     if (!cubeTrack) return;
     const hydrationTimer = window.setTimeout(() => {
       setSelectedTagIds(cubeTrack.tagIds.filter((tagId) => Boolean(archive.data.tags[tagId])));
-      setCharacter(cubeTrack.character);
-      setPlace(cubeTrack.place);
-      setPeople(cubeTrack.people);
       setMemo(cubeTrack.memo);
       if (cubeTrack.memoryPeriod) {
         setPeriodKind(cubeTrack.memoryPeriod.kind);
@@ -562,10 +557,7 @@ export function Memory({
     if (periodKind === "season") memoryPeriod = { kind: "season", year: parsedYear, season };
     try {
       const withDetails = updateCubeTrack(archive, activeCubeTrack.id, {
-        character,
         memoryPeriod,
-        place,
-        people,
         memo,
       });
       const withTags = setCubeTrackTagIds(withDetails, activeCubeTrack.id, selectedTagIds);
@@ -603,22 +595,16 @@ export function Memory({
           <TagEditor
             tags={availableTags}
             selectedTagIds={selectedTagIds}
-            character={character}
             periodKind={periodKind}
             year={year}
             month={month}
             season={season}
-            place={place}
-            people={people}
             memo={memo}
             toggleTag={toggleTag}
-            setCharacter={setCharacter}
             setPeriodKind={setPeriodKind}
             setYear={setYear}
             setMonth={setMonth}
             setSeason={setSeason}
-            setPlace={setPlace}
-            setPeople={setPeople}
             setMemo={setMemo}
           />
           <div className="dialog-actions"><button className="button" type="button" onClick={() => router.push(`/chapter?id=${encodeURIComponent(cube.id)}`, "back", cube.id)}>취소</button><button className="button" type="button" onClick={() => setAssigning(true)}>다른 챕터에도 담기</button><button className="button button-primary" type="submit">이 순간 저장하기</button></div>

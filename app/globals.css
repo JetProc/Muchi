@@ -1267,6 +1267,28 @@ button.tag {
   padding-top: 0;
 }
 
+.capture-view .page-header {
+  gap: 18px;
+  padding-bottom: 24px;
+}
+
+.capture-view .page-header h1 {
+  margin-top: 8px;
+  font-size: clamp(38px, 9vw, 72px);
+}
+
+.capture-view .page-header p {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.capture-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
 .search-panel,
 .capture-search-panel,
 .manual-import,
@@ -1293,55 +1315,40 @@ button.tag {
   margin-top: 22px;
 }
 
-.capture-song-search .search-form {
-  align-items: stretch;
+.capture-search-compact {
+  padding: 18px 0 20px;
 }
 
-.capture-secondary {
-  margin-top: 22px;
-  border-bottom: 1px solid var(--line);
+.capture-search-form {
+  margin-top: 8px;
 }
 
-.capture-secondary summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 18px 0;
-  color: var(--ink-soft);
+.capture-search-form .input {
+  min-height: 54px;
   font-family: var(--font-serif);
-  font-size: clamp(18px, 4vw, 24px);
-  cursor: pointer;
-  list-style: none;
+  font-size: clamp(20px, 4vw, 28px);
 }
 
-.capture-secondary summary::-webkit-details-marker {
-  display: none;
+.capture-results {
+  margin-top: 28px;
 }
 
-.capture-secondary summary .section-label {
-  display: block;
-  margin-bottom: 4px;
+.capture-search-empty {
+  padding: 22px 0;
+  color: var(--dust-text);
+  font-size: 11px;
 }
 
-.capture-secondary summary > span:last-child {
-  font-family: var(--font-sans);
-  font-size: 24px;
-  transition: transform 180ms ease;
+.link-import-dialog {
+  width: min(580px, 100%);
 }
 
-.capture-secondary[open] summary > span:last-child {
-  transform: rotate(45deg);
+.link-import-dialog h2 {
+  font-size: clamp(34px, 9vw, 56px);
 }
 
-.capture-link-panel {
-  padding: 4px 0 28px;
-}
-
-.capture-link-panel h2 {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(22px, 3vw, 30px);
+.link-import-form {
+  margin-top: 26px;
 }
 
 .search-input {

@@ -98,17 +98,17 @@ test("renders every primary chapter archive destination with its stable shell", 
   assert.match(offlineHtml, /내 음악 아카이브로 돌아가기/);
 });
 
-test("prioritizes song search over secondary link import in the Add view", async () => {
+test("keeps Add search compact and opens link import in a modal", async () => {
   const source = await readFile(
     new URL("../app/_components/editorial-views-primary.tsx", import.meta.url),
     "utf8",
   );
-  const searchIndex = source.indexOf('<span className="section-label">MUSIC SEARCH</span>');
-  const linkIndex = source.indexOf('<span className="section-label">OTHER WAY</span>');
 
-  assert.ok(searchIndex >= 0, "primary song search label should exist");
-  assert.ok(linkIndex > searchIndex, "link import should follow song search");
-  assert.match(source, /<details className="capture-secondary">/);
+  assert.match(source, /className="capture-search-compact"/);
+  assert.match(source, /const \[linkDialogOpen, setLinkDialogOpen\] = useState\(false\)/);
+  assert.match(source, /className="dialog link-import-dialog"/);
+  assert.match(source, /aria-modal="true" aria-labelledby="link-import-title"/);
+  assert.doesNotMatch(source, /<details className="capture-secondary">/);
 });
 
 test("redirects legacy presentation routes to the chapter archive", async () => {

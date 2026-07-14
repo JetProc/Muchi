@@ -230,6 +230,8 @@ export function Capture({
   const [loading, setLoading] = useState(false);
   const [linkLoading, setLinkLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [assigning, setAssigning] = useState<TrackReference | null>(null);
   const [manualFallback, setManualFallback] = useState<ManualTrackFallback | null>(null);
   const [manualTitle, setManualTitle] = useState("");
@@ -241,6 +243,14 @@ export function Capture({
   const assignDialogRef = useModalFocus<HTMLDivElement>(
     Boolean(assigning),
     () => setAssigning(null),
+  );
+  const linkDialogRef = useModalFocus<HTMLDivElement>(
+    linkDialogOpen,
+    () => {
+      setLinkDialogOpen(false);
+      setManualFallback(null);
+      setLinkError(null);
+    },
   );
 
   useEffect(() => {
@@ -295,11 +305,11 @@ export function Capture({
   async function importLink(event: FormEvent) {
     event.preventDefault();
     if (!online) {
-      setError("오프라인에서는 새 음악 링크를 가져올 수 없어요.");
+      setLinkError("오프라인에서는 새 음악 링크를 가져올 수 없어요.");
       return;
     }
     setLinkLoading(true);
-    setError(null);
+    setLinkError(null);
     setManualFallback(null);
     try {
       const response = await fetch(`/api/music-metadata?url=${encodeURIComponent(musicUrl.trim())}`, {
@@ -307,7 +317,7 @@ export function Capture({
       });
       const payload = await response.json() as MusicMetadataApiResponse;
       if (payload.status === "error") {
-        setError(payload.error.message);
+        setLinkError(payload.error.message);
         return;
       }
       if (payload.status === "manual") {
@@ -319,8 +329,9 @@ export function Capture({
       }
       setResults([payload.track]);
       setResultSource("link");
+      setLinkDialogOpen(false);
     } catch {
-      setError("링크 정보를 가져오지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.");
+      setLinkError("링크 정보를 가져오지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.");
     } finally {
       setLinkLoading(false);
     }
@@ -337,6 +348,8 @@ export function Capture({
     setResults([track]);
     setResultSource("link");
     setManualFallback(null);
+    setLinkError(null);
+    setLinkDialogOpen(false);
   }
 
   async function submit(event: FormEvent) {
@@ -398,53 +411,38 @@ export function Capture({
     <div className="page-content capture-view">
       <PageHeader
         eyebrow="ADD A MEMORY"
-        title="어떤 곡을 기억하고 있나요?"
-        copy="곡명이나 아티스트를 검색해 먼저 찾아보세요. 태그와 기억은 나중에 천천히 덧붙여도 됩니다."
-        action={<Link className="text-link" href="/" intent="back">CLOSE</Link>}
+        title="곡 찾기"
+        copy="곡명이나 아티스트로 검색하세요. 저장한 곡은 등록한 달의 챕터에도 자동으로 모여요."
+        action={(
+          <div className="capture-header-actions">
+            <button
+              className="button button-ghost"
+              type="button"
+              onClick={() => {
+                setLinkError(null);
+                setManualFallback(null);
+                setLinkDialogOpen(true);
+              }}
+            >
+              공유 링크로 추가
+            </button>
+            <Link className="text-link" href="/" intent="back">CLOSE</Link>
+          </div>
+        )}
       />
-      <section className="search-panel capture-song-search">
-        <span className="section-label">MUSIC SEARCH</span>
-        <h2 style={{ margin: 0, fontSize: "clamp(24px, 4vw, 38px)" }}>
-          곡명 또는 아티스트로 찾아보세요
-        </h2>
-        <form className="search-form" onSubmit={submit}>
+      <section className="capture-search-compact" aria-labelledby="capture-search-label">
+        <span className="section-label" id="capture-search-label">MUSIC SEARCH</span>
+        <form className="search-form capture-search-form" onSubmit={submit}>
           <label className="sr-only" htmlFor="itunes-query">곡명 또는 아티스트</label>
-          <input id="itunes-query" className="input search-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="예: The Volunteers Radio" minLength={2} />
+          <input id="itunes-query" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="곡명 또는 아티스트" minLength={2} />
           <button className="button button-cyan" type="submit" disabled={loading || !online}>{loading ? <LoadingDots /> : "음악 찾기"}</button>
         </form>
-        <p className="legal-note">검색 결과와 30초 미리듣기는 iTunes에서 제공됩니다. 검색은 버튼을 눌렀을 때만 실행됩니다.</p>
+        <p className="legal-note">검색 및 30초 미리듣기는 iTunes에서 제공됩니다.</p>
       </section>
-
-      <details className="capture-secondary">
-        <summary>
-          <span><span className="section-label">OTHER WAY</span>공유 링크로 추가하기</span>
-          <span aria-hidden="true">+</span>
-        </summary>
-        <section className="capture-link-panel">
-          <h2>음악 공유 링크가 있나요?</h2>
-          <form className="search-form" onSubmit={importLink}>
-            <label className="sr-only" htmlFor="music-url">음악 공유 링크</label>
-            <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="Spotify · Apple Music · YouTube · Melon 링크" required autoComplete="url" />
-            <button className="button" type="submit" disabled={linkLoading || !online}>
-              {linkLoading ? <LoadingDots /> : "링크 가져오기"}
-            </button>
-          </form>
-          <p className="legal-note">Apple Music·YouTube는 정보를 자동으로 채웁니다. Spotify·Melon에서 정보가 부족하면 원본 링크를 보존한 채 곡명과 아티스트만 확인받아요.</p>
-        </section>
-      </details>
-
-      {manualFallback ? (
-        <form className="panel form-stack manual-import" onSubmit={finishManualImport} aria-labelledby="manual-import-title">
-          <div><span className="section-label">LINK KEPT SAFE</span><h2 id="manual-import-title">부족한 곡 정보만 채워주세요</h2><p className="field-hint">메타데이터를 불러오지 못해도 입력한 원본 링크와 이후의 기억은 유지됩니다.</p></div>
-          <div className="form-grid"><div className="field"><label htmlFor="manual-title">곡명 *</label><input id="manual-title" className="input" value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} maxLength={200} required /></div><div className="field"><label htmlFor="manual-artist">아티스트 *</label><input id="manual-artist" className="input" value={manualArtist} onChange={(event) => setManualArtist(event.target.value)} maxLength={200} required /></div></div>
-          <div className="field"><label htmlFor="manual-album">앨범 · 선택</label><input id="manual-album" className="input" value={manualAlbum} onChange={(event) => setManualAlbum(event.target.value)} maxLength={200} /></div>
-          <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={() => setManualFallback(null)}>취소</button><button className="button button-primary" type="submit">이 곡 확인하기</button></div>
-        </form>
-      ) : null}
 
       {error ? <div className="notice notice-danger" style={{ marginTop: 18 }} role="alert">{error}</div> : null}
 
-      <section className="section">
+      <section className="section capture-results">
         <div className="section-head"><div><h2>{results.length ? `${resultSource === "link" ? "가져온 음악" : "검색 결과"} ${results.length}곡` : "검색 결과"}</h2><p>일단 저장하거나 바로 챕터를 골라 당신의 언어를 덧붙일 수 있어요.</p></div></div>
         {results.length ? (
           <div className="track-list">
@@ -462,8 +460,41 @@ export function Capture({
               );
             })}
           </div>
-        ) : <EmptyState icon="⌕" title="기억하고 싶은 곡을 검색해 보세요" copy="곡명이나 아티스트를 입력하면 찾은 음악을 바로 저장할 수 있어요." />}
+        ) : <div className="capture-search-empty">검색하면 곡 목록이 여기에 표시됩니다.</div>}
       </section>
+
+      {linkDialogOpen ? (
+        <div ref={linkDialogRef} className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="link-import-title">
+          <div className="dialog link-import-dialog">
+            <span className="section-label">ADD BY LINK</span>
+            <h2 id="link-import-title">공유 링크로 곡 추가</h2>
+            {!manualFallback ? (
+              <>
+                <p>Spotify, Apple Music, YouTube 또는 Melon 링크를 붙여넣으세요.</p>
+                <form className="form-stack link-import-form" onSubmit={importLink}>
+                  <div className="field">
+                    <label htmlFor="music-url">음악 공유 링크</label>
+                    <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="https://…" required autoComplete="url" />
+                  </div>
+                  {linkError ? <div className="notice notice-danger" role="alert">{linkError}</div> : null}
+                  <p className="legal-note">정보가 부족한 링크는 원본을 보존한 채 곡명과 아티스트만 추가로 확인합니다.</p>
+                  <div className="dialog-actions">
+                    <button className="button button-ghost" type="button" onClick={() => setLinkDialogOpen(false)}>취소</button>
+                    <button className="button button-primary" type="submit" disabled={linkLoading || !online}>{linkLoading ? <LoadingDots /> : "링크 가져오기"}</button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <form className="form-stack link-import-form" onSubmit={finishManualImport}>
+                <p className="field-hint">원본 링크는 안전하게 보관했어요. 부족한 정보만 채워주세요.</p>
+                <div className="form-grid"><div className="field"><label htmlFor="manual-title">곡명 *</label><input id="manual-title" className="input" value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} maxLength={200} required /></div><div className="field"><label htmlFor="manual-artist">아티스트 *</label><input id="manual-artist" className="input" value={manualArtist} onChange={(event) => setManualArtist(event.target.value)} maxLength={200} required /></div></div>
+                <div className="field"><label htmlFor="manual-album">앨범 · 선택</label><input id="manual-album" className="input" value={manualAlbum} onChange={(event) => setManualAlbum(event.target.value)} maxLength={200} /></div>
+                <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={() => setManualFallback(null)}>뒤로</button><button className="button button-primary" type="submit">이 곡 확인하기</button></div>
+              </form>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {assigning ? (
         <div ref={assignDialogRef} className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="assign-title">

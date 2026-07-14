@@ -153,6 +153,15 @@ test("uses whitespace and tone instead of decorative divider lines", async () =>
   assert.match(css, /\.chapter-stats\s*{[^}]*gap:\s*8px;/s);
 });
 
+test("keeps track rows compact with actions aligned at the right edge", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.track-line\s*\{[^}]*grid-template-columns:[^;]*auto;/s);
+  assert.match(css, /\.track-line \.track-actions\s*\{[^}]*grid-column:\s*4;/s);
+  assert.match(css, /\.track-line \.track-actions\s*\{[^}]*justify-content:\s*flex-end;/s);
+  assert.match(css, /\.track-line \.track-art\s*\{[^}]*width:\s*44px;/s);
+});
+
 test("turns the chapter index into an accessible overlapping LP carousel", async () => {
   const [source, packageJsonSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
@@ -174,6 +183,55 @@ test("turns the chapter index into an accessible overlapping LP carousel", async
   assert.match(source, /role="tablist" aria-label="음악 챕터 선택"/);
   assert.match(source, /aria-selected=\{selected\}/);
   assert.match(source, />\s*챕터 들어가기\s*</);
+});
+
+test("removes redundant helper copy while preserving safety-critical text", async () => {
+  const paths = [
+    "editorial-ui.tsx",
+    "editorial-views-primary.tsx",
+    "editorial-views-chapters.tsx",
+    "editorial-views-discovery.tsx",
+    "editorial-views-tags.tsx",
+    "music-world-app.tsx",
+  ];
+  const sources = await Promise.all(paths.map((name) => readFile(
+    new URL(`../app/_components/${name}`, import.meta.url),
+    "utf8",
+  )));
+  const source = sources.join("\n");
+
+  assert.doesNotMatch(source, /\bcopy=/);
+  assert.doesNotMatch(source, /같은 곡도 순간마다 다르게 느껴집니다/);
+  assert.doesNotMatch(source, /같은 곡도 이 챕터 안에서는 고유한 태그와 기억을 가집니다/);
+  assert.doesNotMatch(source, /완벽하게 정리하지 않아도 괜찮아요/);
+  assert.doesNotMatch(source, /welcome-steps/);
+  assert.match(source, /삭제되지만 다른 챕터의 같은 곡은 그대로 남습니다/);
+  assert.match(source, /이 기기에만 저장되는 데모입니다/);
+  assert.match(source, /ITUNES_PREVIEW_USAGE_NOTICE/);
+});
+
+test("keeps archive search compact and prioritizes the result list", async () => {
+  const [source, css] = await Promise.all([
+    readFile(
+      new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(source, /className="page-content search-view"/);
+  assert.match(source, /<h1>기록 검색<\/h1>/);
+  assert.match(source, /className="input search-input"\s*\n\s*type="search"/);
+  assert.match(source, /className="search-tag-list" role="group"/);
+  assert.match(source, /className="search-results-section"/);
+  assert.doesNotMatch(source, /내 언어로 음악을 다시 찾기/);
+  assert.doesNotMatch(source, /className="search-editor/);
+  assert.ok(
+    source.indexOf("search-results-section") > source.indexOf("search-tag-list"),
+  );
+  assert.match(css, /\.search-tag-list\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;/s);
+  assert.match(css, /\.search-results-section\s*\{[^}]*margin-top:\s*16px;/s);
+  assert.match(css, /\.search-title-row h1\s*\{[^}]*font-size:\s*clamp\(28px,/s);
 });
 
 test("redirects legacy presentation routes to the chapter archive", async () => {

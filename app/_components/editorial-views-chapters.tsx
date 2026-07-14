@@ -167,7 +167,6 @@ export function Chapters({
         <div>
           <span className="section-label">YOUR INDEX</span>
           <h1>나의 음악 챕터</h1>
-          <p>한 시절의 음악을 골라 그때의 장면으로 들어가 보세요.</p>
         </div>
         <button className="button button-primary" type="button" onClick={() => setShowForm(true)}>새 챕터</button>
       </header>
@@ -265,7 +264,6 @@ export function Chapters({
         <EmptyState
           icon=""
           title="첫 챕터의 이름을 지어주세요"
-          copy="‘새벽 드라이브’, ‘2018년 겨울’, ‘첫 자취방’처럼 음악이 머문 장면이면 충분해요."
           action={<button className="button button-primary" type="button" onClick={() => setShowForm(true)}>첫 챕터 만들기</button>}
         />
       )}
@@ -277,7 +275,6 @@ export function Chapters({
             <h2 id="create-chapter-title">
               {pendingTrack ? `‘${pendingTrack.title}’이 머물 순간은?` : "이 순간의 이름은?"}
             </h2>
-            <p>{pendingTrack ? "챕터를 만들면 곧바로 태그와 기억을 남기는 화면으로 이어집니다." : "이름만 정하면 바로 시작할 수 있어요."}</p>
             <div className="form-stack" style={{ marginTop: 24 }}>
               <div className="field"><label htmlFor="chapter-name">챕터 이름 *</label><input id="chapter-name" className="input" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} placeholder="예: 비 오는 날의 버스" /></div>
               <div className="field"><label htmlFor="chapter-description">짧은 설명</label><textarea id="chapter-description" className="textarea" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={200} placeholder="이 챕터에 담고 싶은 음악의 장면" /></div>
@@ -325,8 +322,8 @@ export function ChapterDetail({
     () => setEditing(false),
   );
 
-  if (!hydrated || !chapterId) return <div className="page-content"><EmptyState icon="" title="챕터를 불러오고 있어요" copy="잠시만 기다려 주세요." /></div>;
-  if (!chapter) return <div className="page-content"><EmptyState icon="" title="챕터를 찾을 수 없어요" copy="삭제됐거나 이 기기에 없는 챕터입니다." action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
+  if (!hydrated || !chapterId) return <div className="page-content"><EmptyState icon="" title="챕터를 불러오고 있어요" /></div>;
+  if (!chapter) return <div className="page-content"><EmptyState icon="" title="챕터를 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
   const activeChapter = chapter;
 
   const allTags = entries.flatMap((entry) => entry.tags);
@@ -371,14 +368,14 @@ export function ChapterDetail({
         <div className="chapter-hero-copy">
           <span className="section-label">CHAPTER · {formatDate(chapter.updatedAt)}</span>
           <h1>{chapter.name}</h1>
-          <p>{chapter.description || "이 순간에 담긴 음악과 기억"}</p>
+          {chapter.description ? <p>{chapter.description}</p> : null}
           <div className="chapter-actions"><button className="text-button" type="button" onClick={openEditor}>EDIT CHAPTER</button><Link className="button button-primary" href="/capture" intent="modal">ADD TRACK</Link></div>
         </div>
       </section>
       <div className="chapter-stats"><span><strong>{String(entries.length).padStart(2, "0")}</strong> TRACKS</span><span><strong>{String(new Set(allTags.map((tag) => tag.id)).size).padStart(2, "0")}</strong> TAGS</span><span><strong>{String(entries.filter((entry) => entry.cubeTrack.memo).length).padStart(2, "0")}</strong> NOTES</span></div>
       {topTags.length ? <div className="filter-row" style={{ marginTop: 18 }}>{topTags.map((tag) => <span className="tag" key={tag.id}>#{tag.label}</span>)}</div> : null}
       <section className="section">
-        <div className="section-head"><div><span className="section-label">TRACK LIST</span><h2>이 챕터의 음악</h2><p>같은 곡도 이 챕터 안에서는 고유한 태그와 기억을 가집니다.</p></div></div>
+        <div className="section-head"><div><span className="section-label">TRACK LIST</span><h2>이 챕터의 음악</h2></div></div>
         {entries.length ? (
           <div className="track-list">
             {entries.map((entry, index) => {
@@ -386,7 +383,7 @@ export function ChapterDetail({
               return <TrackLine key={entry.cubeTrack.id} track={entry.track} index={index} preview={preview} sharedId={entry.cubeTrack.id} tags={entry.tags} context={entry.cubeTrack.character || `${formatMemory(entry.cubeTrack.memoryPeriod)}${otherMoments ? ` · 다른 순간 ${otherMoments}개` : ""}`} actions={<><Link className="button" href={`/memory?id=${encodeURIComponent(entry.cubeTrack.id)}`} intent="shared" sharedId={entry.cubeTrack.id}>EDIT MEMORY</Link><button className="text-button" type="button" disabled={index === 0} onClick={() => move(entry.cubeTrack, -1)} aria-label="위로 이동">UP</button><button className="text-button" type="button" disabled={index === entries.length - 1} onClick={() => move(entry.cubeTrack, 1)} aria-label="아래로 이동">DOWN</button><button className="text-button" type="button" onClick={() => removeEntry(entry.cubeTrack, entry.track.title)} aria-label="이 챕터에서 곡과 기억 삭제">REMOVE</button></>} />;
             })}
           </div>
-        ) : <EmptyState icon="♪" title="이 순간의 첫 곡을 담아보세요" copy="곡을 담는 것만으로 시작할 수 있어요. 태그와 기억은 나중에 추가하세요." action={<Link className="button button-primary" href="/capture">곡 찾기</Link>} />}
+        ) : <EmptyState icon="♪" title="이 순간의 첫 곡을 담아보세요" action={<Link className="button button-primary" href="/capture">곡 찾기</Link>} />}
       </section>
 
       {editing ? (
@@ -409,12 +406,10 @@ export function ChapterDetail({
 }
 
 export function MemoryPanel({
-  cube,
   cubeTrack,
   track,
   preview,
 }: {
-  cube: Cube;
   cubeTrack: CubeTrack;
   track: TrackReference;
   preview: PreviewControls;
@@ -426,7 +421,6 @@ export function MemoryPanel({
       <PreviewButton track={track} preview={preview} />
       {track.provider === "itunes" ? <p className="legal-note">{ITUNES_PREVIEW_USAGE_NOTICE}</p> : null}
       {track.externalUrl ? <a className="text-link" href={track.externalUrl} target="_blank" rel="noopener noreferrer">OPEN ORIGINAL</a> : null}
-      <div className="notice"><span>이 페이지의 태그와 기억은 <strong>{cube.name}</strong> 챕터에만 저장됩니다.</span></div>
     </aside>
   );
 }
@@ -548,8 +542,8 @@ export function Memory({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cubeTrackId]);
 
-  if (!hydrated || !cubeTrackId) return <div className="page-content"><EmptyState icon="…" title="곡의 기억을 불러오고 있어요" copy="잠시만 기다려 주세요." /></div>;
-  if (!cubeTrack || !track || !cube) return <div className="page-content"><EmptyState icon="" title="곡의 기억을 찾을 수 없어요" copy="삭제됐거나 이 기기에 없는 기록입니다." action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
+  if (!hydrated || !cubeTrackId) return <div className="page-content"><EmptyState icon="…" title="곡의 기억을 불러오고 있어요" /></div>;
+  if (!cubeTrack || !track || !cube) return <div className="page-content"><EmptyState icon="" title="곡의 기억을 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
   const activeCubeTrack = cubeTrack;
   const activeTrack = track;
   const activeCube = cube;
@@ -602,9 +596,9 @@ export function Memory({
 
   return (
     <div className="page-content memory-view">
-      <PageHeader eyebrow={`MEMORY · ${cube.name}`} title={`‘${track.title}’은 이 순간 어떤 음악인가요?`} copy="같은 곡도 순간마다 다르게 느껴집니다. 이 기록은 다른 챕터에 영향을 주지 않아요." />
+      <PageHeader eyebrow={`MEMORY · ${cube.name}`} title={`‘${track.title}’은 이 순간 어떤 음악인가요?`} />
       <div className="memory-layout">
-        <MemoryPanel cube={cube} cubeTrack={cubeTrack} track={track} preview={preview} />
+        <MemoryPanel cubeTrack={cubeTrack} track={track} preview={preview} />
         <form className="memory-form form-stack" onSubmit={save}>
           <TagEditor
             tags={availableTags}
@@ -636,7 +630,6 @@ export function Memory({
           <div className="dialog">
             <span className="section-label">ANOTHER CHAPTER</span>
             <h2 id="other-chapter-title">새로운 순간을 고르세요</h2>
-            <p>곡 정보만 공유하고 태그와 기억은 빈 상태로 시작합니다.</p>
             <div className="track-list" style={{ marginTop: 22 }}>
               {Object.values(archive.data.cubes).filter((item) => item.id !== cube.id).map((item, index) => <button className="chapter-choice" key={item.id} type="button" onClick={() => addToOtherChapter(item.id)}><span>{String(index + 1).padStart(2, "0")}</span><ChapterCover archive={archive} chapter={item} /><span className="track-info"><strong>{item.name}</strong><small>{getCubeTracks(archive, item.id).length}곡</small></span><em>SELECT</em></button>)}
             </div>

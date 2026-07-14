@@ -139,7 +139,6 @@ export function AlbumHero({
         <EmptyState
           icon=""
           title="첫 음악을 기록해 주세요"
-          copy="좋아하는 곡 하나와 그 순간의 문장만으로 아카이브가 시작됩니다."
           action={<Link className="button button-primary" href="/capture" intent="modal">첫 곡 기록하기</Link>}
         />
       )}
@@ -617,23 +616,27 @@ export function Inbox({
   }
 
   return (
-    <div className="page-content">
-      <PageHeader eyebrow="INBOX" title="먼저 담아둔 음악" copy="지금은 분류하지 않아도 괜찮아요. 여유가 생겼을 때 한 곡씩 의미를 붙여보세요." action={<Link className="button button-primary" href="/capture" intent="modal">ADD TRACK</Link>} />
+    <div className="page-content inbox-view">
+      <PageHeader
+        eyebrow={`정리할 곡 · ${entries.length}곡 남음`}
+        title="아직 챕터를 기다리는 곡"
+        action={<Link className="button button-primary" href="/capture" intent="modal">곡 더 찾기</Link>}
+      />
       {entries.length ? (
         <div className="track-list">
           {entries.map((entry, index) => {
             const track = archive.data.tracks[entry.trackId];
             return track ? (
-              <TrackLine key={entry.trackId} track={track} index={index} preview={preview} context={`${formatDate(entry.capturedAt)} 포착 · 아직 미분류`} actions={<><button className="button button-primary" type="button" onClick={() => setSelectedTrack(track.id)}>기록 채우기</button><button className="button button-ghost" type="button" onClick={() => commit(removeInboxTrack(archive, track.id), "임시 보관함에서 곡을 꺼냈어요.")}>제거</button></>} />
+              <TrackLine key={entry.trackId} track={track} index={index} preview={preview} context={`${formatDate(entry.capturedAt)} 저장 · 정리 대기`} actions={<><button className="button button-primary" type="button" onClick={() => setSelectedTrack(track.id)}>챕터 고르기</button><button className="button button-ghost" type="button" onClick={() => commit(removeInboxTrack(archive, track.id), "임시 보관함에서 곡을 꺼냈어요.")}>제거</button></>} />
             ) : null;
           })}
         </div>
-      ) : <EmptyState icon="⌄" title="아직 기다리는 곡이 없어요" copy="마음에 남는 노래를 발견하면 완벽하게 정리하지 말고 먼저 담아두세요." action={<Link className="button button-primary" href="/capture">첫 곡 포착하기</Link>} />}
+      ) : <EmptyState icon="⌄" title="정리할 곡이 없어요" action={<Link className="button button-primary" href="/capture">첫 곡 저장하기</Link>} />}
 
       {selectedTrack ? (
         <div ref={assignDialogRef} className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="inbox-assign-title">
           <div className="dialog">
-            <span className="section-label">CHOOSE A CHAPTER</span><h2 id="inbox-assign-title">이 곡이 머물 순간은?</h2><p>챕터를 고른 뒤 태그와 기억은 천천히 채울 수 있어요.</p>
+            <span className="section-label">CHOOSE A CHAPTER</span><h2 id="inbox-assign-title">이 곡이 머물 순간은?</h2>
             <div className="track-list" style={{ marginTop: 22 }}>
               {chapters.map((chapter, index) => (
                 <button key={chapter.id} className="chapter-choice" type="button" onClick={() => assign(selectedTrack, chapter.id)}><span>{String(index + 1).padStart(2, "0")}</span><ChapterCover archive={archive} chapter={chapter} /><span className="track-info"><strong>{chapter.name}</strong><small>{getCubeTracks(archive, chapter.id).length}곡</small></span><em>SELECT</em></button>

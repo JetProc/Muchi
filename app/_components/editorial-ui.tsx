@@ -19,12 +19,10 @@ import { chapterColorStyle, formatDate } from "./editorial-format";
 
 export function EmptyState({
   title,
-  copy,
   action,
 }: {
   icon?: string;
   title: string;
-  copy: string;
   action?: ReactNode;
 }) {
   return (
@@ -32,7 +30,6 @@ export function EmptyState({
       <div>
         <span className="section-label">ARCHIVE NOTE</span>
         <h2>{title}</h2>
-        <p>{copy}</p>
         {action}
       </div>
     </div>
@@ -42,12 +39,10 @@ export function EmptyState({
 export function PageHeader({
   eyebrow,
   title,
-  copy,
   action,
 }: {
   eyebrow: string;
   title: string;
-  copy: string;
   action?: ReactNode;
 }) {
   return (
@@ -55,7 +50,6 @@ export function PageHeader({
       <div className="page-header-copy">
         <span className="section-label">{eyebrow}</span>
         <h1>{title}</h1>
-        <p>{copy}</p>
       </div>
       {action}
     </div>
@@ -88,7 +82,7 @@ export function ChapterIndex({
         <div className="chapter-index-copy">
           <span className="section-label">CHAPTER {String(index + 1).padStart(2, "0")}</span>
           <h2>{chapter.name}</h2>
-          <p>{chapter.description || "아직 문장이 붙지 않은 나의 음악 장면"}</p>
+          {chapter.description ? <p>{chapter.description}</p> : null}
           <div className="meta-row">
             <span>{entries.length} TRACKS</span>
             <span>{tagCount} TAGS</span>

@@ -115,7 +115,6 @@ export function TagManager({
       <PageHeader
         eyebrow="TAG LIBRARY"
         title="기억에 쓸 언어를 미리 정리하세요"
-        copy="곡마다 새 단어를 떠올리지 않아도 되도록, 자주 쓰는 태그 칩을 한곳에서 만들고 관리합니다."
         action={<Link className="button" href="/settings" intent="back">설정으로</Link>}
       />
 
@@ -127,7 +126,7 @@ export function TagManager({
 
       <div className="tag-manager-grid">
         <form className="panel tag-bulk-panel form-stack" onSubmit={submitBulk}>
-          <div><span className="section-label">BULK CREATE</span><h2>한 번에 태그 만들기</h2><p>쉼표 또는 줄바꿈으로 여러 태그를 나눠 입력하세요. 한 개만 입력해도 됩니다.</p></div>
+          <div><span className="section-label">BULK CREATE</span><h2>한 번에 태그 만들기</h2></div>
           <div className="field"><label htmlFor="bulk-category">카테고리</label><select id="bulk-category" className="select" value={bulkCategory} onChange={(event) => setBulkCategory(event.target.value as TagCategory)}>{TAG_CATEGORIES.map((category) => <option value={category} key={category}>{TAG_CATEGORY_LABEL[category]}</option>)}</select></div>
           <div className="field"><label htmlFor="bulk-tags">태그 이름</label><textarea id="bulk-tags" className="textarea tag-bulk-input" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} placeholder={"새벽, 드라이브, 비 오는 날\n오래된 친구\n퇴근길"} /><span className="field-hint">{newCandidates.length}개 추가 예정{duplicateCount ? ` · 기존 태그 ${duplicateCount}개 제외` : ""}</span></div>
           {newCandidates.length ? <div className="tag-preview" aria-label="추가할 태그 미리보기">{newCandidates.slice(0, 24).map((label) => <span className="tag" key={normalizeTagLabel(label)}>#{label}</span>)}{newCandidates.length > 24 ? <span className="tag">+{newCandidates.length - 24}</span> : null}</div> : null}
@@ -158,7 +157,7 @@ export function TagManager({
                 </div>
               </section>
             );
-          }) : <EmptyState icon="#" title={query ? "검색 결과가 없어요" : "아직 등록한 태그가 없어요"} copy={query ? "다른 단어로 찾아보세요." : "왼쪽 입력창에서 자주 쓸 태그를 한 번에 만들어보세요."} />}
+          }) : <EmptyState icon="#" title={query ? "검색 결과가 없어요" : "아직 등록한 태그가 없어요"} />}
         </section>
       </div>
     </div>

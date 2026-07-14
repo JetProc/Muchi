@@ -751,15 +751,16 @@ button.tag {
   font-size: clamp(44px, 13vw, 108px);
 }
 
-.page-header p {
-  max-width: 620px;
-  margin: 18px 0 0;
-  color: var(--ink-soft);
-}
-
 .page-header > :last-child:not(.page-header-copy) {
   align-self: end;
   justify-self: start;
+}
+
+.inbox-view .page-header h1 {
+  max-width: 9em;
+  overflow-wrap: normal;
+  text-wrap: balance;
+  word-break: keep-all;
 }
 
 .section,
@@ -780,13 +781,6 @@ button.tag {
 .editorial-section-head h2 {
   margin-top: 6px;
   font-size: clamp(34px, 10vw, 64px);
-}
-
-.section-head p,
-.editorial-section-head p {
-  margin: 8px 0 0;
-  color: var(--ink-soft);
-  font-size: 13px;
 }
 
 .track-art {
@@ -1111,13 +1105,6 @@ button.tag {
   margin-top: 6px;
   color: var(--oxblood);
   font-size: clamp(23px, 7vw, 40px);
-}
-
-.chapter-stage-header p {
-  max-width: 560px;
-  margin: 8px 0 0;
-  color: var(--ink-soft);
-  font-size: 12px;
 }
 
 .chapter-stage-header .button {
@@ -1446,11 +1433,11 @@ button.tag {
 
 .track-line {
   display: grid;
-  grid-template-columns: 22px 56px minmax(0, 1fr);
+  grid-template-columns: 18px 44px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 11px;
+  gap: 8px;
   min-width: 0;
-  padding: 14px 0;
+  padding: 7px 0;
   transition: background 180ms ease, padding 180ms var(--ease-editorial);
   animation: track-enter 440ms var(--ease-editorial) both;
   animation-delay: var(--track-delay, 0ms);
@@ -1469,13 +1456,12 @@ button.tag {
 
 .track-number {
   color: var(--dust-text);
-  align-self: start;
-  padding-top: 5px;
+  align-self: center;
 }
 
 .track-line .track-art {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
 }
 
 .track-info {
@@ -1491,7 +1477,7 @@ button.tag {
 .track-info strong {
   overflow: hidden;
   font-family: var(--font-serif);
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 400;
   letter-spacing: -0.02em;
   text-overflow: ellipsis;
@@ -1501,24 +1487,46 @@ button.tag {
 .track-info small,
 .track-info em {
   margin-top: 2px;
+  overflow: hidden;
   color: var(--dust-text);
-  font-size: 10px;
+  font-size: 9px;
   font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .track-line .track-actions {
-  grid-column: 2 / -1;
-  padding-top: 3px;
+  max-width: min(42vw, 280px);
+  grid-column: 4;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
+  padding-top: 0;
+}
+
+.track-line .track-actions .button,
+.track-line .track-actions .play-button,
+.track-line .track-actions .text-button,
+.track-line .track-actions .text-link {
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 7px;
+  font-size: 8px;
+  line-height: 1.1;
 }
 
 .track-line .tag-row {
-  margin-top: 8px;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin-top: 4px !important;
+  overflow: hidden;
 }
 
 .track-line .tag {
-  min-height: 24px;
-  padding: 2px 7px;
-  font-size: 8px;
+  min-height: 18px;
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  font-size: 7px;
 }
 
 .memory-view .page-header {
@@ -1545,7 +1553,6 @@ button.tag {
 .search-panel,
 .capture-search-panel,
 .manual-import,
-.search-editor,
 .memory-form,
 .settings-list {
   padding: 28px 0;
@@ -1629,10 +1636,94 @@ button.tag {
   margin-top: 26px;
 }
 
+.search-view {
+  padding-top: 18px;
+}
+
+.search-workspace-header {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 20px;
+}
+
+.search-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.search-title-row h1 {
+  font-size: clamp(28px, 8vw, 38px);
+  line-height: 1;
+}
+
+.search-query-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .search-input {
-  min-height: 72px;
-  font-family: var(--font-serif);
-  font-size: clamp(26px, 8vw, 50px);
+  min-height: 52px;
+  padding: 10px 12px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+
+.search-reset {
+  min-width: 44px;
+  color: var(--ink-soft);
+}
+
+.search-tag-rail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.search-tag-list {
+  display: flex;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 2px 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.search-tag-list::-webkit-scrollbar {
+  display: none;
+}
+
+.search-tag-list .tag {
+  min-height: 30px;
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  font-size: 9px;
+}
+
+.search-results-section {
+  margin-top: 16px;
+}
+
+.search-results-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.search-results-head h2 {
+  font-size: clamp(25px, 7vw, 32px);
+}
+
+.search-results-section .empty-state {
+  min-height: 180px;
 }
 
 .memory-layout {
@@ -1725,12 +1816,6 @@ button.tag {
 
 .setting-row h3 {
   font-size: 18px;
-}
-
-.setting-row p {
-  margin: 6px 0 0;
-  color: var(--ink-soft);
-  font-size: 12px;
 }
 
 .managed-tag-field {
@@ -1936,6 +2021,10 @@ button.tag {
   color: var(--ink-soft);
 }
 
+.empty-state .button {
+  margin-top: 22px;
+}
+
 .notice {
   padding: 13px 14px;
   color: var(--ink-soft);
@@ -1985,25 +2074,9 @@ button.tag {
   font-size: clamp(38px, 11vw, 68px);
 }
 
-.welcome-card > p,
 .dialog > p {
   margin: 16px 0 0;
   color: var(--ink-soft);
-}
-
-.welcome-steps {
-  display: grid;
-  gap: 4px;
-  margin-top: 26px;
-}
-
-.welcome-step {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 0;
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
-  font-size: 11px;
 }
 
 .dialog-actions {
@@ -2300,6 +2373,10 @@ button.tag {
     padding: 28px 24px 84px;
   }
 
+  .search-view {
+    padding-top: 16px;
+  }
+
   .text-navigation {
     min-height: calc(56px + env(safe-area-inset-bottom));
     padding-right: 12px;
@@ -2352,9 +2429,8 @@ button.tag {
     font-size: clamp(36px, 10vw, 44px);
   }
 
-  .page-header p {
-    margin-top: 14px;
-    font-size: 13px;
+  .inbox-view .page-header h1 {
+    font-size: clamp(32px, 9vw, 40px);
   }
 
   .section,
@@ -2371,11 +2447,6 @@ button.tag {
   .section-head h2,
   .editorial-section-head h2 {
     font-size: clamp(28px, 8vw, 38px);
-  }
-
-  .section-head p,
-  .editorial-section-head p {
-    font-size: 12px;
   }
 
   .home-view {
@@ -2515,24 +2586,27 @@ button.tag {
   }
 
   .track-line {
-    grid-template-columns: 18px 48px minmax(0, 1fr);
-    gap: 10px;
-    padding: 12px 0;
+    grid-template-columns: 16px 40px minmax(72px, 1fr) auto;
+    gap: 7px;
+    padding: 5px 0;
   }
 
   .track-line .track-art {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
   }
 
   .track-info strong {
-    font-size: 17px;
+    font-size: 15px;
+  }
+
+  .track-line .track-actions {
+    max-width: 124px;
   }
 
   .search-panel,
   .capture-search-panel,
   .manual-import,
-  .search-editor,
   .memory-form,
   .settings-list {
     padding: 24px 0;
@@ -2544,8 +2618,8 @@ button.tag {
   }
 
   .search-input {
-    min-height: 58px;
-    font-size: clamp(22px, 6vw, 30px);
+    min-height: 50px;
+    font-size: 14px;
   }
 
   .memory-layout {
@@ -2610,20 +2684,9 @@ button.tag {
     font-size: clamp(31px, 8.5vw, 38px);
   }
 
-  .welcome-card > p,
   .dialog > p {
     margin-top: 14px;
     font-size: 13px;
-  }
-
-  .welcome-steps {
-    margin-top: 24px;
-  }
-
-  .welcome-step {
-    gap: 12px;
-    padding: 12px 0;
-    font-size: 10px;
   }
 
   .dialog-actions {
@@ -2678,6 +2741,10 @@ button.tag {
 
   .page-content {
     padding: 54px 28px 110px;
+  }
+
+  .search-view {
+    padding-top: 28px;
   }
 
   .home-view {
@@ -2756,14 +2823,14 @@ button.tag {
   }
 
   .track-line {
-    grid-template-columns: 30px 68px minmax(0, 1fr) auto;
-    gap: 16px;
-    min-height: 104px;
+    grid-template-columns: 24px 52px minmax(0, 1fr) auto;
+    gap: 12px;
+    min-height: 66px;
   }
 
   .track-line .track-art {
-    width: 68px;
-    height: 68px;
+    width: 52px;
+    height: 52px;
   }
 
   .track-line .track-actions {

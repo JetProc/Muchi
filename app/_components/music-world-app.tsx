@@ -332,12 +332,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           <div className="welcome-card">
             <span className="section-label">WELCOME TO MUMU</span>
             <h2 id="welcome-title">좋아했던 음악을<br />한 권의 기록으로 남겨보세요.</h2>
-            <p>완벽하게 정리하지 않아도 괜찮아요. 먼저 담고, 나중에 당신만의 언어를 덧붙이면 됩니다.</p>
-            <div className="welcome-steps" aria-label="서비스 이용 단계">
-              <div className="welcome-step"><strong>01 · 포착</strong><span>마음에 남은 곡 저장</span></div>
-              <div className="welcome-step"><strong>02 · 해석</strong><span>태그와 기억 덧붙이기</span></div>
-              <div className="welcome-step"><strong>03 · 재발견</strong><span>그 시절의 나 다시 만나기</span></div>
-            </div>
             <div className="dialog-actions">
               <button
                 className="button button-ghost"

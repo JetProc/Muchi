@@ -7,10 +7,6 @@ export default function OfflinePage() {
         <div>
           <span className="section-label">OFFLINE ARCHIVE</span>
           <h1 id="offline-title">잠시 연결이 끊겼어요</h1>
-          <p>
-            저장해 둔 음악과 기억은 이 기기에 그대로 남아 있어요. 연결이
-            돌아오면 새로운 음악도 다시 찾을 수 있습니다.
-          </p>
           <Link className="button button-primary" href="/">
             내 음악 아카이브로 돌아가기
           </Link>

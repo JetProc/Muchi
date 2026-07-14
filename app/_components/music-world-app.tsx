@@ -102,6 +102,13 @@ const DESKTOP_NAV: AppView[] = [
 
 const MOBILE_NAV: AppView[] = ["home", "inbox", "capture", "cubes", "search"];
 
+const MOBILE_NAV_LABEL: Partial<Record<AppView, string>> = {
+  home: "홈",
+  inbox: "보관함",
+  cubes: "큐브",
+  search: "검색",
+};
+
 const COLOR_HEX: Record<CubeColor, string> = {
   violet: "#9b8cff",
   cyan: "#6fe7e8",
@@ -145,13 +152,16 @@ const TAG_CATEGORY_LABEL: Record<TagCategory, string> = {
   custom: "나만의 언어",
 };
 
+const WORLD_COLUMNS = 4;
+const WORLD_COLUMN_GAP = 165;
+const WORLD_ROW_GAP = 176;
+
 function worldPosition(index: number) {
-  const columns = 4;
-  const row = Math.floor(index / columns);
-  const column = index % columns;
+  const row = Math.floor(index / WORLD_COLUMNS);
+  const column = index % WORLD_COLUMNS;
   return {
-    left: 50 + column * 165 + (row % 2 ? 55 : 0),
-    top: 42 + row * 132,
+    left: 50 + column * WORLD_COLUMN_GAP + (row % 2 ? 55 : 0),
+    top: 42 + row * WORLD_ROW_GAP,
   };
 }
 
@@ -166,6 +176,7 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat("ko-KR", {
     month: "short",
     day: "numeric",
+    timeZone: "Asia/Seoul",
   }).format(new Date(value));
 }
 
@@ -262,8 +273,10 @@ function AppShell({
   toast: string | null;
   online: boolean;
 }) {
+  const playerOpen = Boolean(preview.state);
   return (
-    <div className="app-shell">
+    <div className={`app-shell${playerOpen ? " has-player" : ""}`}>
+      <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
       <aside className="sidebar">
         <Link className="brand" href="/" aria-label="MUMU 홈">
           <span className="brand-mark" aria-hidden="true" />
@@ -277,7 +290,7 @@ function AppShell({
             const meta = VIEW_META[item];
             const active = item === view || (view === "cube" && item === "cubes") || (view === "context" && item === "cubes");
             return (
-              <Link key={item} href={meta.path} className={`nav-link${active ? " is-active" : ""}`}>
+              <Link key={item} href={meta.path} className={`nav-link${active ? " is-active" : ""}`} aria-current={active ? "page" : undefined}>
                 <span className="nav-icon" aria-hidden="true">{meta.icon}</span>
                 {meta.label}
                 {item === "inbox" && inboxCount > 0 ? <span className="nav-badge">{inboxCount}</span> : null}
@@ -286,7 +299,7 @@ function AppShell({
           })}
         </nav>
         <div className="sidebar-spacer" />
-        <Link href="/settings" className={`nav-link${view === "settings" ? " is-active" : ""}`}>
+        <Link href="/settings" className={`nav-link${view === "settings" ? " is-active" : ""}`} aria-current={view === "settings" ? "page" : undefined}>
           <span className="nav-icon" aria-hidden="true">⚙</span>
           설정
         </Link>
@@ -296,7 +309,7 @@ function AppShell({
         </div>
       </aside>
 
-      <main className="shell-main">
+      <main className="shell-main" id="main-content" tabIndex={-1}>
         <header className="topbar">
           <div className="topbar-kicker">
             <strong>{VIEW_META[view].label}</strong>
@@ -313,16 +326,17 @@ function AppShell({
       <nav className="mobile-nav" aria-label="모바일 메뉴">
         {MOBILE_NAV.map((item) => {
           const meta = VIEW_META[item];
-          const active = item === view;
+          const active = item === view || (item === "cubes" && (view === "cube" || view === "context"));
           return (
             <Link
               key={item}
               href={meta.path}
               className={`${active ? "is-active" : ""}${item === "capture" ? " mobile-add" : ""}`}
               aria-label={meta.label}
+              aria-current={active ? "page" : undefined}
             >
               <span aria-hidden="true">{meta.icon}</span>
-              {item === "capture" ? null : meta.label}
+              {item === "capture" ? null : MOBILE_NAV_LABEL[item] ?? meta.label}
             </Link>
           );
         })}
@@ -472,7 +486,14 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     };
     window.addEventListener("storage", syncArchive);
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+      const localDevelopment = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      if (localDevelopment) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => registration.unregister().catch(() => false));
+        }).catch(() => undefined);
+      } else {
+        navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+      }
     }
     const hydrationTimer = window.setTimeout(() => {
       let rawArchive: string | null = null;
@@ -601,6 +622,22 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       setPreviewState(null);
     },
   };
+
+  if (!hydrated) {
+    return (
+      <AppShell view={view} inboxCount={0} preview={preview} toast={null} online={online}>
+        <div className="page-content">
+          <div className="archive-boot" role="status" aria-live="polite">
+            <span className="brand-mark" aria-hidden="true" />
+            <div>
+              <strong>음악 세계를 불러오고 있어요</strong>
+              <span>이 브라우저에 저장된 큐브와 기억을 확인하는 중입니다.</span>
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   const content = (() => {
     switch (view) {
@@ -952,7 +989,7 @@ function CubesView({ archive, commit, notify, router, pendingTrackId }: { archiv
             <div className="form-stack" style={{ marginTop: 24 }}>
               <div className="field"><label htmlFor="cube-name">큐브 이름 *</label><input id="cube-name" className="input" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} placeholder="예: 비 오는 날의 버스" autoFocus /></div>
               <div className="field"><label htmlFor="cube-description">짧은 설명</label><textarea id="cube-description" className="textarea" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={200} placeholder="이 큐브에 담고 싶은 음악의 장면" /></div>
-              <div className="field"><span className="field-label">분위기 색상</span><div className="filter-row">{CUBE_COLORS.map((item) => <button key={item} className={`tag${color === item ? " is-selected" : ""}`} type="button" onClick={() => setColor(item)} style={{ borderColor: COLOR_HEX[item] }}>{COLOR_LABEL[item]}</button>)}</div></div>
+              <div className="field"><span className="field-label">분위기 색상</span><div className="filter-row">{CUBE_COLORS.map((item) => <button key={item} className={`tag${color === item ? " is-selected" : ""}`} type="button" onClick={() => setColor(item)} style={{ borderColor: COLOR_HEX[item] }} aria-pressed={color === item}>{COLOR_LABEL[item]}</button>)}</div></div>
             </div>
             <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={() => { setShowForm(false); if (pendingTrack) router.replace("/cubes"); }}>취소</button><button className="button button-primary" type="submit">{pendingTrack ? "큐브 만들고 기록하기" : "큐브 만들기"}</button></div>
           </form>
@@ -1025,7 +1062,7 @@ function CubeView({ archive, cubeId, commit, notify, preview, router, hydrated }
         })}</div> : <EmptyState icon="♪" title="이 순간의 첫 곡을 담아보세요" copy="곡을 담는 것만으로 시작할 수 있어요. 태그와 기억은 나중에 추가하세요." action={<Link className="button button-primary" href="/capture">곡 찾기</Link>} />}
       </section>
 
-      {editing ? <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="edit-cube-title"><form className="dialog" onSubmit={saveCube}><span className="eyebrow">Edit cube</span><h2 id="edit-cube-title">큐브의 분위기</h2><div className="form-stack" style={{ marginTop: 24 }}><div className="field"><label htmlFor="edit-name">이름</label><input className="input" id="edit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} /></div><div className="field"><label htmlFor="edit-description">설명</label><textarea className="textarea" id="edit-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={200} /></div><div className="field"><span className="field-label">색상</span><div className="filter-row">{CUBE_COLORS.map((item) => <button key={item} className={`tag${color === item ? " is-selected" : ""}`} type="button" onClick={() => setColor(item)}>{COLOR_LABEL[item]}</button>)}</div></div></div><div className="dialog-actions"><button className="button" type="button" onClick={() => setEditing(false)}>취소</button><button className="button button-primary" type="submit">저장</button></div></form></div> : null}
+      {editing ? <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="edit-cube-title"><form className="dialog" onSubmit={saveCube}><span className="eyebrow">Edit cube</span><h2 id="edit-cube-title">큐브의 분위기</h2><div className="form-stack" style={{ marginTop: 24 }}><div className="field"><label htmlFor="edit-name">이름</label><input className="input" id="edit-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} /></div><div className="field"><label htmlFor="edit-description">설명</label><textarea className="textarea" id="edit-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={200} /></div><div className="field"><span className="field-label">색상</span><div className="filter-row">{CUBE_COLORS.map((item) => <button key={item} className={`tag${color === item ? " is-selected" : ""}`} type="button" onClick={() => setColor(item)} aria-pressed={color === item}>{COLOR_LABEL[item]}</button>)}</div></div></div><div className="dialog-actions"><button className="button" type="button" onClick={() => setEditing(false)}>취소</button><button className="button button-primary" type="submit">저장</button></div></form></div> : null}
       <button className="button button-ghost" style={{ marginTop: 38 }} type="button" onClick={() => router.push("/cubes")}>← 큐브 목록으로</button>
     </div>
   );
@@ -1142,12 +1179,12 @@ function ContextView({ archive, cubeTrackId, commit, notify, preview, router, hy
           {labels.length ? <div className="field"><span className="field-label">선택한 나의 태그</span><div className="tag-row">{labels.map((label) => <span className="tag" key={label}>#{label}<button className="tag-remove" type="button" onClick={() => toggleTag(label)} aria-label={`${label} 태그 제거`}>×</button></span>)}</div></div> : null}
           <div className="field"><label htmlFor="custom-tag">나만의 태그</label><div className="search-form" style={{ marginTop: 0 }}><input id="custom-tag" className="input" value={customTag} onChange={(event) => setCustomTag(event.target.value)} maxLength={40} placeholder="예: 불안했던 청춘" onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addCustomTag(); } }} /><button className="button" type="button" onClick={addCustomTag}>태그 추가</button></div>{matchingTags.length ? <div className="filter-row" style={{ marginTop: 8 }} aria-label="비슷한 기존 태그">{matchingTags.map((tag) => <button className="tag" type="button" key={tag.id} onClick={() => toggleTag(tag.label)}>기존 #{tag.label}</button>)}</div> : null}</div>
           <div className="field"><label htmlFor="character">성격 문장</label><input id="character" className="input" value={character} onChange={(event) => setCharacter(event.target.value)} maxLength={100} placeholder="예: 차갑지만 이상하게 나를 안심시키는 곡" /></div>
-          <div className="field"><span className="field-label">기억한 시기</span><div className="form-grid"><select className="select" value={periodKind} onChange={(event) => setPeriodKind(event.target.value as typeof periodKind)}><option value="none">시기 없음</option><option value="month">연도 + 월</option><option value="season">연도 + 계절</option></select>{periodKind !== "none" ? <input className="input" value={year} onChange={(event) => setYear(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" placeholder="연도 (선택)" aria-label="기억한 연도" /> : <div />}{periodKind === "month" ? <select className="select" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="기억한 월">{Array.from({ length: 12 }, (_, index) => <option value={index + 1} key={index + 1}>{index + 1}월</option>)}</select> : null}{periodKind === "season" ? <select className="select" value={season} onChange={(event) => setSeason(event.target.value as keyof typeof SEASON_LABEL)} aria-label="기억한 계절">{Object.entries(SEASON_LABEL).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select> : null}</div></div>
+          <div className="field"><span className="field-label">기억한 시기</span><div className="form-grid"><select className="select" value={periodKind} onChange={(event) => setPeriodKind(event.target.value as typeof periodKind)} aria-label="기억한 시기 종류"><option value="none">시기 없음</option><option value="month">연도 + 월</option><option value="season">연도 + 계절</option></select>{periodKind !== "none" ? <input className="input" value={year} onChange={(event) => setYear(event.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" placeholder="연도 (선택)" aria-label="기억한 연도" /> : null}{periodKind === "month" ? <select className="select" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="기억한 월">{Array.from({ length: 12 }, (_, index) => <option value={index + 1} key={index + 1}>{index + 1}월</option>)}</select> : null}{periodKind === "season" ? <select className="select" value={season} onChange={(event) => setSeason(event.target.value as keyof typeof SEASON_LABEL)} aria-label="기억한 계절">{Object.entries(SEASON_LABEL).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select> : null}</div></div>
           <div className="form-grid"><div className="field"><label htmlFor="place">장소</label><input id="place" className="input" value={place} onChange={(event) => setPlace(event.target.value)} maxLength={60} placeholder="첫 자취방, 한강변…" /></div><div className="field"><label htmlFor="people">함께한 사람</label><input id="people" className="input" value={people} onChange={(event) => setPeople(event.target.value)} maxLength={60} placeholder="친구, 혼자, 가족…" /></div></div>
           <div className="field"><label htmlFor="memo">기억 메모</label><textarea id="memo" className="textarea" value={memo} onChange={(event) => setMemo(event.target.value)} maxLength={1000} placeholder="이 곡을 들으면 떠오르는 장면을 자유롭게 남겨보세요." /><span className="field-hint">{memo.length} / 1,000</span></div>
           <div className="dialog-actions"><button className="button" type="button" onClick={() => router.push(`/cube?id=${encodeURIComponent(cube.id)}`)}>취소</button><button className="button" type="button" onClick={() => setAssigning(true)}>다른 큐브에도 담기</button><button className="button button-primary" type="submit">이 순간 저장하기</button></div>
         </form>
-        <aside className="panel sticky-panel context-track-panel"><TrackArtwork track={track} /><h2 style={{ marginBottom: 3 }}>{track.title}</h2><p style={{ margin: 0, color: "var(--muted)" }}>{track.artist}{track.album ? ` · ${track.album}` : ""}</p><div style={{ marginTop: 18 }}><PreviewButton track={track} preview={preview} /></div>{track.provider === "itunes" ? <p className="legal-note">{ITUNES_PREVIEW_USAGE_NOTICE}</p> : null}{track.externalUrl ? <a className="text-link" href={track.externalUrl} target="_blank" rel="noopener noreferrer">원본 음악에서 열기 ↗</a> : null}<div className="notice" style={{ marginTop: 20 }}>이 페이지의 태그와 기억은 <strong>{cube.name}</strong> 큐브에만 저장됩니다.</div></aside>
+        <aside className="panel sticky-panel context-track-panel"><TrackArtwork track={track} /><h2 style={{ marginBottom: 3 }}>{track.title}</h2><p style={{ margin: 0, color: "var(--muted)" }}>{track.artist}{track.album ? ` · ${track.album}` : ""}</p><div style={{ marginTop: 18 }}><PreviewButton track={track} preview={preview} /></div>{track.provider === "itunes" ? <p className="legal-note">{ITUNES_PREVIEW_USAGE_NOTICE}</p> : null}{track.externalUrl ? <a className="text-link" href={track.externalUrl} target="_blank" rel="noopener noreferrer">원본 음악에서 열기 ↗</a> : null}<div className="notice" style={{ marginTop: 20 }}><span>이 페이지의 태그와 기억은 <strong>{cube.name}</strong> 큐브에만 저장됩니다.</span></div></aside>
       </div>
 
       {assigning ? <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="other-cube-title"><div className="dialog"><span className="eyebrow">Another moment</span><h2 id="other-cube-title">새로운 순간을 고르세요</h2><p>곡 정보만 공유하고 태그와 기억은 빈 상태로 시작합니다.</p><div className="track-list" style={{ marginTop: 22 }}>{Object.values(archive.data.cubes).filter((item) => item.id !== cube.id).map((item) => <button className="track-row" key={item.id} type="button" onClick={() => addToOtherCube(item.id)} style={{ textAlign: "left", cursor: "pointer" }}><span className="cube-mini-art" style={cubeStyle(item.color)} aria-hidden="true"><span /><span /><span /><span /></span><span className="track-info"><strong>{item.name}</strong><small>{getCubeTracks(archive, item.id).length}곡</small></span><span>→</span></button>)}</div><div className="dialog-actions"><button className="button" type="button" onClick={() => setAssigning(false)}>닫기</button></div></div></div> : null}
@@ -1186,7 +1223,7 @@ function RecapView({ archive, preview }: { archive: ArchiveEnvelopeV1; preview: 
   return (
     <div className="page-content">
       <PageHeader eyebrow="Recap" title="음악을 통해 과거의 나를 만나요" copy="저장한 곡이 아니라, 그 곡에 남겨둔 시기와 감정이 다시 돌아옵니다." />
-      <div className="filter-row" role="tablist" aria-label="회고 방식">{(["this-time", "timeline", "random"] as RecapMode[]).map((item) => <button key={item} className={`button${mode === item ? " button-primary" : ""}`} type="button" role="tab" aria-selected={mode === item} onClick={() => setMode(item)}>{label[item]}</button>)}</div>
+      <div className="filter-row" role="group" aria-label="회고 방식">{(["this-time", "timeline", "random"] as RecapMode[]).map((item) => <button key={item} className={`button${mode === item ? " button-primary" : ""}`} type="button" aria-pressed={mode === item} onClick={() => setMode(item)}>{label[item]}</button>)}</div>
       <section className="section">{entries.length ? <div className="track-list">{entries.map((entry, index) => <RecapRow key={entry.cubeTrack.id} entry={entry} index={index} preview={preview} />)}</div> : <EmptyState icon="◷" title="아직 돌아올 기억이 부족해요" copy="곡의 맥락 편집에서 연도와 월 또는 계절을 남겨보세요." action={<Link className="button button-primary" href="/cubes">곡에 기억 남기기</Link>} />}</section>
     </div>
   );
@@ -1207,7 +1244,7 @@ function WorldView({ archive, reduceMotion, router }: { archive: ArchiveEnvelope
   const selectedIndex = Math.max(0, cubes.findIndex((cube) => cube.id === selectedId));
   const avatarPosition = worldPosition(selectedIndex);
   const selectedCube = selectedId ? archive.data.cubes[selectedId] : null;
-  const worldHeight = Math.max(620, Math.ceil(cubes.length / 4) * 132 + 110);
+  const worldHeight = Math.max(620, Math.ceil(cubes.length / WORLD_COLUMNS) * WORLD_ROW_GAP + 140);
 
   useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current); }, []);
 
@@ -1223,12 +1260,12 @@ function WorldView({ archive, reduceMotion, router }: { archive: ArchiveEnvelope
       <div className="world-layout">
         <div className="world-stage">
           <div className="world-toolbar"><button className="button" type="button" onClick={() => setZoom((value) => Math.max(.7, value - .1))} aria-label="축소">−</button><button className="button" type="button" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button><button className="button" type="button" onClick={() => setZoom((value) => Math.min(1.3, value + .1))} aria-label="확대">＋</button></div>
-          <div className="world-board" style={{ transform: `scale(${zoom})`, height: worldHeight }}>
+          <div className="world-board" style={{ scale: String(zoom), height: worldHeight }}>
             {cubes.map((cube, index) => {
               const position = worldPosition(index);
               return <button className={`world-cube-button${selectedId === cube.id ? " is-selected" : ""}`} key={cube.id} type="button" style={{ ...cubeStyle(cube.color), left: position.left, top: position.top }} onClick={() => visit(cube)} aria-label={`${cube.name} 큐브로 이동`}><span className="world-cube-visual" aria-hidden="true"><span className="world-cube-top" /><span className="world-cube-left" /><span className="world-cube-right" /></span><span className="world-cube-label">{cube.name}</span></button>;
             })}
-            {cubes.length ? <span className="world-avatar" style={{ left: avatarPosition.left + 42, top: avatarPosition.top + 108 }} aria-label="내 캐릭터" /> : null}
+            {cubes.length ? <span className="world-avatar" style={{ left: avatarPosition.left + 108, top: avatarPosition.top + 62 }} aria-label="내 캐릭터" /> : null}
           </div>
         </div>
         <aside className="world-panel"><span className="eyebrow">World map</span><h2>{selectedCube?.name ?? "아직 큐브가 없어요"}</h2><p>{selectedCube?.description ?? "첫 큐브를 만들면 이곳에 새로운 행성이 생겨납니다."}</p>{selectedCube ? <div className="meta-row"><span>{getCubeTracks(archive, selectedCube.id).length}곡</span><span className="dot" /><span>{formatDate(selectedCube.updatedAt)} 수정</span></div> : null}<div className="track-list" style={{ marginTop: 24 }}>{cubes.map((cube) => <button key={cube.id} className="track-row" type="button" onClick={() => router.push(`/cube?id=${encodeURIComponent(cube.id)}`)} style={{ gridTemplateColumns: "42px 1fr auto", minHeight: 66, textAlign: "left", cursor: "pointer" }}><span className="cube-mini-art" style={{ ...cubeStyle(cube.color), width: 42, height: 42, flexBasis: 42 }} aria-hidden="true"><span /><span /><span /><span /></span><span className="track-info"><strong>{cube.name}</strong><small>{getCubeTracks(archive, cube.id).length}곡</small></span><span>↗</span></button>)}</div>{!cubes.length ? <Link className="button button-primary" href="/cubes">첫 큐브 만들기</Link> : null}</aside>
@@ -1238,6 +1275,8 @@ function WorldView({ archive, reduceMotion, router }: { archive: ArchiveEnvelope
 }
 
 function SettingsView({ archive, commit, notify, storageBlocked, setStorageBlocked }: { archive: ArchiveEnvelopeV1; commit: (next: ArchiveEnvelopeV1, message?: string, force?: boolean) => boolean; notify: (message: string) => void; storageBlocked: string | null; setStorageBlocked: (value: string | null) => void }) {
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   function setMotion(motion: MotionPreference) {
     commit({ ...archive, updatedAt: new Date().toISOString(), data: { ...archive.data, preferences: { ...archive.data.preferences, motion } } }, "모션 설정을 저장했어요.");
   }
@@ -1277,9 +1316,9 @@ function SettingsView({ archive, commit, notify, storageBlocked, setStorageBlock
       <PageHeader eyebrow="Settings" title="내 음악 세계 설정" copy="모션, 회고, 이 기기에 저장된 데이터를 관리합니다." />
       {storageBlocked ? <div className="notice notice-danger" style={{ marginBottom: 18 }}>저장소 보호 모드가 켜져 있습니다. 백업할 수 있다면 먼저 원본 브라우저 데이터를 보존한 뒤 초기화하세요.</div> : null}
       <section className="panel settings-list">
-        <div className="setting-row"><div><h3>모션 강도</h3><p>시스템 설정을 따르거나 캐릭터·배경 움직임을 직접 줄입니다.</p></div><select className="select" style={{ width: 190 }} value={archive.data.preferences.motion} onChange={(event) => setMotion(event.target.value as MotionPreference)}><option value="system">시스템 설정 따르기</option><option value="reduce">모션 줄이기</option><option value="full">감성 모션 사용</option></select></div>
+        <div className="setting-row"><div><h3>모션 강도</h3><p>시스템 설정을 따르거나 캐릭터·배경 움직임을 직접 줄입니다.</p></div><select className="select" style={{ width: 190 }} value={archive.data.preferences.motion} onChange={(event) => setMotion(event.target.value as MotionPreference)} aria-label="모션 강도"><option value="system">시스템 설정 따르기</option><option value="reduce">모션 줄이기</option><option value="full">감성 모션 사용</option></select></div>
         <div className="setting-row"><div><h3>이맘때의 음악</h3><p>기억 시기와 저장 날짜를 기준으로 과거 음악을 다시 보여줍니다.</p></div><button className={`toggle${archive.data.preferences.recapEnabled ? " is-on" : ""}`} type="button" role="switch" aria-checked={archive.data.preferences.recapEnabled} onClick={() => setRecap(!archive.data.preferences.recapEnabled)}><span className="sr-only">회고 {archive.data.preferences.recapEnabled ? "끄기" : "켜기"}</span></button></div>
-        <div className="setting-row"><div><h3>내 기록 백업</h3><p>이 브라우저의 음악 세계를 JSON 파일로 내보내거나 복원합니다.</p></div><div className="track-actions"><button className="button" type="button" onClick={exportData}>백업 내보내기</button><label className="button" htmlFor="backup-import">백업 불러오기</label><input className="sr-only" id="backup-import" type="file" accept="application/json,.json" onChange={importData} /></div></div>
+        <div className="setting-row"><div><h3>내 기록 백업</h3><p>이 브라우저의 음악 세계를 JSON 파일로 내보내거나 복원합니다.</p></div><div className="track-actions"><button className="button" type="button" onClick={exportData}>백업 내보내기</button><button className="button" type="button" onClick={() => importInputRef.current?.click()}>백업 불러오기</button><input ref={importInputRef} className="sr-only" id="backup-import" type="file" accept="application/json,.json" onChange={importData} tabIndex={-1} /></div></div>
         <div className="setting-row"><div><h3>샘플 기록만 제거</h3><p>직접 만든 큐브와 기록은 남기고 처음 제공된 샘플만 지웁니다.</p></div><button className="button" type="button" onClick={() => commit(removeSeedData(archive), "샘플 기록을 제거했어요.", true)}>샘플 제거</button></div>
         <div className="setting-row"><div><h3>데모 초기화</h3><p>현재 기록을 모두 교체합니다. 먼저 백업하는 것을 권장합니다.</p></div><div className="track-actions"><button className="button" type="button" onClick={() => replace("seed")}>샘플로 초기화</button><button className="button button-danger" type="button" onClick={() => replace("empty")}>모든 기록 지우기</button></div></div>
       </section>

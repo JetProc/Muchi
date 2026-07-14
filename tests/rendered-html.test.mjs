@@ -44,7 +44,7 @@ async function loadArchiveDomain() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
-test("server-renders the MUMU archive home", async () => {
+test("server-renders a deterministic MUMU archive shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -53,37 +53,44 @@ test("server-renders the MUMU archive home", async () => {
   assert.match(html, /<html lang="ko">/);
   assert.match(html, /<title>MUMU — 나만의 음악 세계<\/title>/);
   assert.match(html, /노래가 기억이 되고/);
-  assert.match(html, /새로운 곡 포착하기/);
-  assert.match(html, /새벽 드라이브/);
-  assert.match(html, /2018년 겨울/);
-  assert.match(html, /첫 자취방/);
+  assert.match(html, /음악 세계를 불러오고 있어요/);
+  assert.match(html, /이 브라우저에 저장된 큐브와 기억을 확인하는 중입니다/);
   assert.match(html, /href="\/capture"/);
   assert.match(html, /href="\/world"/);
+  assert.match(html, /id="main-content" tabindex="-1"/);
   assert.match(html, /property="og:image" content="\/og\.png"/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Codex is working/i);
 });
 
-test("renders every primary archive destination", async () => {
+test("renders every primary archive destination with its stable route shell", async () => {
   const destinations = new Map([
-    ["/capture", "마음에 남은 곡을 포착하세요"],
-    ["/inbox", "먼저 담아둔 음악"],
-    ["/cubes", "내 음악 큐브"],
-    ["/search", "내 언어로 음악을 다시 찾기"],
-    ["/recap", "음악을 통해 과거의 나를 만나요"],
-    ["/world", "당신의 음악 세계를 걸어보세요"],
-    ["/settings", "내 음악 세계 설정"],
-    ["/offline", "잠시 연결이 끊겼어요"],
+    ["/capture", "곡 저장"],
+    ["/inbox", "임시 보관함"],
+    ["/cubes", "내 큐브"],
+    ["/search", "내 기록 검색"],
+    ["/recap", "회고"],
+    ["/world", "음악 세계"],
+    ["/settings", "설정"],
   ]);
 
-  for (const [pathname, expectedCopy] of destinations) {
+  for (const [pathname, expectedLabel] of destinations) {
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
-    assert.match(await response.text(), new RegExp(expectedCopy), pathname);
+    const html = await response.text();
+    assert.match(html, new RegExp(`<strong>${expectedLabel}<\\/strong> · 오늘의 음악 세계`), pathname);
+    assert.match(html, /음악 세계를 불러오고 있어요/, pathname);
   }
 
-  const captureHtml = await (await render("/capture")).text();
-  assert.match(captureHtml, /음악 링크로 먼저 저장하세요/);
-  assert.match(captureHtml, /Spotify · Apple Music · YouTube · Melon 링크/);
+  const offlineResponse = await render("/offline");
+  assert.equal(offlineResponse.status, 200);
+  assert.match(await offlineResponse.text(), /잠시 연결이 끊겼어요/);
+
+  const componentSource = await readFile(
+    new URL("../app/_components/music-world-app.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(componentSource, /음악 링크로 먼저 저장하세요/);
+  assert.match(componentSource, /Spotify · Apple Music · YouTube · Melon 링크/);
 });
 
 test("accepts supported music links without allowing arbitrary upstream hosts", async () => {

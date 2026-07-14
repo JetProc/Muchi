@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -40,7 +41,6 @@ import {
   type PreviewControls,
 } from "./editorial-media";
 import {
-  ChapterIndex,
   EmptyState,
   PageHeader,
   TrackLine,
@@ -78,6 +78,19 @@ export function Chapters({
   const [description, setDescription] = useState("");
   const [color, setColor] = useState<CubeColor>("violet");
   const [deleteTarget, setDeleteTarget] = useState<Cube | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const activeIndex = chapters.length
+    ? Math.min(selectedIndex, chapters.length - 1)
+    : 0;
+  const stageTouchStart = useRef<{ x: number; y: number } | null>(null);
+  const activeChapter = chapters[activeIndex] ?? chapters[0] ?? null;
+  const activeEntries = activeChapter ? getCubeTracks(archive, activeChapter.id) : [];
+  const previousChapter = chapters.length > 1
+    ? chapters[(activeIndex - 1 + chapters.length) % chapters.length]
+    : null;
+  const nextChapter = chapters.length > 1
+    ? chapters[(activeIndex + 1) % chapters.length]
+    : null;
   const createDialogRef = useModalFocus<HTMLDivElement>(
     showForm || Boolean(pendingTrack),
     () => {
@@ -89,6 +102,13 @@ export function Chapters({
     Boolean(deleteTarget),
     () => setDeleteTarget(null),
   );
+
+  function moveStage(direction: -1 | 1) {
+    if (chapters.length < 2) return;
+    setSelectedIndex((current) => (
+      Math.min(current, chapters.length - 1) + direction + chapters.length
+    ) % chapters.length);
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -125,24 +145,125 @@ export function Chapters({
 
   return (
     <div className="page-content chapters-view">
-      <PageHeader
-        eyebrow="YOUR INDEX"
-        title="나의 음악 챕터"
-        copy="제목 하나로는 담기 어려웠던 시기, 장소, 감정의 이름을 붙여보세요."
-        action={<button className="button button-primary" type="button" onClick={() => setShowForm(true)}>NEW CHAPTER</button>}
-      />
-      {chapters.length ? (
-        <div className="chapter-index">
-          {chapters.map((chapter, index) => (
-            <ChapterIndex
-              key={chapter.id}
-              archive={archive}
-              chapter={chapter}
-              index={index}
-              onDelete={setDeleteTarget}
-            />
-          ))}
+      <header className="chapter-stage-header">
+        <div>
+          <span className="section-label">YOUR INDEX</span>
+          <h1>나의 음악 챕터</h1>
+          <p>한 시절의 음악을 골라 그때의 장면으로 들어가 보세요.</p>
         </div>
+        <button className="button button-primary" type="button" onClick={() => setShowForm(true)}>새 챕터</button>
+      </header>
+      {activeChapter ? (
+        <>
+          <section
+            className="chapter-stage"
+            id="active-chapter-stage"
+            role="tabpanel"
+            aria-label={`${activeChapter.name} 챕터`}
+            tabIndex={0}
+            style={chapterColorStyle(activeChapter.color)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                moveStage(-1);
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                moveStage(1);
+              }
+            }}
+            onTouchStart={(event) => {
+              const touch = event.touches[0];
+              stageTouchStart.current = { x: touch.clientX, y: touch.clientY };
+            }}
+            onTouchEnd={(event) => {
+              const start = stageTouchStart.current;
+              const touch = event.changedTouches[0];
+              stageTouchStart.current = null;
+              if (!start || !touch) return;
+              const deltaX = touch.clientX - start.x;
+              const deltaY = touch.clientY - start.y;
+              if (Math.abs(deltaX) > 52 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25) {
+                moveStage(deltaX > 0 ? -1 : 1);
+              }
+            }}
+          >
+            <span className="sr-only" aria-live="polite">
+              {chapters.length}개 중 {activeIndex + 1}번째, {activeChapter.name}
+            </span>
+            <div className="chapter-stage-inner">
+              <div className="chapter-stage-copy">
+                <span className="chapter-stage-number">{String(activeIndex + 1).padStart(2, "0")}</span>
+                <h2>{activeChapter.name}</h2>
+                <p>{activeChapter.description || "아직 문장이 붙지 않은 나의 음악 장면"}</p>
+              </div>
+
+              <ChapterCover archive={archive} chapter={activeChapter} shared />
+
+              <div className="chapter-stage-details">
+                {activeEntries.length ? (
+                  <ol className="chapter-stage-tracks" aria-label="대표 수록곡">
+                    {activeEntries.slice(0, 3).map(({ cubeTrack, track }, index) => (
+                      <li key={cubeTrack.id}><span>{String(index + 1).padStart(2, "0")}</span><strong>{track.title}</strong></li>
+                    ))}
+                  </ol>
+                ) : <p className="chapter-stage-empty">아직 담긴 곡이 없어요.</p>}
+                <div className="chapter-stage-meta">
+                  <strong>{activeEntries.length}곡</strong>
+                  <span>최근 업데이트 {formatDate(activeChapter.updatedAt)}</span>
+                  <span>{activeIndex + 1} / {chapters.length}</span>
+                </div>
+                <Link
+                  className="chapter-stage-enter"
+                  href={`/chapter?id=${encodeURIComponent(activeChapter.id)}`}
+                  intent="shared"
+                  sharedId={activeChapter.id}
+                >
+                  챕터 들어가기
+                </Link>
+                <button className="text-button chapter-stage-manage" type="button" onClick={() => setDeleteTarget(activeChapter)}>챕터 삭제</button>
+              </div>
+
+              <div className="chapter-stage-navigation" aria-label="챕터 순서 이동">
+                <button type="button" onClick={() => moveStage(-1)} disabled={!previousChapter}>
+                  <strong>이전 챕터</strong>
+                  <span>{previousChapter?.name ?? "없음"}</span>
+                </button>
+                <button type="button" onClick={() => moveStage(1)} disabled={!nextChapter}>
+                  <strong>다음 챕터</strong>
+                  <span>{nextChapter?.name ?? "없음"}</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <div className="chapter-stage-switcher" role="tablist" aria-label="음악 챕터 선택">
+            {chapters.map((chapter, index) => {
+              const entries = getCubeTracks(archive, chapter.id);
+              const selected = index === activeIndex;
+              return (
+                <button
+                  className={`chapter-stage-switch${selected ? " is-active" : ""}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls="active-chapter-stage"
+                  tabIndex={selected ? 0 : -1}
+                  key={chapter.id}
+                  onClick={() => setSelectedIndex(index)}
+                  style={chapterColorStyle(chapter.color)}
+                >
+                  <span className="chapter-stage-switch-copy">
+                    <small>{String(index + 1).padStart(2, "0")}</small>
+                    <strong>{chapter.name}</strong>
+                    <span>{entries.length}곡</span>
+                  </span>
+                  <ChapterCover archive={archive} chapter={chapter} />
+                </button>
+              );
+            })}
+          </div>
+        </>
       ) : (
         <EmptyState
           icon=""

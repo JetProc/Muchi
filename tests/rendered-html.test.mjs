@@ -124,6 +124,21 @@ test("uses whitespace and tone instead of decorative divider lines", async () =>
   assert.match(css, /\.chapter-stats\s*{[^}]*gap:\s*8px;/s);
 });
 
+test("turns the chapter index into an accessible swipeable stage", async () => {
+  const source = await readFile(
+    new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /className="chapter-stage"/);
+  assert.match(source, /onTouchStart=/);
+  assert.match(source, /event\.key === "ArrowLeft"/);
+  assert.match(source, /event\.key === "ArrowRight"/);
+  assert.match(source, /role="tablist" aria-label="음악 챕터 선택"/);
+  assert.match(source, /aria-selected=\{selected\}/);
+  assert.match(source, />\s*챕터 들어가기\s*</);
+});
+
 test("redirects legacy presentation routes to the chapter archive", async () => {
   const redirects = [
     ["/cubes", "/chapters"],

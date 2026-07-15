@@ -236,49 +236,35 @@ export function EditorialShell({
     <div className={`app-shell editorial-shell${playerOpen ? " has-player" : ""}`}>
       <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
       <header className="editorial-header">
-        <div className="top-banner-copy">
-          <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
-            <strong>MUMU</strong>
-            <span>PERSONAL MUSIC ARCHIVE</span>
-          </Link>
-          <strong className="top-banner-tagline">BUILD YOUR MUSIC ARCHIVE. ONLINE.</strong>
-        </div>
+        <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
+          <strong>MUMU</strong>
+          <span>PERSONAL MUSIC ARCHIVE</span>
+        </Link>
         <div className="header-index" aria-hidden="true">
           <span>{VIEW_META[view].index}</span>
           <i />
           <span>{VIEW_META[view].label}</span>
         </div>
-        <div className="top-banner-actions">
+        <div className="header-links">
           <Link
-            className="buy-a-dell-sticker"
-            href="/capture"
-            intent="modal"
-            aria-label="새 음악 기록"
+            className="inbox-link"
+            href="/inbox"
+            intent="tab"
+            aria-label={inboxCount ? `정리할 곡 ${inboxCount}곡 남음` : "정리할 곡 없음"}
           >
-            ADD A SONG
+            <span>정리할 곡</span>
+            {inboxCount ? (
+              <span className="inbox-count" aria-hidden="true">{inboxCount}</span>
+            ) : null}
           </Link>
-          <span className="phone-callout">1-800-213-DELL</span>
-          <div className="header-links">
-            <Link
-              className="inbox-link"
-              href="/inbox"
-              intent="tab"
-              aria-label={inboxCount ? `정리할 곡 ${inboxCount}곡 남음` : "정리할 곡 없음"}
-            >
-              <span>정리할 곡</span>
-              {inboxCount ? (
-                <span className="inbox-count" aria-hidden="true">{inboxCount}</span>
-              ) : null}
-            </Link>
-            <Link
-              className="settings-link"
-              href="/settings"
-              intent="tab"
-              aria-label="환경 설정"
-            >
-              <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
-            </Link>
-          </div>
+          <Link
+            className="settings-link"
+            href="/settings"
+            intent="tab"
+            aria-label="환경 설정"
+          >
+            <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+          </Link>
         </div>
       </header>
 
@@ -291,11 +277,6 @@ export function EditorialShell({
 
       <footer className="footer-band">
         <TextNavigation view={view} />
-        <p className="footer-legal">
-          <Link className="footer-copyright" href="/" intent="tab">Copyright © 2026 MUMU</Link>
-          {" "}<span>(Terms of Use)</span>
-          <small>This site is best viewed with browser versions 3.0 and higher.</small>
-        </p>
       </footer>
       <MiniPlayer
         preview={preview}

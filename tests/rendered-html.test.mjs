@@ -231,19 +231,19 @@ test("keeps catalog surfaces square, flat, and linked in classic blue", async ()
   );
 });
 
-test("renders the catalog banner, sticker, phone callout, and icon footer", async () => {
-  const source = await readFile(
-    new URL("../app/_components/editorial-shell.tsx", import.meta.url),
-    "utf8",
-  );
+test("keeps the catalog chrome compact with a fixed icon footer", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
 
-  assert.match(source, /className="top-banner-tagline">BUILD YOUR MUSIC ARCHIVE\. ONLINE\.<\/strong>/);
-  assert.match(source, /className="buy-a-dell-sticker"[\s\S]*?ADD A SONG/);
-  assert.match(source, /className="phone-callout">1-800-213-DELL<\/span>/);
+  assert.doesNotMatch(source, /BUILD YOUR MUSIC ARCHIVE|1-800-213-DELL|buy-a-dell-sticker/);
+  assert.match(source, /className="header-links"/);
   assert.match(source, /className="footer-band"/);
   assert.match(source, /className="text-navigation icon-label-nav"/);
   assert.match(source, /MOBILE_NAV_ICON = \{[\s\S]*?home: House,[\s\S]*?chapters: Library,[\s\S]*?capture: Plus,[\s\S]*?search: Search/);
-  assert.match(source, /className="footer-copyright"[\s\S]*?Copyright © 2026 MUMU/);
+  assert.doesNotMatch(source, /className="footer-copyright"/);
+  assert.match(css, /\.footer-band\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0;/s);
 });
 
 test("releases the route transform so fixed dialogs stay anchored to the viewport", async () => {
@@ -319,6 +319,27 @@ test("keeps the home focused on personal archives with a restrained community pr
   assert.doesNotMatch(source, /className="home-manifesto"/);
   assert.match(terminalTheme, /\.home-view\s*\{[^}]*grid-template-columns:\s*28fr 72fr;/s);
   assert.match(terminalTheme, /\.album-hero\s*\{[^}]*min-height:\s*0;[^}]*background:\s*var\(--primary\);/s);
+});
+
+test("uses a compact swipe-first mobile home without primary playback", async () => {
+  const [source, uiSource, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-ui.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const heroSource = source.slice(source.indexOf("export function AlbumHero"), source.indexOf("export function Home"));
+
+  assert.doesNotMatch(heroSource, /PreviewButton|>PREV<|>NEXT</);
+  assert.match(heroSource, /onTouchStart=/);
+  assert.match(heroSource, /onTouchEnd=/);
+  assert.match(heroSource, /aria-roledescription="carousel"/);
+  assert.match(source, /showPreview=\{false\}/);
+  assert.match(uiSource, /showPreview = true/);
+  assert.match(uiSource, /\{showPreview \? <PreviewButton/);
+  assert.match(css, /\.editorial-header\s*\{[^}]*position:\s*fixed;/s);
+  assert.match(css, /@media \(max-width: 479px\)[\s\S]*?\.editorial-header\s*\{[^}]*height:\s*52px;/s);
+  assert.match(css, /@media \(max-width: 479px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*88px minmax\(0, 1fr\);/s);
+  assert.match(css, /@media \(max-width: 479px\)[\s\S]*?\.track-line \.track-art\s*\{[^}]*width:\s*56px;[^}]*height:\s*56px;/s);
 });
 
 test("removes redundant helper copy while preserving safety-critical text", async () => {

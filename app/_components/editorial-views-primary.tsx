@@ -35,7 +35,6 @@ import {
   AlbumArtwork,
   ChapterCover,
   LoadingDots,
-  PreviewButton,
   type PreviewControls,
 } from "./editorial-media";
 import { EmptyState, PageHeader, TrackLine } from "./editorial-ui";
@@ -84,10 +83,8 @@ type HomeMemory = ReturnType<typeof getCubeTracks>[number] & { chapter: Cube };
 
 export function AlbumHero({
   memories,
-  preview,
 }: {
   memories: HomeMemory[];
-  preview: PreviewControls;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -105,6 +102,12 @@ export function AlbumHero({
     <section
       className={`album-hero${expanded ? " is-expanded" : ""}`}
       aria-labelledby="featured-memory-title"
+      aria-roledescription="carousel"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft") moveFeatured(-1);
+        if (event.key === "ArrowRight") moveFeatured(1);
+      }}
       onTouchStart={(event) => {
         const touch = event.touches[0];
         touchStart.current = { x: touch.clientX, y: touch.clientY };
@@ -142,7 +145,6 @@ export function AlbumHero({
             <h1 id="featured-memory-title">{featured.track.title}</h1>
             <p className="album-artist">{featured.track.artist}</p>
             <div className="album-actions">
-              <PreviewButton track={featured.track} preview={preview} />
               <button
                 className="text-button"
                 type="button"
@@ -176,8 +178,7 @@ export function AlbumHero({
         />
       )}
       {memories.length > 1 ? (
-        <div className="hero-pagination" aria-label="대표 기억 이동">
-          <button className="text-button" type="button" onClick={() => moveFeatured(-1)}>PREV</button>
+        <div className="hero-pagination" aria-hidden="true">
           <div>
             {memories.slice(0, 8).map((entry, index) => (
               <span
@@ -186,7 +187,6 @@ export function AlbumHero({
               />
             ))}
           </div>
-          <button className="text-button" type="button" onClick={() => moveFeatured(1)}>NEXT</button>
         </div>
       ) : null}
     </section>
@@ -223,7 +223,7 @@ export function Home({
 
   return (
     <div className="page-content home-view">
-      <AlbumHero memories={memories} preview={preview} />
+      <AlbumHero memories={memories} />
 
       {continueEntry && continueTrack ? (
         <section className="home-section home-continue" aria-labelledby="home-continue-title">
@@ -239,6 +239,7 @@ export function Home({
               track={continueTrack}
               index={0}
               preview={preview}
+              showPreview={false}
               context={`${formatDate(continueEntry.capturedAt)} 저장 · 아직 챕터 없음`}
               actions={<Link className="text-link" href="/inbox">정리하기</Link>}
             />
@@ -319,6 +320,7 @@ export function Home({
                   track={memory.track}
                   index={index}
                   preview={preview}
+                  showPreview={false}
                   tags={memory.tags}
                   context={memory.chapter.name}
                   sharedId={memory.cubeTrack.id}

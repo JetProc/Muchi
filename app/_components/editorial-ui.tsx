@@ -114,6 +114,7 @@ export function TrackLine({
   sharedId,
   maxTags = 5,
   onTagClick,
+  showPreview = true,
 }: {
   track: TrackReference;
   index: number;
@@ -124,6 +125,7 @@ export function TrackLine({
   sharedId?: string;
   maxTags?: number;
   onTagClick?: (tag: TagDefinition) => void;
+  showPreview?: boolean;
 }) {
   return (
     <article
@@ -153,7 +155,7 @@ export function TrackLine({
         ) : null}
       </div>
       <div className="track-actions">
-        <PreviewButton track={track} preview={preview} />
+        {showPreview ? <PreviewButton track={track} preview={preview} /> : null}
         {actions}
       </div>
     </article>

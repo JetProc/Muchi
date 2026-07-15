@@ -3439,20 +3439,28 @@ html.has-native-transition .route-stage {
 .app-shell,
 .app-shell.has-player {
   min-height: calc(100dvh - 16px);
-  padding-top: 0;
-  padding-bottom: 0;
+  padding-top: 64px;
+  padding-bottom: 65px;
   background: var(--canvas);
 }
 
+.app-shell.has-player {
+  padding-bottom: 130px;
+}
+
 .editorial-header {
-  position: relative;
-  z-index: 30;
+  position: fixed;
+  z-index: 80;
+  top: 0;
+  left: max(8px, calc((100vw - 760px) / 2 + 8px));
+  width: min(744px, calc(100vw - 16px));
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 112px;
-  align-items: stretch;
-  gap: 12px;
-  padding: 12px 16px;
+  height: 64px;
+  min-height: 64px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
   border: 0;
   color: var(--canvas);
   background: var(--frame-ink);
@@ -3615,6 +3623,11 @@ html.has-native-transition .route-stage {
 }
 
 .footer-band {
+  position: fixed;
+  z-index: 70;
+  right: max(8px, calc((100vw - 760px) / 2 + 8px));
+  bottom: 0;
+  left: max(8px, calc((100vw - 760px) / 2 + 8px));
   border-top: 1px solid var(--frame-ink);
   color: var(--frame-ink);
   background: var(--canvas);
@@ -3625,9 +3638,8 @@ html.has-native-transition .route-stage {
   position: static;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  min-height: 78px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--frame-ink);
+  min-height: 64px;
+  padding: 4px 8px;
   color: var(--frame-ink);
   background: var(--canvas);
   backdrop-filter: none;
@@ -3637,7 +3649,7 @@ html.has-native-transition .route-stage {
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 60px;
+  min-height: 56px;
   align-content: center;
   justify-items: center;
   gap: 6px;
@@ -5038,7 +5050,7 @@ button.tag {
   position: fixed;
   z-index: 100;
   right: max(8px, calc((100vw - 760px) / 2 + 8px));
-  bottom: 8px;
+  bottom: 72px;
   left: max(8px, calc((100vw - 760px) / 2 + 8px));
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -5162,6 +5174,16 @@ button.tag {
   .app-shell,
   .app-shell.has-player {
     min-height: calc(100dvh - 8px);
+  }
+
+  .editorial-header {
+    left: 4px;
+    width: calc(100vw - 8px);
+  }
+
+  .footer-band {
+    right: 4px;
+    left: 4px;
   }
 
   .page-content {
@@ -5445,6 +5467,308 @@ button.tag {
 
   .footer-legal {
     padding: 9px 10px 12px;
+  }
+
+  body {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .app-shell,
+  .app-shell.has-player {
+    padding-top: 52px;
+    padding-bottom: calc(58px + env(safe-area-inset-bottom));
+  }
+
+  .app-shell.has-player {
+    padding-bottom: calc(118px + env(safe-area-inset-bottom));
+  }
+
+  .editorial-header {
+    left: 2px;
+    width: calc(100vw - 4px);
+    height: 52px;
+    min-height: 52px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .brand-lockup strong {
+    font-size: 22px;
+  }
+
+  .brand-lockup span,
+  .top-banner-tagline,
+  .phone-callout,
+  .buy-a-dell-sticker {
+    display: none;
+  }
+
+  .header-links {
+    grid-column: auto;
+    justify-self: end;
+    gap: 6px;
+  }
+
+  .header-links a,
+  .header-links .inbox-link,
+  .header-links .settings-link {
+    min-height: 40px;
+    line-height: 40px;
+  }
+
+  .header-links .settings-link {
+    width: 40px;
+  }
+
+  .footer-band {
+    right: 2px;
+    bottom: 0;
+    left: 2px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .text-navigation,
+  .icon-label-nav {
+    min-height: 58px;
+    padding: 2px 4px;
+    border-bottom: 0;
+  }
+
+  .text-navigation a {
+    min-height: 54px;
+    gap: 2px;
+    padding: 2px;
+    font-size: 9px;
+  }
+
+  .text-navigation svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mini-player {
+    right: 6px;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    left: 6px;
+    min-height: 50px;
+  }
+
+  .page-content {
+    padding: 10px 10px 18px;
+  }
+
+  .home-view {
+    padding: 0;
+  }
+
+  .album-hero {
+    padding: 8px 10px 10px;
+  }
+
+  .hero-folio {
+    padding-bottom: 4px;
+    font-size: 9px;
+  }
+
+  .album-feature {
+    grid-template-columns: 88px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding-top: 4px;
+  }
+
+  .album-feature-art .track-art {
+    width: 88px;
+    height: 66px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .album-feature-copy {
+    min-width: 0;
+    padding-top: 0;
+  }
+
+  .album-feature-copy .section-label {
+    font-size: 8px;
+  }
+
+  .album-feature-copy h1,
+  .page-header h1,
+  .capture-search-header h1,
+  .chapter-stage-header h1,
+  .chapter-hero h1 {
+    margin-top: 2px;
+    font-size: 20px;
+  }
+
+  .album-artist {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+
+  .album-actions {
+    margin-top: 6px;
+  }
+
+  .album-actions .text-button {
+    min-height: 30px;
+    padding: 4px 7px;
+    font-size: 9px;
+  }
+
+  .album-memory-reveal p {
+    font-size: 13px;
+  }
+
+  .album-hero.is-expanded .album-memory-reveal {
+    margin-top: 8px;
+  }
+
+  .hero-pagination {
+    display: block;
+    margin-top: 7px;
+  }
+
+  .hero-pagination > div {
+    gap: 4px;
+  }
+
+  .hero-pagination > div span,
+  .hero-pagination > div span.is-active {
+    width: 16px;
+    height: 3px;
+  }
+
+  .home-section {
+    padding: 10px;
+  }
+
+  .home-section .editorial-section-head {
+    margin-bottom: 6px;
+    padding: 4px 6px;
+  }
+
+  .home-section .editorial-section-head h2 {
+    font-size: 13px;
+  }
+
+  .chapter-preview-list,
+  .community-preview-list {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .chapter-preview-line {
+    min-width: 44%;
+    min-height: 52px;
+    flex: 0 0 44%;
+    scroll-snap-align: start;
+    padding: 6px;
+  }
+
+  .chapter-preview-line strong {
+    font-size: 12px;
+  }
+
+  .chapter-preview-line small {
+    font-size: 9px;
+  }
+
+  .community-moment {
+    min-width: 78%;
+    flex: 0 0 78%;
+    scroll-snap-align: start;
+    padding: 8px 9px;
+  }
+
+  .community-moment h3 {
+    font-size: 13px;
+  }
+
+  .community-moment p {
+    font-size: 12px;
+  }
+
+  .track-line {
+    grid-template-columns: 24px 56px minmax(0, 1fr);
+    grid-template-rows: 56px auto;
+    min-height: 0;
+  }
+
+  .track-number {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .track-line .track-art {
+    width: 56px;
+    height: 56px;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: stretch;
+    border-right: 1px solid var(--frame-ink);
+    border-bottom: 1px solid var(--frame-ink);
+    border-left: 0;
+    filter: none !important;
+  }
+
+  .track-info {
+    grid-column: 3;
+    grid-row: 1;
+    padding: 5px 7px;
+  }
+
+  .track-info strong {
+    font-size: 12px;
+  }
+
+  .track-info small,
+  .track-info em {
+    font-size: 10px;
+  }
+
+  .track-line .track-actions {
+    min-height: 30px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: 3px 6px;
+  }
+
+  .track-line .track-actions .button,
+  .track-line .track-actions .play-button,
+  .track-line .track-actions .text-button,
+  .track-line .track-actions .text-link {
+    min-height: 28px;
+    font-size: 10px;
+  }
+
+  .page-header,
+  .capture-search-header,
+  .chapter-stage-header {
+    padding: 10px;
+  }
+
+  .button,
+  .play-button,
+  .player-text-control,
+  .text-button,
+  .search-tag-more,
+  .inline-tag-add {
+    min-height: 40px;
+  }
+
+  .tag,
+  button.tag {
+    min-height: 32px;
+    padding: 3px 6px;
+    font-size: 10px;
   }
 }
 

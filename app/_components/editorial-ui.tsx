@@ -112,7 +112,7 @@ export function TrackLine({
   context,
   actions,
   sharedId,
-  maxTags = 5,
+  maxTags = 2,
   onTagClick,
   showPreview = true,
 }: {
@@ -133,7 +133,7 @@ export function TrackLine({
       style={{ "--track-delay": `${Math.min(index, 6) * 24}ms` } as CSSProperties}
     >
       <span className="track-number">{String(index + 1).padStart(2, "0")}</span>
-      <AlbumArtwork track={track} index={index} sharedId={sharedId} />
+      <AlbumArtwork track={track} index={index} sharedId={sharedId} decorative />
       <div className="track-info">
         <strong>{track.title}</strong>
         <small>{track.artist}{track.album ? ` · ${track.album}` : ""}</small>

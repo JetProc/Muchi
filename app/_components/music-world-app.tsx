@@ -283,7 +283,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "chapters":
         return <Chapters archive={archive} commit={commit} notify={notify} router={router} pendingTrackId={pendingTrackId} />;
       case "chapter":
-        return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} preview={preview} router={router} hydrated={hydrated} />;
+        return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} preview={preview} hydrated={hydrated} />;
       case "memory":
         return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} preview={preview} router={router} hydrated={hydrated} />;
       case "search":
@@ -328,8 +328,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       ) : null}
       <RouteStage view={view} queryKey={queryId}>{content}</RouteStage>
       {showWelcome ? (
-        <div ref={welcomeDialogRef} className="welcome-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-          <div className="welcome-card">
+        <div className="welcome-backdrop" role="presentation">
+          <div ref={welcomeDialogRef} className="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
             <span className="section-label">WELCOME TO MUMU</span>
             <h2 id="welcome-title">좋아했던 음악을<br />한 권의 기록으로 남겨보세요.</h2>
             <div className="dialog-actions">

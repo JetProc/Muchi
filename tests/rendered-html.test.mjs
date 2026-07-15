@@ -5,10 +5,17 @@ import ts from "typescript";
 
 const projectRoot = new URL("../", import.meta.url);
 const terminalThemeMarker = "MUMU CATALOG 1996 — terminal theme contract";
+const readableThemeMarker = "MUMU READABLE CATALOG — calm hierarchy layer";
 
 function getTerminalTheme(css) {
   const markerIndex = css.lastIndexOf(terminalThemeMarker);
   assert.notEqual(markerIndex, -1, "terminal theme marker must exist");
+  return css.slice(markerIndex);
+}
+
+function getReadableTheme(css) {
+  const markerIndex = css.lastIndexOf(readableThemeMarker);
+  assert.notEqual(markerIndex, -1, "readability layer marker must exist");
   return css.slice(markerIndex);
 }
 
@@ -133,6 +140,45 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(terminalTheme, /\.capture-results \.section-head\s*\{[^}]*margin-bottom:\s*8px;/s);
 });
 
+test("keeps the restored December 1996 catalog theme active", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const terminalTheme = getTerminalTheme(css);
+
+  assert.doesNotMatch(terminalTheme, /@media \(max-width:\s*0px\)\s*\{/);
+  assert.match(terminalTheme, /--frame-ink:\s*#000000;/);
+  assert.match(terminalTheme, /--canvas:\s*#ffffff;/);
+  assert.match(terminalTheme, /--primary:\s*#e91d2a;/);
+  assert.match(terminalTheme, /body\s*\{[^}]*border:\s*8px solid var\(--frame-ink\);/s);
+  assert.match(terminalTheme, /border-radius:\s*0 !important;/);
+  assert.match(terminalTheme, /box-shadow:\s*none !important;/);
+});
+
+test("adds a calm mobile readability layer without replacing the restored catalog", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const readableTheme = getReadableTheme(css);
+
+  assert.ok(css.indexOf(terminalThemeMarker) < css.indexOf(readableThemeMarker));
+  assert.match(readableTheme, /body\s*\{[^}]*border:\s*0;[^}]*font-family:\s*var\(--font-ui\);/s);
+  assert.match(readableTheme, /\.app-shell,\s*\.app-shell\.has-player\s*\{[^}]*padding-bottom:\s*calc\(96px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(readableTheme, /\.page-header,\s*\.capture-search-header,\s*\.chapter-stage-header\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*var\(--readable-shadow\) !important;/s);
+  assert.match(readableTheme, /\.track-line\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*var\(--readable-shadow\) !important;/s);
+  assert.match(readableTheme, /\.track-info small,\s*\.track-info em\s*\{[^}]*font-size:\s*12px;/s);
+  assert.match(readableTheme, /\.footer-band\s*\{[^}]*box-shadow:\s*0 -8px 24px rgba\(0, 0, 0, 0\.08\) !important;/s);
+  assert.match(readableTheme, /@media \(max-width:\s*479px\)[\s\S]*?body\s*\{[^}]*font-size:\s*15px;/s);
+  assert.match(readableTheme, /@media \(max-width:\s*479px\)[\s\S]*?\.text-navigation a\s*\{[^}]*font-size:\s*11px;/s);
+});
+
+test("keeps toast messages compact above the fixed mobile navigation", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const readableTheme = getReadableTheme(css);
+
+  assert.match(readableTheme, /\.toast\s*\{[^}]*top:\s*auto;[^}]*right:\s*auto;[^}]*bottom:\s*calc\(82px \+ env\(safe-area-inset-bottom\)\);[^}]*left:\s*50%;/s);
+  assert.match(readableTheme, /\.toast\s*\{[^}]*width:\s*min\(420px, calc\(100% - 28px\)\);[^}]*min-height:\s*48px;/s);
+  assert.match(readableTheme, /\.toast\s*\{[^}]*pointer-events:\s*none;[^}]*animation:\s*readable-toast-in 220ms ease-out both !important;/s);
+  assert.match(readableTheme, /\.app-shell\.has-player \.toast\s*\{[^}]*bottom:\s*calc\(150px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(readableTheme, /@keyframes readable-toast-in\s*\{[\s\S]*?from\s*\{[^}]*transform:\s*translate\(-50%, 10px\);[^}]*\}[\s\S]*?to\s*\{[^}]*transform:\s*translate\(-50%, 0\);/s);
+});
+
 test("uses an accessible settings icon in the editorial header", async () => {
   const [source, packageJsonSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
@@ -167,7 +213,7 @@ test("keeps the complete December 1996 design direction in the repository", asyn
   assert.match(design, /drop-shadow\(2px 2px 0 #000\)/);
 });
 
-test("applies the closed catalog palette, period typography, and framed canvas", async () => {
+test("applies the closed catalog palette and period typography", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const terminalTheme = getTerminalTheme(css);
   const palette = [...new Set(
@@ -175,104 +221,95 @@ test("applies the closed catalog palette, period typography, and framed canvas",
   )].sort();
 
   assert.deepEqual(palette, [
-    "#000000",
-    "#0000ee",
-    "#6a26a4",
-    "#8c9ae0",
-    "#8e8a25",
-    "#9ab6c8",
-    "#a5b8c0",
-    "#b3bd95",
-    "#c0d4a7",
-    "#d77a7a",
-    "#e6915d",
-    "#e91d2a",
-    "#fcc20f",
-    "#ffffff",
+    "#000000", "#0000ee", "#6a26a4", "#8c9ae0", "#8e8a25",
+    "#9ab6c8", "#a5b8c0", "#b3bd95", "#c0d4a7", "#d77a7a",
+    "#e6915d", "#e91d2a", "#fcc20f", "#ffffff",
   ]);
   assert.match(terminalTheme, /--font-display:\s*"Arial Black",\s*Helvetica/);
   assert.match(terminalTheme, /--font-ui:\s*Helvetica,\s*Arial/);
   assert.match(terminalTheme, /--font-body:\s*"Times New Roman",\s*Times/);
-  assert.match(
-    terminalTheme,
-    /body\s*\{[^}]*width:\s*min\(760px,\s*100%\);[^}]*margin:\s*0 auto;[^}]*border:\s*8px solid var\(--frame-ink\);[^}]*font-family:\s*var\(--font-body\);/s,
-  );
-
-  const tabletTheme = terminalTheme.slice(terminalTheme.indexOf("@media (max-width: 768px)"));
-  const mobileTheme = terminalTheme.slice(terminalTheme.indexOf("@media (max-width: 479px)"));
-  assert.match(tabletTheme, /@media \(max-width:\s*768px\)\s*\{\s*body\s*\{[^}]*border-width:\s*4px;/s);
-  assert.match(mobileTheme, /@media \(max-width:\s*479px\)\s*\{\s*body\s*\{[^}]*border-width:\s*2px;/s);
-  assert.match(mobileTheme, /\.buy-a-dell-sticker\s*\{[^}]*min-height:\s*44px;/s);
-  assert.match(mobileTheme, /\.inline-tag-add\s*\{[^}]*min-height:\s*44px;/s);
-});
-
-test("keeps catalog surfaces square, flat, and linked in classic blue", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const terminalTheme = getTerminalTheme(css);
-  const dropShadows = terminalTheme.match(/filter:\s*drop-shadow\([^;]+;/g) ?? [];
-
-  assert.match(
-    terminalTheme,
-    /\*,\s*\*::before,\s*\*::after\s*\{[^}]*border-radius:\s*0 !important;[^}]*box-shadow:\s*none !important;[^}]*text-shadow:\s*none !important;[^}]*background-image:\s*none !important;/s,
-  );
   assert.match(terminalTheme, /--shadow-control:\s*none;/);
   assert.match(terminalTheme, /--shadow-surface:\s*none;/);
   assert.match(terminalTheme, /--shadow-floating:\s*none;/);
-  assert.doesNotMatch(terminalTheme, /(?:linear|radial|conic)-gradient\(/);
-  assert.ok(dropShadows.length >= 2);
-  assert.ok(
-    dropShadows.every((shadow) => (
-      shadow === "filter: drop-shadow(2px 2px 0 var(--frame-ink)) !important;"
-    )),
-  );
-  assert.match(
-    terminalTheme,
-    /\.text-link,\s*\.footer-legal a,\s*\.footer-copyright\s*\{[^}]*color:\s*var\(--link\);[^}]*text-decoration:\s*underline;/s,
-  );
 });
 
-test("keeps the catalog chrome compact with a fixed icon footer", async () => {
+test("keeps common controls readable and touch friendly", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const terminalTheme = getTerminalTheme(css);
+
+  assert.match(terminalTheme, /@media \(max-width: 719px\)[\s\S]*?\.button,[\s\S]*?\.tag-manager-menu > summary\s*\{[^}]*min-height:\s*44px;/s);
+  assert.match(terminalTheme, /\.chapter-stage-controls \.icon-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+  assert.match(terminalTheme, /\.track-line\s*\{[^}]*border:\s*1px solid var\(--frame-ink\);/s);
+  assert.match(terminalTheme, /box-shadow:\s*none !important;/);
+});
+
+test("keeps the compact fixed navigation with Korean labels", async () => {
   const [source, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.doesNotMatch(source, /BUILD YOUR MUSIC ARCHIVE|1-800-213-DELL|buy-a-dell-sticker/);
-  assert.match(source, /className="header-links"/);
-  assert.match(source, /className="footer-band"/);
+  assert.match(source, /home:\s*"홈"/);
+  assert.match(source, /chapters:\s*"챕터"/);
+  assert.match(source, /capture:\s*"추가"/);
+  assert.match(source, /search:\s*"검색"/);
   assert.match(source, /className="text-navigation icon-label-nav"/);
-  assert.match(source, /MOBILE_NAV_ICON = \{[\s\S]*?home: House,[\s\S]*?chapters: Library,[\s\S]*?capture: Plus,[\s\S]*?search: Search/);
-  assert.doesNotMatch(source, /className="footer-copyright"/);
-  assert.match(css, /\.footer-band\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0;/s);
-});
-
-test("releases the route transform so fixed dialogs stay anchored to the viewport", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const terminalTheme = getTerminalTheme(css);
-  const routeStageRule = terminalTheme.match(
-    /\.route-stage,[^{]*html\[data-motion-intent\][^{]*\.route-stage,[^{]*html\.has-native-transition \.route-stage\s*\{([^}]*)\}/s,
-  )?.[1] ?? "";
-
-  assert.match(routeStageRule, /animation:\s*none !important/);
-  assert.match(routeStageRule, /transform:\s*none !important/);
+  assert.match(terminalTheme, /\.footer-band\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0;/s);
 });
 
-test("uses black catalog hairlines instead of soft surface elevation", async () => {
+test("anchors modal backdrops to the viewport", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const terminalTheme = getTerminalTheme(css);
 
-  assert.match(terminalTheme, /border:\s*1px solid var\(--frame-ink\)/);
-  assert.match(terminalTheme, /border-(?:top|right|bottom|left):\s*1px solid var\(--frame-ink\)/);
-  assert.match(terminalTheme, /box-shadow:\s*none !important/);
+  assert.match(terminalTheme, /\.dialog-backdrop,[\s\S]*?\.welcome-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;/s);
+  assert.match(terminalTheme, /\.dialog,[\s\S]*?border:\s*4px solid var\(--frame-ink\)/s);
 });
 
-test("uses catalog ribbons with hard-edged photo bevels for track rows", async () => {
+test("keeps dialog semantics on the focused surface instead of the backdrop", async () => {
+  const paths = [
+    "editorial-shell.tsx",
+    "editorial-views-primary.tsx",
+    "editorial-views-chapters.tsx",
+    "editorial-views-discovery.tsx",
+    "editorial-views-tags.tsx",
+    "music-world-app.tsx",
+  ];
+  const sources = await Promise.all(paths.map((name) => readFile(
+    new URL(`../app/_components/${name}`, import.meta.url),
+    "utf8",
+  )));
+  const source = sources.join("\n");
+
+  assert.doesNotMatch(source, /className="(?:dialog|welcome|player)-backdrop"[^>]*role="(?:dialog|alertdialog)"/);
+  assert.match(source, /className="dialog[^"\n]*" role="dialog" aria-modal="true"/);
+  assert.match(source, /className="welcome-card" role="dialog" aria-modal="true"/);
+});
+
+test("keeps track rows neutral with hard-edged photo bevels", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const terminalTheme = getTerminalTheme(css);
 
-  assert.match(terminalTheme, /\.track-line\s*\{[^}]*--ribbon-tint:\s*var\(--tint-sage\);[^}]*border:\s*1px solid var\(--frame-ink\);/s);
-  assert.match(terminalTheme, /\.track-line:nth-child\(8n \+ 8\)[^{]*\{\s*--ribbon-tint:\s*var\(--tint-olive\);\s*\}/);
+  assert.match(terminalTheme, /\.track-line\s*\{[^}]*border:\s*1px solid var\(--frame-ink\);[^}]*background:\s*var\(--canvas\);/s);
+  assert.match(terminalTheme, /\.track-line \.track-actions\s*\{[^}]*background:\s*var\(--canvas\);/s);
+  assert.doesNotMatch(terminalTheme, /\.track-line:nth-child\(8n/);
   assert.match(terminalTheme, /\.track-art\s*\{[^}]*filter:\s*drop-shadow\(2px 2px 0 var\(--frame-ink\)\) !important;/s);
+});
+
+test("uses one album-cover track row across chapter, add, and archive search", async () => {
+  const [chapterSource, addSource, searchSource, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  for (const source of [chapterSource, addSource, searchSource]) {
+    assert.equal((source.match(/className="track-list track-list-unified"/g) ?? []).length, 1);
+  }
+  assert.match(css, /\.track-list-unified \.track-line\s*\{[^}]*--track-cover-size:\s*clamp\(56px, 16vw, 72px\);[^}]*grid-template-columns:\s*24px var\(--track-cover-size\) minmax\(0, 1fr\) auto;/s);
+  assert.match(css, /\.track-list-unified \.track-line \.track-art\s*\{[^}]*width:\s*var\(--track-cover-size\);[^}]*height:\s*var\(--track-cover-size\);[^}]*aspect-ratio:\s*1;/s);
+  assert.match(css, /\.track-list-unified \.track-line \.track-actions\s*\{[^}]*grid-column:\s*4;[^}]*grid-row:\s*1;/s);
 });
 
 test("turns the chapter index into an accessible overlapping LP deck", async () => {
@@ -282,24 +319,32 @@ test("turns the chapter index into an accessible overlapping LP deck", async () 
   ]);
   const terminalTheme = getTerminalTheme(css);
 
-  assert.match(source, /className="chapter-stage"/);
   assert.match(source, /aria-roledescription="carousel"/);
+  assert.match(source, /className="chapter-stage-controls"/);
+  assert.match(source, /aria-label="이전 챕터"/);
+  assert.match(source, /aria-label="다음 챕터"/);
   assert.match(source, /onPointerDown=/);
-  assert.match(source, /Math\.abs\(distance\) < 48/);
-  assert.match(source, /hidden=\{!visible\}/);
-  assert.match(source, /className="chapter-lp-stack" role="tablist"/);
-  assert.match(source, /src="\/assets\/chapter-lp\.png"/);
-  assert.match(source, /className="chapter-lp-card-copy"/);
   assert.match(source, /event\.key === "ArrowLeft"/);
   assert.match(source, /event\.key === "ArrowRight"/);
-  assert.match(source, /role="tablist" aria-label="음악 챕터 선택"/);
-  assert.match(source, /aria-selected=\{selected\}/);
-  assert.match(source, />\s*챕터 들어가기\s*</);
+  assert.match(source, /src="\/assets\/chapter-lp\.png"/);
+  assert.match(source, /const CHAPTER_STACK_OFFSET = 46;/);
+  assert.match(source, /--stack-rise.*CHAPTER_STACK_OFFSET/s);
+  assert.match(source, /--stack-y.*CHAPTER_STACK_OFFSET/s);
   assert.match(terminalTheme, /\.chapter-lp-card\s*\{[^}]*border:\s*1px solid var\(--frame-ink\);[^}]*filter:\s*drop-shadow\(2px 2px 0 var\(--frame-ink\)\) !important;/s);
-  assert.doesNotMatch(terminalTheme, /drop-shadow\(0 12px 16px/);
+  assert.match(terminalTheme, /\.chapter-stage-controls \.icon-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
 });
 
-test("keeps the home focused on personal archives with a restrained community preview", async () => {
+test("shows the recap switch state as visible text as well as semantics", async () => {
+  const source = await readFile(
+    new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /className="toggle-label" aria-hidden="true"/);
+  assert.match(source, /recapEnabled \? "켬" : "끔"/);
+  assert.match(source, /role="switch" aria-checked=/);
+});
+test("keeps the home focused on three personal archive priorities", async () => {
   const [source, css] = await Promise.all([
     readFile(
       new URL("../app/_components/editorial-views-primary.tsx", import.meta.url),
@@ -311,14 +356,54 @@ test("keeps the home focused on personal archives with a restrained community pr
 
   assert.match(source, /className="home-section home-continue"/);
   assert.match(source, /className="home-section chapter-preview"/);
-  assert.match(source, /className="home-section home-discovery"/);
-  assert.match(source, /COMMUNITY PREVIEW/);
-  assert.match(source, /다른 사람의 장면/);
   assert.match(source, /className="home-section home-recent"/);
-  assert.match(source, /className="home-section home-monthly"/);
-  assert.doesNotMatch(source, /className="home-manifesto"/);
-  assert.match(terminalTheme, /\.home-view\s*\{[^}]*grid-template-columns:\s*28fr 72fr;/s);
-  assert.match(terminalTheme, /\.album-hero\s*\{[^}]*min-height:\s*0;[^}]*background:\s*var\(--primary\);/s);
+  assert.match(source, /memories\.slice\(0, 3\)/);
+  assert.match(source, /href="\/recap">이맘때의 음악/);
+  assert.doesNotMatch(source, /COMMUNITY_PREVIEW|다른 사람의 장면|home-monthly/);
+  assert.match(terminalTheme, /\.album-hero\s*\{[^}]*background:\s*var\(--primary\);/s);
+});
+
+test("keeps destructive track actions behind explicit management modes", async () => {
+  const [primarySource, chapterSource] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(primarySource, /const \[managing, setManaging\] = useState\(false\)/);
+  assert.match(primarySource, /managing \? "관리 완료" : "목록 관리"/);
+  assert.match(primarySource, /actions=\{managing \? <button className="button button-danger"/);
+  assert.match(chapterSource, /const \[managing, setManaging\] = useState\(false\)/);
+  assert.match(chapterSource, /managing \? "관리 완료" : "곡 관리"/);
+  assert.match(chapterSource, /actions=\{managing \? <>/);
+  assert.match(chapterSource, /: <Link className="button"[^>]*>기억 열기<\/Link>/);
+});
+
+test("defers new memory tags until the memory form is saved", async () => {
+  const source = await readFile(
+    new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url),
+    "utf8",
+  );
+  const addTagSource = source.slice(source.indexOf("function addTag("), source.indexOf("function save("));
+  const saveSource = source.slice(source.indexOf("function save("), source.indexOf("if (!hydrated)"));
+
+  assert.match(source, /const \[draftArchive, setDraftArchive\] = useState<ArchiveEnvelopeV1 \| null>\(null\)/);
+  assert.match(addTagSource, /createTags\(draftArchive \?\? archive/);
+  assert.match(addTagSource, /setDraftArchive\(result\.archive\)/);
+  assert.doesNotMatch(addTagSource, /commit\(/);
+  assert.match(saveSource, /updateCubeTrack\(draftArchive \?\? archive/);
+  assert.match(saveSource, /commit\(withTags/);
+});
+
+test("puts tag creation in a modal and keeps the library first", async () => {
+  const source = await readFile(
+    new URL("../app/_components/editorial-views-tags.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const \[createOpen, setCreateOpen\] = useState\(false\)/);
+  assert.match(source, />새 태그<\/button>/);
+  assert.match(source, /className="dialog tag-bulk-panel form-stack" role="dialog"/);
+  assert.ok(source.indexOf("tag-library") < source.indexOf("createOpen ?"));
 });
 
 test("uses a compact swipe-first mobile home without primary playback", async () => {
@@ -336,10 +421,11 @@ test("uses a compact swipe-first mobile home without primary playback", async ()
   assert.match(source, /showPreview=\{false\}/);
   assert.match(uiSource, /showPreview = true/);
   assert.match(uiSource, /\{showPreview \? <PreviewButton/);
-  assert.match(css, /\.editorial-header\s*\{[^}]*position:\s*fixed;/s);
-  assert.match(css, /@media \(max-width: 479px\)[\s\S]*?\.editorial-header\s*\{[^}]*height:\s*52px;/s);
-  assert.match(css, /@media \(max-width: 479px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*88px minmax\(0, 1fr\);/s);
-  assert.match(css, /@media \(max-width: 479px\)[\s\S]*?\.track-line \.track-art\s*\{[^}]*width:\s*56px;[^}]*height:\s*56px;/s);
+  const terminalTheme = getTerminalTheme(css);
+  assert.match(terminalTheme, /\.editorial-header\s*\{[^}]*position:\s*fixed;/s);
+  assert.match(terminalTheme, /@media \(max-width: 479px\)[\s\S]*?\.editorial-header\s*\{[^}]*height:\s*52px;/s);
+  assert.match(terminalTheme, /@media \(max-width: 479px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*88px minmax\(0, 1fr\);/s);
+  assert.match(terminalTheme, /@media \(max-width: 479px\)[\s\S]*?\.track-line \.track-art\s*\{[^}]*width:\s*56px;[^}]*height:\s*56px;/s);
 });
 
 test("removes redundant helper copy while preserving safety-critical text", async () => {
@@ -367,7 +453,7 @@ test("removes redundant helper copy while preserving safety-critical text", asyn
   assert.match(source, /ITUNES_PREVIEW_USAGE_NOTICE/);
 });
 
-test("keeps archive search compact and prioritizes the result list", async () => {
+test("shows tag categories inline before archive search results", async () => {
   const [source, css] = await Promise.all([
     readFile(
       new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url),
@@ -380,20 +466,28 @@ test("keeps archive search compact and prioritizes the result list", async () =>
   assert.match(source, /className="page-content search-view"/);
   assert.match(source, /<h1 className="sr-only">기록 검색<\/h1>/);
   assert.match(source, /className="input search-input"\s*\n\s*type="search"/);
+  assert.match(source, /className="search-tag-categories" role="group" aria-label="태그 카테고리"/);
+  assert.match(source, /SEARCH_TAG_CATEGORIES\.map\(\(category\) =>/);
   assert.match(source, /className="search-tag-list" role="group"/);
-  assert.match(source, /className="search-tag-more"/);
-  assert.match(source, /className="dialog search-tag-dialog"/);
+  assert.doesNotMatch(source, /className="search-tag-more"/);
+  assert.doesNotMatch(source, /className="dialog search-tag-dialog"/);
+  assert.doesNotMatch(source, /tagPanelOpen/);
   assert.match(source, /tagMatch/);
   assert.match(source, /maxTags=\{2\}/);
   assert.match(source, /className="search-results-section"/);
+  assert.match(source, /const hasSearch = Boolean\(query\.trim\(\) \|\| tagIds\.length\)/);
+  assert.match(source, /const results = hasSearch/);
   assert.doesNotMatch(source, /내 언어로 음악을 다시 찾기/);
   assert.doesNotMatch(source, /className="search-editor/);
   assert.ok(
+    source.indexOf("search-tag-categories") < source.indexOf("search-tag-list"),
+  );
+  assert.ok(
     source.indexOf("search-results-section") > source.indexOf("search-tag-list"),
   );
-  assert.match(terminalTheme, /\.search-tag-list\s*\{[^}]*display:\s*flex;[^}]*overflow-x:\s*auto;/s);
+  assert.match(terminalTheme, /\.search-tag-categories\s*\{[^}]*display:\s*grid;/s);
+  assert.match(terminalTheme, /\.search-tag-list\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/s);
   assert.match(terminalTheme, /\.search-results-section\s*\{[^}]*margin-top:\s*16px;/s);
-  assert.match(terminalTheme, /\.search-tag-dialog-list\s*\{[^}]*overflow-y:\s*auto;/s);
 });
 
 test("redirects legacy presentation routes to the chapter archive", async () => {
@@ -861,5 +955,24 @@ test("keeps memory editing to automatic period tags, managed tags, and memo", as
   assert.doesNotMatch(
     memorySource,
     /character=\{character\}|place=\{place\}|people=\{people\}/,
+  );
+});
+
+test("keeps recap creation minimal and modal blur calm", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const recapSource = source.slice(source.indexOf("export function Recap("), source.indexOf("export function Settings("));
+  const readableTheme = getReadableTheme(css);
+
+  assert.doesNotMatch(recapSource, /기록 보관함|날짜별 기록과 기간 회고를 한곳에서 봅니다|<PageHeader/);
+  assert.match(recapSource, /className="recap-create-action"/);
+  assert.match(recapSource, />회고 만들기<\/button>/);
+  assert.match(recapSource, /className="dialog recap-create-dialog"/);
+  assert.doesNotMatch(recapSource, /2026-06-07 데일리 요약/);
+  assert.match(
+    readableTheme,
+    /\.dialog-backdrop,[\s\S]*?\.welcome-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*background:\s*rgba\(23, 19, 15, 0\.24\);[^}]*backdrop-filter:\s*blur\(8px\) saturate\(0\.92\) !important;/s,
   );
 });

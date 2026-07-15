@@ -46,39 +46,6 @@ const CAPTURE_DRAFT_KEY = "music-world:capture-draft:v1";
 const SEARCH_RESULT_BATCH_SIZE = 10;
 const SEARCH_RESULT_REVEAL_DELAY_MS = 240;
 
-const COMMUNITY_PREVIEW = [
-  {
-    id: "same-song",
-    eyebrow: "SAME SONG",
-    title: "Radio",
-    artist: "The Volunteers",
-    author: "@midsummer",
-    chapter: "비가 오던 귀갓길",
-    memo: "같은 노래인데도 그날의 속도는 조금 느렸다.",
-    tag: "#한밤중",
-  },
-  {
-    id: "similar-tag",
-    eyebrow: "SIMILAR TAG",
-    title: "Bags",
-    artist: "Clairo",
-    author: "@paperplane",
-    chapter: "말하지 못한 여름",
-    memo: "창문을 열어 두고 끝까지 듣던 오후.",
-    tag: "#여름",
-  },
-  {
-    id: "weekly-chapter",
-    eyebrow: "WEEKLY CHAPTER",
-    title: "Pink + White",
-    artist: "Frank Ocean",
-    author: "@bluehour",
-    chapter: "낮이 길어진 뒤",
-    memo: "계절이 바뀌는 걸 가장 먼저 알려준 곡.",
-    tag: "#빛나는",
-  },
-] as const;
-
 type HomeMemory = ReturnType<typeof getCubeTracks>[number] & { chapter: Cube };
 
 export function AlbumHero({
@@ -141,7 +108,7 @@ export function AlbumHero({
             <AlbumArtwork track={featured.track} sharedId={featured.cubeTrack.id} priority />
           </Link>
           <div className="album-feature-copy">
-            <span className="section-label">RECENT MEMORY · {featured.chapter.name}</span>
+            <span className="section-label">최근 기억 · {featured.chapter.name}</span>
             <h1 id="featured-memory-title">{featured.track.title}</h1>
             <p className="album-artist">{featured.track.artist}</p>
             <div className="album-actions">
@@ -151,7 +118,7 @@ export function AlbumHero({
                 onClick={() => setExpanded((value) => !value)}
                 aria-expanded={expanded}
               >
-                {expanded ? "CLOSE NOTE" : "READ MEMORY"}
+                {expanded ? "기억 접기" : "기억 펼치기"}
               </button>
             </div>
             <div className="album-memory-reveal" aria-hidden={!expanded}>
@@ -209,18 +176,6 @@ export function Home({
     .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
   const continueEntry = inboxEntries[0] ?? null;
   const continueTrack = continueEntry ? archive.data.tracks[continueEntry.trackId] : null;
-  const summaryMonthKey = Object.values(archive.data.tracks)
-    .flatMap((track) => track.registeredAt ? [track.registeredAt.slice(0, 7)] : [])
-    .sort()
-    .at(-1) ?? archive.updatedAt.slice(0, 7);
-  const [summaryYear, summaryMonth] = summaryMonthKey.split("-");
-  const monthlyTracks = Object.values(archive.data.tracks)
-    .filter((track) => track.registeredAt?.startsWith(summaryMonthKey));
-  const monthlyMemories = memories
-    .filter(({ cubeTrack }) => cubeTrack.createdAt.startsWith(summaryMonthKey));
-  const monthlyChapterCount = new Set(monthlyMemories.map(({ chapter }) => chapter.id)).size;
-  const monthlyTagCount = new Set(monthlyMemories.flatMap(({ tags }) => tags.map((tag) => tag.id))).size;
-
   return (
     <div className="page-content home-view">
       <AlbumHero memories={memories} />
@@ -230,7 +185,7 @@ export function Home({
           <div className="home-section-inner">
             <div className="editorial-section-head">
               <div>
-                <span className="section-label">CONTINUE</span>
+                <span className="section-label">정리 대기</span>
                 <h2 id="home-continue-title">기억 이어가기</h2>
               </div>
               <Link className="text-link" href="/inbox">{inboxEntries.length}곡 남음</Link>
@@ -251,7 +206,7 @@ export function Home({
         <div className="home-section-inner">
           <div className="editorial-section-head">
             <div>
-              <span className="section-label">YOUR INDEX</span>
+              <span className="section-label">내 챕터</span>
               <h2 id="chapter-preview-title">나의 챕터</h2>
             </div>
             <Link className="text-link" href="/chapters" intent="tab">전체 보기</Link>
@@ -268,7 +223,7 @@ export function Home({
                 >
                   <span>{String(index + 1).padStart(2, "0")}</span>
                   <strong>{chapter.name}</strong>
-                  <small>{getCubeTracks(archive, chapter.id).length} TRACKS</small>
+                  <small>{getCubeTracks(archive, chapter.id).length}곡</small>
                 </Link>
               ))}
             </div>
@@ -276,45 +231,21 @@ export function Home({
         </div>
       </section>
 
-      <section className="home-section home-discovery" aria-labelledby="home-discovery-title">
-        <div className="home-section-inner">
-          <div className="editorial-section-head">
-            <div>
-              <span className="section-label">COMMUNITY PREVIEW</span>
-              <h2 id="home-discovery-title">다른 사람의 장면</h2>
-            </div>
-          </div>
-          <div className="community-preview-list">
-            {COMMUNITY_PREVIEW.map((moment) => (
-              <article className="community-moment" key={moment.id}>
-                <div className="community-moment-meta">
-                  <span>{moment.eyebrow}</span>
-                  <span>{moment.author}</span>
-                </div>
-                <h3>{moment.chapter}</h3>
-                <p>{moment.memo}</p>
-                <div className="community-moment-track">
-                  <span>{moment.title} · {moment.artist}</span>
-                  <span>{moment.tag}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section className="home-section home-recent" aria-labelledby="home-recent-title">
         <div className="home-section-inner">
           <div className="editorial-section-head">
             <div>
-              <span className="section-label">RECENT TRACKS</span>
-              <h2 id="home-recent-title">최근 음악</h2>
+              <span className="section-label">최근 기록</span>
+              <h2 id="home-recent-title">다시 듣고 싶은 순간</h2>
             </div>
-            <Link className="text-link" href="/search">기록 찾기</Link>
+            <div className="home-section-actions">
+              <Link className="text-link" href="/recap">이맘때의 음악</Link>
+              <Link className="text-link" href="/search">전체 찾기</Link>
+            </div>
           </div>
           {memories.length ? (
             <div className="track-list">
-              {memories.slice(0, 5).map((memory, index) => (
+              {memories.slice(0, 3).map((memory, index) => (
                 <TrackLine
                   key={memory.cubeTrack.id}
                   track={memory.track}
@@ -341,20 +272,6 @@ export function Home({
         </div>
       </section>
 
-      <section className="home-section home-monthly" aria-labelledby="home-monthly-title">
-        <div className="home-section-inner home-monthly-inner">
-          <div>
-            <span className="section-label">MONTHLY NOTE · {summaryYear}.{summaryMonth}</span>
-            <h2 id="home-monthly-title">이번 기록의 밀도</h2>
-          </div>
-          <dl className="home-monthly-stats">
-            <div><dt>곡</dt><dd>{monthlyTracks.length}</dd></div>
-            <div><dt>챕터</dt><dd>{monthlyChapterCount}</dd></div>
-            <div><dt>태그</dt><dd>{monthlyTagCount}</dd></div>
-          </dl>
-          <Link className="text-link" href="/recap">되돌아보기</Link>
-        </div>
-      </section>
     </div>
   );
 }
@@ -564,8 +481,11 @@ export function Capture({
     const next = captureTrackToInbox(archive, track);
     if (commit(
       next,
-      already ? "이미 임시 보관함에 있는 곡이에요." : "임시 보관함에 곡을 담았어요.",
-    )) clearCaptureDraft();
+      already ? "이미 정리 대기 중인 곡이에요." : "나중에 정리할 곡으로 저장했어요.",
+    )) {
+      clearCaptureDraft();
+      setAssigning(null);
+    }
   }
 
   function saveChapter(track: TrackReference, chapterId: string) {
@@ -634,7 +554,7 @@ export function Capture({
           </div>
           {results.length ? (
             <>
-              <div className="track-list">
+              <div className="track-list track-list-unified">
                 {visibleResults.map((track, index) => {
                   const contexts = Object.values(archive.data.cubeTracks).filter((entry) => entry.trackId === track.id);
                   return (
@@ -643,8 +563,9 @@ export function Capture({
                       track={track}
                       index={index}
                       preview={preview}
+                      showPreview={false}
                       context={contexts.length ? `이미 ${contexts.length}개의 순간에 기록됨` : track.genre || "장르 정보 없음"}
-                      actions={<>{!track.previewUrl && track.externalUrl ? <a className="button button-ghost" href={track.externalUrl} target="_blank" rel="noopener noreferrer">원본 열기</a> : null}<button className="button" type="button" onClick={() => saveInbox(track)}>일단 저장</button><button className="button button-primary" type="button" onClick={() => setAssigning(track)}>챕터에 담기</button></>}
+                      actions={<button className="button button-primary" type="button" onClick={() => setAssigning(track)}>추가</button>}
                     />
                   );
                 })}
@@ -669,8 +590,8 @@ export function Capture({
       ) : null}
 
       {linkDialogOpen ? (
-        <div ref={linkDialogRef} className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="link-import-title">
-          <div className="dialog link-import-dialog">
+        <div className="dialog-backdrop" role="presentation" onClick={() => setLinkDialogOpen(false)}>
+          <div ref={linkDialogRef} className="dialog link-import-dialog" role="dialog" aria-modal="true" aria-labelledby="link-import-title" onClick={(event) => event.stopPropagation()}>
             <span className="section-label">ADD BY LINK</span>
             <h2 id="link-import-title">공유 링크로 곡 추가</h2>
             {!manualFallback ? (
@@ -699,18 +620,18 @@ export function Capture({
       ) : null}
 
       {assigning ? (
-        <div ref={assignDialogRef} className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="assign-title">
-          <div className="dialog">
-            <span className="section-label">NEW MEMORY</span>
+        <div className="dialog-backdrop" role="presentation" onClick={() => setAssigning(null)}>
+          <div ref={assignDialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="assign-title" onClick={(event) => event.stopPropagation()}>
+            <span className="section-label">곡 추가</span>
             <h2 id="assign-title">어느 챕터에 담을까요?</h2>
             <p>{assigning.artist} · {assigning.title}</p>
             <div className="track-list" style={{ marginTop: 22 }}>
               {chapters.map((chapter, index) => (
-                <button key={chapter.id} className="chapter-choice" type="button" onClick={() => saveChapter(assigning, chapter.id)}><span>{String(index + 1).padStart(2, "0")}</span><ChapterCover archive={archive} chapter={chapter} /><span className="track-info"><strong>{chapter.name}</strong><small>{chapter.description || "설명 없음"}</small></span><em>SELECT</em></button>
+                <button key={chapter.id} className="chapter-choice" type="button" onClick={() => saveChapter(assigning, chapter.id)}><span>{String(index + 1).padStart(2, "0")}</span><ChapterCover archive={archive} chapter={chapter} /><span className="track-info"><strong>{chapter.name}</strong><small>{chapter.description || "설명 없음"}</small></span><em>선택</em></button>
               ))}
             </div>
             {!chapters.length ? <p className="notice notice-warning">먼저 챕터를 하나 만들어 주세요.</p> : null}
-            <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={() => setAssigning(null)}>취소</button><button className="button" type="button" onClick={() => createChapterForTrack(assigning)}>새 챕터 만들기</button></div>
+            <div className="dialog-actions"><button className="button" type="button" onClick={() => setAssigning(null)}>취소</button><button className="button" type="button" onClick={() => saveInbox(assigning)}>나중에 정리</button><button className="button button-primary" type="button" onClick={() => createChapterForTrack(assigning)}>새 챕터</button></div>
           </div>
         </div>
       ) : null}
@@ -736,6 +657,7 @@ export function Inbox({
     .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
   const chapters = Object.values(archive.data.cubes).sort((a, b) => a.sortOrder - b.sortOrder);
   const [selectedTrack, setSelectedTrack] = useState<TrackId | null>(null);
+  const [managing, setManaging] = useState(false);
   const assignDialogRef = useModalFocus<HTMLDivElement>(
     Boolean(selectedTrack),
     () => setSelectedTrack(null),
@@ -767,26 +689,26 @@ export function Inbox({
       <PageHeader
         eyebrow={`정리할 곡 · ${entries.length}곡 남음`}
         title="아직 챕터를 기다리는 곡"
-        action={<Link className="button button-primary" href="/capture" intent="modal">곡 더 찾기</Link>}
+        action={<div className="page-header-actions"><Link className="button button-primary" href="/capture" intent="modal">곡 더 찾기</Link>{entries.length ? <button className="text-button" type="button" onClick={() => setManaging((value) => !value)}>{managing ? "관리 완료" : "목록 관리"}</button> : null}</div>}
       />
       {entries.length ? (
         <div className="track-list">
           {entries.map((entry, index) => {
             const track = archive.data.tracks[entry.trackId];
             return track ? (
-              <TrackLine key={entry.trackId} track={track} index={index} preview={preview} context={`${formatDate(entry.capturedAt)} 저장 · 정리 대기`} actions={<><button className="button button-primary" type="button" onClick={() => setSelectedTrack(track.id)}>챕터 고르기</button><button className="button button-ghost" type="button" onClick={() => commit(removeInboxTrack(archive, track.id), "임시 보관함에서 곡을 꺼냈어요.")}>제거</button></>} />
+              <TrackLine key={entry.trackId} track={track} index={index} preview={preview} showPreview={false} context={`${formatDate(entry.capturedAt)} 저장 · 정리 대기`} actions={managing ? <button className="button button-danger" type="button" onClick={() => commit(removeInboxTrack(archive, track.id), "정리 대기 목록에서 곡을 제거했어요.")}>제거</button> : <button className="button button-primary" type="button" onClick={() => setSelectedTrack(track.id)}>챕터 고르기</button>} />
             ) : null;
           })}
         </div>
       ) : <EmptyState icon="⌄" title="정리할 곡이 없어요" action={<Link className="button button-primary" href="/capture">첫 곡 저장하기</Link>} />}
 
       {selectedTrack ? (
-        <div ref={assignDialogRef} className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="inbox-assign-title">
-          <div className="dialog">
-            <span className="section-label">CHOOSE A CHAPTER</span><h2 id="inbox-assign-title">이 곡이 머물 순간은?</h2>
+        <div className="dialog-backdrop" role="presentation" onClick={() => setSelectedTrack(null)}>
+          <div ref={assignDialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="inbox-assign-title" onClick={(event) => event.stopPropagation()}>
+            <span className="section-label">챕터 선택</span><h2 id="inbox-assign-title">이 곡이 머물 순간은?</h2>
             <div className="track-list" style={{ marginTop: 22 }}>
               {chapters.map((chapter, index) => (
-                <button key={chapter.id} className="chapter-choice" type="button" onClick={() => assign(selectedTrack, chapter.id)}><span>{String(index + 1).padStart(2, "0")}</span><ChapterCover archive={archive} chapter={chapter} /><span className="track-info"><strong>{chapter.name}</strong><small>{getCubeTracks(archive, chapter.id).length}곡</small></span><em>SELECT</em></button>
+                <button key={chapter.id} className="chapter-choice" type="button" onClick={() => assign(selectedTrack, chapter.id)}><span>{String(index + 1).padStart(2, "0")}</span><ChapterCover archive={archive} chapter={chapter} /><span className="track-info"><strong>{chapter.name}</strong><small>{getCubeTracks(archive, chapter.id).length}곡</small></span><em>선택</em></button>
               ))}
             </div>
             {!chapters.length ? <div className="notice notice-warning">먼저 챕터를 만들어 주세요.</div> : null}

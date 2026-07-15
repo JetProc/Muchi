@@ -11,6 +11,7 @@ import {
   type TagDefinition,
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
+import { useModalFocus } from "./editorial-accessibility";
 import { TAG_CATEGORY_LABEL } from "./editorial-format";
 import { EmptyState, PageHeader } from "./editorial-ui";
 import type { ArchiveCommit, Notify } from "./editorial-types";
@@ -43,9 +44,11 @@ export function TagManager({
   const [bulkValue, setBulkValue] = useState("");
   const [bulkCategory, setBulkCategory] = useState<TagCategory>("custom");
   const [query, setQuery] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editCategory, setEditCategory] = useState<TagCategory>("custom");
+  const createDialogRef = useModalFocus<HTMLFormElement>(createOpen, () => setCreateOpen(false));
   const allTags = useMemo(
     () => Object.values(archive.data.tags).sort((left, right) => left.label.localeCompare(right.label, "ko")),
     [archive.data.tags],
@@ -80,6 +83,7 @@ export function TagManager({
       );
       if (commit(result.archive, `${result.created}개의 태그 칩을 추가했어요.`)) {
         setBulkValue("");
+        setCreateOpen(false);
       }
     } catch (error) {
       notify(error instanceof Error ? error.message : "태그를 추가하지 못했어요.");
@@ -115,9 +119,9 @@ export function TagManager({
   return (
     <div className="page-content tag-manager-view">
       <PageHeader
-        eyebrow="TAG LIBRARY"
-        title="기억에 쓸 언어를 미리 정리하세요"
-        action={<Link className="button" href="/settings" intent="back">설정으로</Link>}
+        eyebrow="태그 관리"
+        title="기억에 쓰는 언어"
+        action={<div className="page-header-actions"><button className="button button-primary" type="button" onClick={() => setCreateOpen(true)}>새 태그</button><Link className="button" href="/settings" intent="back">설정</Link></div>}
       />
 
       <div className="tag-manager-stats" aria-label="태그 현황">
@@ -126,17 +130,8 @@ export function TagManager({
         <span><strong>{allTags.length - inUseCount}</strong> 미사용</span>
       </div>
 
-      <div className="tag-manager-grid">
-        <form className="panel tag-bulk-panel form-stack" onSubmit={submitBulk}>
-          <div><span className="section-label">BULK CREATE</span><h2>한 번에 태그 만들기</h2></div>
-          <div className="field"><label htmlFor="bulk-category">카테고리</label><select id="bulk-category" className="select" value={bulkCategory} onChange={(event) => setBulkCategory(event.target.value as TagCategory)}>{MANUAL_TAG_CATEGORIES.map((category) => <option value={category} key={category}>{TAG_CATEGORY_LABEL[category]}</option>)}</select></div>
-          <div className="field"><label htmlFor="bulk-tags">태그 이름</label><textarea id="bulk-tags" className="textarea tag-bulk-input" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} placeholder={"새벽, 드라이브, 비 오는 날\n오래된 친구\n퇴근길"} /><span className="field-hint">{newCandidates.length}개 추가 예정{duplicateCount ? ` · 기존 태그 ${duplicateCount}개 제외` : ""}</span></div>
-          {newCandidates.length ? <div className="tag-preview" aria-label="추가할 태그 미리보기">{newCandidates.slice(0, 24).map((label) => <span className="tag" key={normalizeTagLabel(label)}>#{label}</span>)}{newCandidates.length > 24 ? <span className="tag">+{newCandidates.length - 24}</span> : null}</div> : null}
-          <button className="button button-primary" type="submit" disabled={!newCandidates.length}>{newCandidates.length ? `${newCandidates.length}개 태그 추가` : "추가할 태그 입력"}</button>
-        </form>
-
-        <section className="tag-library" aria-labelledby="tag-library-title">
-          <div className="tag-library-head"><div><span className="section-label">YOUR CHIPS</span><h2 id="tag-library-title">등록된 태그</h2></div><label className="field tag-library-search" htmlFor="tag-search"><span className="sr-only">태그 검색</span><input id="tag-search" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="태그 검색" /></label></div>
+      <section className="tag-library" aria-labelledby="tag-library-title">
+          <div className="tag-library-head"><div><span className="section-label">내 태그</span><h2 id="tag-library-title">등록된 태그</h2></div><label className="field tag-library-search" htmlFor="tag-search"><span className="sr-only">태그 검색</span><input id="tag-search" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="태그 검색" /></label></div>
           {visibleTags.length ? TAG_LIBRARY_CATEGORIES.map((category) => {
             const categoryTags = visibleTags.filter((tag) => tag.category === category);
             if (!categoryTags.length) return null;
@@ -158,15 +153,26 @@ export function TagManager({
                   ) : (
                     <div className="tag-manager-row" key={tag.id}>
                       <div className="tag-manager-copy"><span className="tag">#{tag.label}</span><small>{usageByTag.get(tag.id) ?? 0}개 기억에서 사용</small></div>
-                      <div className="tag-manager-actions"><button className="text-button" type="button" onClick={() => beginEdit(tag)}>수정</button><button className="text-button" type="button" onClick={() => remove(tag)}>삭제</button></div>
+                      <details className="tag-manager-menu"><summary className="button">관리</summary><div className="tag-manager-actions"><button className="button" type="button" onClick={() => beginEdit(tag)}>수정</button><button className="button button-danger" type="button" onClick={() => remove(tag)}>삭제</button></div></details>
                     </div>
                   ))}
                 </div>
               </section>
             );
           }) : <EmptyState icon="#" title={query ? "검색 결과가 없어요" : "아직 등록한 태그가 없어요"} />}
-        </section>
-      </div>
+      </section>
+
+      {createOpen ? (
+        <div className="dialog-backdrop" role="presentation" onClick={() => setCreateOpen(false)}>
+          <form ref={createDialogRef} className="dialog tag-bulk-panel form-stack" role="dialog" aria-modal="true" aria-labelledby="create-tags-title" onSubmit={submitBulk} onClick={(event) => event.stopPropagation()}>
+            <div><span className="section-label">새 태그</span><h2 id="create-tags-title">한 번에 만들기</h2></div>
+            <div className="field"><label htmlFor="bulk-category">카테고리</label><select id="bulk-category" className="select" value={bulkCategory} onChange={(event) => setBulkCategory(event.target.value as TagCategory)}>{MANUAL_TAG_CATEGORIES.map((category) => <option value={category} key={category}>{TAG_CATEGORY_LABEL[category]}</option>)}</select></div>
+            <div className="field"><label htmlFor="bulk-tags">태그 이름</label><textarea id="bulk-tags" className="textarea tag-bulk-input" value={bulkValue} onChange={(event) => setBulkValue(event.target.value)} placeholder={"새벽, 드라이브, 비 오는 날\n오래된 친구\n퇴근길"} /><span className="field-hint">{newCandidates.length}개 추가 예정{duplicateCount ? ` · 기존 태그 ${duplicateCount}개 제외` : ""}</span></div>
+            {newCandidates.length ? <div className="tag-preview" aria-label="추가할 태그 미리보기">{newCandidates.slice(0, 24).map((label) => <span className="tag" key={normalizeTagLabel(label)}>#{label}</span>)}{newCandidates.length > 24 ? <span className="tag">+{newCandidates.length - 24}</span> : null}</div> : null}
+            <div className="dialog-actions"><button className="button" type="button" onClick={() => setCreateOpen(false)}>취소</button><button className="button button-primary" type="submit" disabled={!newCandidates.length}>{newCandidates.length ? `${newCandidates.length}개 추가` : "태그 입력"}</button></div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -39,10 +39,10 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
 const MOBILE_NAV = ["home", "chapters", "capture", "search"] as const satisfies readonly AppView[];
 
 const MOBILE_NAV_LABEL: Partial<Record<AppView, string>> = {
-  home: "HOME",
-  chapters: "CHAPTERS",
-  capture: "ADD",
-  search: "SEARCH",
+  home: "홈",
+  chapters: "챕터",
+  capture: "추가",
+  search: "검색",
 };
 
 const MOBILE_NAV_ICON = {
@@ -115,7 +115,7 @@ export function MiniPlayer({
           : preview.play(preview.state!.track)}
         aria-label={preview.state.playing ? "일시정지" : "재생"}
       >
-        {preview.state.playing ? "PAUSE" : "PLAY"}
+        {preview.state.playing ? "정지" : "재생"}
       </button>
       <span
         className="mini-player-progress"
@@ -165,9 +165,7 @@ export function FullPlayer({
           />
         </div>
         <div className="full-player-copy">
-          <span>
-            NOW PLAYING · {Math.floor(preview.state.currentTime).toString().padStart(2, "0")}:30
-          </span>
+          <span>미리듣기 · {Math.floor(preview.state.currentTime).toString().padStart(2, "0")}:30</span>
           <h2>{preview.state.track.title}</h2>
           <p>
             {preview.state.track.artist}
@@ -182,7 +180,7 @@ export function FullPlayer({
               ? preview.pause()
               : preview.play(preview.state!.track)}
           >
-            {preview.state.playing ? "PAUSE PREVIEW" : "PLAY 30 SEC"}
+            {preview.state.playing ? "미리듣기 정지" : "30초 미리듣기"}
           </button>
           {preview.state.track.externalUrl ? (
             <a
@@ -191,10 +189,10 @@ export function FullPlayer({
               target="_blank"
               rel="noopener noreferrer"
             >
-              OPEN ORIGINAL
+              원본 열기
             </a>
           ) : null}
-          <button className="text-button" type="button" onClick={onClose}>CLOSE</button>
+          <button className="text-button" type="button" onClick={onClose}>닫기</button>
         </div>
         <p className="legal-note">{ITUNES_PREVIEW_ATTRIBUTION}</p>
       </section>

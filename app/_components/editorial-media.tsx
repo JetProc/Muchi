@@ -148,7 +148,7 @@ export function PreviewButton({
       aria-label={track.previewUrl ? `${track.title} 30초 미리듣기` : "미리듣기 없음"}
       title={track.previewUrl ? "30초 미리듣기" : "미리듣기 없음"}
     >
-      {playing ? "PAUSE" : "PLAY"}
+      {playing ? "정지" : "미리듣기"}
     </button>
   );
 }

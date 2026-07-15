@@ -7,7 +7,13 @@ import {
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
-import { Settings } from "lucide-react";
+import {
+  House,
+  Library,
+  Plus,
+  Search,
+  Settings,
+} from "lucide-react";
 import { ITUNES_PREVIEW_ATTRIBUTION } from "@/lib/itunes";
 import { useModalFocus } from "./editorial-accessibility";
 import {
@@ -30,7 +36,7 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
   tags: { label: "TAGS", path: "/tags", index: "07" },
 };
 
-const MOBILE_NAV: AppView[] = ["home", "chapters", "capture", "search"];
+const MOBILE_NAV = ["home", "chapters", "capture", "search"] as const satisfies readonly AppView[];
 
 const MOBILE_NAV_LABEL: Partial<Record<AppView, string>> = {
   home: "HOME",
@@ -39,11 +45,19 @@ const MOBILE_NAV_LABEL: Partial<Record<AppView, string>> = {
   search: "SEARCH",
 };
 
+const MOBILE_NAV_ICON = {
+  home: House,
+  chapters: Library,
+  capture: Plus,
+  search: Search,
+} as const;
+
 export function TextNavigation({ view }: { view: AppView }) {
   return (
-    <nav className="text-navigation" aria-label="주요 메뉴">
+    <nav className="text-navigation icon-label-nav" aria-label="주요 메뉴">
       {MOBILE_NAV.map((item) => {
         const meta = VIEW_META[item];
+        const Icon = MOBILE_NAV_ICON[item];
         const active = item === view || (
           item === "chapters" && (view === "chapter" || view === "memory")
         );
@@ -56,7 +70,8 @@ export function TextNavigation({ view }: { view: AppView }) {
             aria-label={item === "capture" ? "새 음악 기록" : meta.label}
             aria-current={active ? "page" : undefined}
           >
-            <span>{MOBILE_NAV_LABEL[item] ?? meta.label}</span>
+            <Icon aria-hidden="true" size={24} strokeWidth={1.8} />
+            <span className="icon-label-nav-label">{MOBILE_NAV_LABEL[item] ?? meta.label}</span>
           </Link>
         );
       })}
@@ -221,35 +236,49 @@ export function EditorialShell({
     <div className={`app-shell editorial-shell${playerOpen ? " has-player" : ""}`}>
       <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
       <header className="editorial-header">
-        <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
-          <strong>MUMU</strong>
-          <span>PERSONAL MUSIC ARCHIVE</span>
-        </Link>
+        <div className="top-banner-copy">
+          <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
+            <strong>MUMU</strong>
+            <span>PERSONAL MUSIC ARCHIVE</span>
+          </Link>
+          <strong className="top-banner-tagline">BUILD YOUR MUSIC ARCHIVE. ONLINE.</strong>
+        </div>
         <div className="header-index" aria-hidden="true">
           <span>{VIEW_META[view].index}</span>
           <i />
           <span>{VIEW_META[view].label}</span>
         </div>
-        <div className="header-links">
+        <div className="top-banner-actions">
           <Link
-            className="inbox-link"
-            href="/inbox"
-            intent="tab"
-            aria-label={inboxCount ? `정리할 곡 ${inboxCount}곡 남음` : "정리할 곡 없음"}
+            className="buy-a-dell-sticker"
+            href="/capture"
+            intent="modal"
+            aria-label="새 음악 기록"
           >
-            <span>정리할 곡</span>
-            {inboxCount ? (
-              <span className="inbox-count" aria-hidden="true">{inboxCount}</span>
-            ) : null}
+            ADD A SONG
           </Link>
-          <Link
-            className="settings-link"
-            href="/settings"
-            intent="tab"
-            aria-label="환경 설정"
-          >
-            <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
-          </Link>
+          <span className="phone-callout">1-800-213-DELL</span>
+          <div className="header-links">
+            <Link
+              className="inbox-link"
+              href="/inbox"
+              intent="tab"
+              aria-label={inboxCount ? `정리할 곡 ${inboxCount}곡 남음` : "정리할 곡 없음"}
+            >
+              <span>정리할 곡</span>
+              {inboxCount ? (
+                <span className="inbox-count" aria-hidden="true">{inboxCount}</span>
+              ) : null}
+            </Link>
+            <Link
+              className="settings-link"
+              href="/settings"
+              intent="tab"
+              aria-label="환경 설정"
+            >
+              <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -260,7 +289,14 @@ export function EditorialShell({
         {children}
       </main>
 
-      <TextNavigation view={view} />
+      <footer className="footer-band">
+        <TextNavigation view={view} />
+        <p className="footer-legal">
+          <Link className="footer-copyright" href="/" intent="tab">Copyright © 2026 MUMU</Link>
+          {" "}<span>(Terms of Use)</span>
+          <small>This site is best viewed with browser versions 3.0 and higher.</small>
+        </p>
+      </footer>
       <MiniPlayer
         preview={preview}
         onOpen={() => setPlayerVisibility(true)}

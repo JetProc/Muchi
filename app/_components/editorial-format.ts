@@ -6,12 +6,12 @@ import type {
 } from "@/lib/archive";
 
 export const COLOR_HEX: Record<CubeColor, string> = {
-  violet: "#6e2d4c",
-  cyan: "#647b78",
-  coral: "#a64b3d",
-  amber: "#b68b4c",
-  mint: "#6f7b62",
-  blue: "#47586e",
+  violet: "#8c9ae0",
+  cyan: "#9ab6c8",
+  coral: "#d77a7a",
+  amber: "#e6915d",
+  mint: "#c0d4a7",
+  blue: "#a5b8c0",
 };
 
 export const COLOR_LABEL: Record<CubeColor, string> = {

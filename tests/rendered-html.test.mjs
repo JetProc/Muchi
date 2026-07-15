@@ -4,6 +4,13 @@ import test from "node:test";
 import ts from "typescript";
 
 const projectRoot = new URL("../", import.meta.url);
+const terminalThemeMarker = "MUMU CATALOG 1996 — terminal theme contract";
+
+function getTerminalTheme(css) {
+  const markerIndex = css.lastIndexOf(terminalThemeMarker);
+  assert.notEqual(markerIndex, -1, "terminal theme marker must exist");
+  return css.slice(markerIndex);
+}
 
 let workerPromise;
 
@@ -107,6 +114,7 @@ test("keeps Add search compact and opens link import in a modal", async () => {
     ),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
+  const terminalTheme = getTerminalTheme(css);
 
   assert.match(source, /className="capture-search-compact"/);
   assert.match(source, /<h1>곡 추가<\/h1>/);
@@ -121,8 +129,8 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.doesNotMatch(source, /검색 및 30초 미리듣기는 iTunes에서 제공됩니다/);
   assert.doesNotMatch(source, /검색하면 곡 목록이 여기에 표시됩니다/);
   assert.match(source, /<h2 className="capture-results-count">/);
-  assert.match(css, /\.capture-results \.capture-results-count\s*\{[^}]*font-size:\s*12px;/s);
-  assert.match(css, /\.capture-results \.section-head\s*\{[^}]*margin-bottom:\s*8px;/s);
+  assert.match(terminalTheme, /\.capture-results \.capture-results-count\s*\{[^}]*font-size:\s*12px;/s);
+  assert.match(terminalTheme, /\.capture-results \.section-head\s*\{[^}]*margin-bottom:\s*8px;/s);
 });
 
 test("uses an accessible settings icon in the editorial header", async () => {
@@ -133,42 +141,138 @@ test("uses an accessible settings icon in the editorial header", async () => {
   const packageJson = JSON.parse(packageJsonSource);
 
   assert.equal(typeof packageJson.dependencies["lucide-react"], "string");
-  assert.match(source, /import \{ Settings \} from "lucide-react"/);
+  assert.match(source, /import\s*\{[^}]*\bSettings\b[^}]*\}\s*from "lucide-react"/s);
   assert.match(source, /className="settings-link"[^>]*aria-label="환경 설정"/s);
   assert.match(source, /<Settings aria-hidden="true"/);
   assert.doesNotMatch(source, /href="\/settings"[^>]*>SETTINGS<\/Link>/s);
 });
 
+test("keeps the complete December 1996 design direction in the repository", async () => {
+  const design = await readFile(new URL("../design.md", import.meta.url), "utf8");
+
+  assert.match(design, /^# Dell December 1996 Design Direction$/m);
+  for (const heading of [
+    "## Overview",
+    "## Colors",
+    "## Typography",
+    "## Layout",
+    "## Elevation & Depth",
+    "## Shapes",
+    "## Components",
+    "## Do's and Don'ts",
+  ]) {
+    assert.ok(design.includes(heading), heading);
+  }
+  assert.match(design, /8px solid \{colors\.frame-ink\}/);
+  assert.match(design, /drop-shadow\(2px 2px 0 #000\)/);
+});
+
+test("applies the closed catalog palette, period typography, and framed canvas", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const terminalTheme = getTerminalTheme(css);
+  const palette = [...new Set(
+    (terminalTheme.match(/#[0-9a-f]{6}/gi) ?? []).map((color) => color.toLowerCase()),
+  )].sort();
+
+  assert.deepEqual(palette, [
+    "#000000",
+    "#0000ee",
+    "#6a26a4",
+    "#8c9ae0",
+    "#8e8a25",
+    "#9ab6c8",
+    "#a5b8c0",
+    "#b3bd95",
+    "#c0d4a7",
+    "#d77a7a",
+    "#e6915d",
+    "#e91d2a",
+    "#fcc20f",
+    "#ffffff",
+  ]);
+  assert.match(terminalTheme, /--font-display:\s*"Arial Black",\s*Helvetica/);
+  assert.match(terminalTheme, /--font-ui:\s*Helvetica,\s*Arial/);
+  assert.match(terminalTheme, /--font-body:\s*"Times New Roman",\s*Times/);
+  assert.match(
+    terminalTheme,
+    /body\s*\{[^}]*width:\s*min\(760px,\s*100%\);[^}]*margin:\s*0 auto;[^}]*border:\s*8px solid var\(--frame-ink\);[^}]*font-family:\s*var\(--font-body\);/s,
+  );
+
+  const tabletTheme = terminalTheme.slice(terminalTheme.indexOf("@media (max-width: 768px)"));
+  const mobileTheme = terminalTheme.slice(terminalTheme.indexOf("@media (max-width: 479px)"));
+  assert.match(tabletTheme, /@media \(max-width:\s*768px\)\s*\{\s*body\s*\{[^}]*border-width:\s*4px;/s);
+  assert.match(mobileTheme, /@media \(max-width:\s*479px\)\s*\{\s*body\s*\{[^}]*border-width:\s*2px;/s);
+  assert.match(mobileTheme, /\.buy-a-dell-sticker\s*\{[^}]*min-height:\s*44px;/s);
+  assert.match(mobileTheme, /\.inline-tag-add\s*\{[^}]*min-height:\s*44px;/s);
+});
+
+test("keeps catalog surfaces square, flat, and linked in classic blue", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const terminalTheme = getTerminalTheme(css);
+  const dropShadows = terminalTheme.match(/filter:\s*drop-shadow\([^;]+;/g) ?? [];
+
+  assert.match(
+    terminalTheme,
+    /\*,\s*\*::before,\s*\*::after\s*\{[^}]*border-radius:\s*0 !important;[^}]*box-shadow:\s*none !important;[^}]*text-shadow:\s*none !important;[^}]*background-image:\s*none !important;/s,
+  );
+  assert.match(terminalTheme, /--shadow-control:\s*none;/);
+  assert.match(terminalTheme, /--shadow-surface:\s*none;/);
+  assert.match(terminalTheme, /--shadow-floating:\s*none;/);
+  assert.doesNotMatch(terminalTheme, /(?:linear|radial|conic)-gradient\(/);
+  assert.ok(dropShadows.length >= 2);
+  assert.ok(
+    dropShadows.every((shadow) => (
+      shadow === "filter: drop-shadow(2px 2px 0 var(--frame-ink)) !important;"
+    )),
+  );
+  assert.match(
+    terminalTheme,
+    /\.text-link,\s*\.footer-legal a,\s*\.footer-copyright\s*\{[^}]*color:\s*var\(--link\);[^}]*text-decoration:\s*underline;/s,
+  );
+});
+
+test("renders the catalog banner, sticker, phone callout, and icon footer", async () => {
+  const source = await readFile(
+    new URL("../app/_components/editorial-shell.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /className="top-banner-tagline">BUILD YOUR MUSIC ARCHIVE\. ONLINE\.<\/strong>/);
+  assert.match(source, /className="buy-a-dell-sticker"[\s\S]*?ADD A SONG/);
+  assert.match(source, /className="phone-callout">1-800-213-DELL<\/span>/);
+  assert.match(source, /className="footer-band"/);
+  assert.match(source, /className="text-navigation icon-label-nav"/);
+  assert.match(source, /MOBILE_NAV_ICON = \{[\s\S]*?home: House,[\s\S]*?chapters: Library,[\s\S]*?capture: Plus,[\s\S]*?search: Search/);
+  assert.match(source, /className="footer-copyright"[\s\S]*?Copyright © 2026 MUMU/);
+});
+
 test("releases the route transform so fixed dialogs stay anchored to the viewport", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const routeStageRule = css.match(/\.route-stage\s*\{([^}]*)\}/s)?.[1] ?? "";
+  const terminalTheme = getTerminalTheme(css);
+  const routeStageRule = terminalTheme.match(
+    /\.route-stage,[^{]*html\[data-motion-intent\][^{]*\.route-stage,[^{]*html\.has-native-transition \.route-stage\s*\{([^}]*)\}/s,
+  )?.[1] ?? "";
 
-  assert.match(routeStageRule, /animation:\s*route-enter/);
-  assert.doesNotMatch(routeStageRule, /\bboth\b/);
+  assert.match(routeStageRule, /animation:\s*none !important/);
+  assert.match(routeStageRule, /transform:\s*none !important/);
 });
 
-test("uses whitespace and tone instead of decorative divider lines", async () => {
+test("uses black catalog hairlines instead of soft surface elevation", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const terminalTheme = getTerminalTheme(css);
 
-  assert.doesNotMatch(
-    css,
-    /border-(?:top|right|bottom|left):\s*1px solid var\(--line\)/,
-  );
-  assert.doesNotMatch(css, /border:\s*1px solid var\(--line-strong\)/);
-  assert.match(css, /--shadow-control:/);
-  assert.match(css, /--shadow-surface:/);
-  assert.match(css, /\.button\s*{[^}]*box-shadow:\s*var\(--shadow-control\)/s);
-  assert.match(css, /\.track-list\s*{[^}]*gap:\s*8px;/s);
-  assert.match(css, /\.chapter-stats\s*{[^}]*gap:\s*8px;/s);
+  assert.match(terminalTheme, /border:\s*1px solid var\(--frame-ink\)/);
+  assert.match(terminalTheme, /border-(?:top|right|bottom|left):\s*1px solid var\(--frame-ink\)/);
+  assert.match(terminalTheme, /box-shadow:\s*none !important/);
 });
 
-test("keeps track rows compact with actions aligned at the right edge", async () => {
+test("uses catalog ribbons with hard-edged photo bevels for track rows", async () => {
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const terminalTheme = getTerminalTheme(css);
 
-  assert.match(css, /\.track-line\s*\{[^}]*grid-template-columns:[^;]*auto;/s);
-  assert.match(css, /\.track-line \.track-actions\s*\{[^}]*grid-column:\s*4;/s);
-  assert.match(css, /\.track-line \.track-actions\s*\{[^}]*justify-content:\s*flex-end;/s);
-  assert.match(css, /\.track-line \.track-art\s*\{[^}]*width:\s*44px;/s);
+  assert.match(terminalTheme, /\.track-line\s*\{[^}]*--ribbon-tint:\s*var\(--tint-sage\);[^}]*border:\s*1px solid var\(--frame-ink\);/s);
+  assert.match(terminalTheme, /\.track-line:nth-child\(8n \+ 8\)[^{]*\{\s*--ribbon-tint:\s*var\(--tint-olive\);\s*\}/);
+  assert.match(terminalTheme, /\.track-art\s*\{[^}]*filter:\s*drop-shadow\(2px 2px 0 var\(--frame-ink\)\) !important;/s);
 });
 
 test("turns the chapter index into an accessible overlapping LP deck", async () => {
@@ -176,6 +280,7 @@ test("turns the chapter index into an accessible overlapping LP deck", async () 
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
+  const terminalTheme = getTerminalTheme(css);
 
   assert.match(source, /className="chapter-stage"/);
   assert.match(source, /aria-roledescription="carousel"/);
@@ -190,9 +295,8 @@ test("turns the chapter index into an accessible overlapping LP deck", async () 
   assert.match(source, /role="tablist" aria-label="음악 챕터 선택"/);
   assert.match(source, /aria-selected=\{selected\}/);
   assert.match(source, />\s*챕터 들어가기\s*</);
-  assert.match(css, /\.chapter-lp-slide\s*\{[^}]*position:\s*absolute;/s);
-  assert.match(css, /translateY\(var\(--stack-y\)\)/);
-  assert.match(css, /drop-shadow\(0 12px 16px/);
+  assert.match(terminalTheme, /\.chapter-lp-card\s*\{[^}]*border:\s*1px solid var\(--frame-ink\);[^}]*filter:\s*drop-shadow\(2px 2px 0 var\(--frame-ink\)\) !important;/s);
+  assert.doesNotMatch(terminalTheme, /drop-shadow\(0 12px 16px/);
 });
 
 test("keeps the home focused on personal archives with a restrained community preview", async () => {
@@ -203,6 +307,7 @@ test("keeps the home focused on personal archives with a restrained community pr
     ),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
+  const terminalTheme = getTerminalTheme(css);
 
   assert.match(source, /className="home-section home-continue"/);
   assert.match(source, /className="home-section chapter-preview"/);
@@ -212,8 +317,8 @@ test("keeps the home focused on personal archives with a restrained community pr
   assert.match(source, /className="home-section home-recent"/);
   assert.match(source, /className="home-section home-monthly"/);
   assert.doesNotMatch(source, /className="home-manifesto"/);
-  assert.match(css, /\.chapter-preview-list\s*\{[^}]*overflow-x:\s*auto;/s);
-  assert.match(css, /\.album-hero\s*\{[^}]*min-height:\s*0;/s);
+  assert.match(terminalTheme, /\.home-view\s*\{[^}]*grid-template-columns:\s*28fr 72fr;/s);
+  assert.match(terminalTheme, /\.album-hero\s*\{[^}]*min-height:\s*0;[^}]*background:\s*var\(--primary\);/s);
 });
 
 test("removes redundant helper copy while preserving safety-critical text", async () => {
@@ -249,6 +354,7 @@ test("keeps archive search compact and prioritizes the result list", async () =>
     ),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
+  const terminalTheme = getTerminalTheme(css);
 
   assert.match(source, /className="page-content search-view"/);
   assert.match(source, /<h1 className="sr-only">기록 검색<\/h1>/);
@@ -264,9 +370,9 @@ test("keeps archive search compact and prioritizes the result list", async () =>
   assert.ok(
     source.indexOf("search-results-section") > source.indexOf("search-tag-list"),
   );
-  assert.match(css, /\.search-tag-list\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;/s);
-  assert.match(css, /\.search-results-section\s*\{[^}]*margin-top:\s*8px;/s);
-  assert.match(css, /\.search-tag-dialog-list\s*\{[^}]*overflow-y:\s*auto;/s);
+  assert.match(terminalTheme, /\.search-tag-list\s*\{[^}]*display:\s*flex;[^}]*overflow-x:\s*auto;/s);
+  assert.match(terminalTheme, /\.search-results-section\s*\{[^}]*margin-top:\s*16px;/s);
+  assert.match(terminalTheme, /\.search-tag-dialog-list\s*\{[^}]*overflow-y:\s*auto;/s);
 });
 
 test("redirects legacy presentation routes to the chapter archive", async () => {

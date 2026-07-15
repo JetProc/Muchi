@@ -1966,19 +1966,50 @@ button.tag {
   gap: 10px;
 }
 
-.period-kind-row {
-  margin-top: 2px;
-}
-
-.period-tag-detail {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.8fr);
-  gap: 8px;
-}
-
-.period-tag-detail .input,
-.period-tag-detail .select {
+.inline-tag-composer {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
   min-height: 44px;
+}
+
+.inline-tag-input {
+  width: 76px;
+  height: 34px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  border-radius: 0;
+  color: var(--ink);
+  background: transparent;
+  font-size: 10px;
+  outline: 0;
+}
+
+.inline-tag-input::placeholder {
+  color: var(--dust-text);
+}
+
+.inline-tag-input:focus {
+  border-bottom-color: var(--oxblood);
+}
+
+.inline-tag-add {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  color: var(--paper-soft);
+  background: var(--ink);
+  cursor: pointer;
+}
+
+.inline-tag-add:disabled {
+  color: var(--dust-text);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  cursor: default;
 }
 
 .tag-manager-stats {

@@ -444,6 +444,27 @@ export function normalizeTagLabel(label: string): string {
   return label.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
 }
 
+function canonicalTagCategory(category: TagCategory): TagCategory {
+  return category === "energy" || category === "texture" ? "emotion" : category;
+}
+
+function normalizeArchiveTagCategories(
+  archive: ArchiveEnvelopeV1,
+): ArchiveEnvelopeV1 {
+  let changed = false;
+  const tags = Object.fromEntries(
+    Object.entries(archive.data.tags).map(([id, tag]) => {
+      const category = canonicalTagCategory(tag.category);
+      if (category === tag.category) return [id, tag];
+      changed = true;
+      return [id, { ...tag, category }];
+    }),
+  );
+  return changed
+    ? withData(archive, { ...archive.data, tags }, archive.updatedAt)
+    : archive;
+}
+
 export function createEmptyArchive(now = nowIso()): ArchiveEnvelopeV1 {
   return {
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
@@ -600,17 +621,17 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
   };
 
   const tagSeeds: Array<[string, string, TagCategory]> = [
-    ["cold", "차가운", "texture"],
+    ["cold", "차가운", "emotion"],
     ["urban", "도시적인", "situation"],
-    ["rushing", "질주하는", "energy"],
+    ["rushing", "질주하는", "emotion"],
     ["nostalgic", "그리운", "emotion"],
-    ["warm", "따뜻한", "texture"],
+    ["warm", "따뜻한", "emotion"],
     ["uneasy-youth", "불안했던 청춘", "custom"],
     ["bright", "눈부신", "emotion"],
     ["open-road", "탁 트인", "situation"],
-    ["hazy", "몽환적인", "texture"],
+    ["hazy", "몽환적인", "emotion"],
     ["solitary", "혼자 듣는", "situation"],
-    ["restless", "들뜬", "energy"],
+    ["restless", "들뜬", "emotion"],
     ["bedroom", "방 안의", "situation"],
   ];
   const tags = Object.fromEntries(
@@ -1170,7 +1191,9 @@ export function setCubeTrackTags(
   const seen = new Set<string>([tags[period.tagId].normalizedLabel]);
 
   for (const input of inputs) {
-    const category = typeof input === "string" ? "custom" : (input.category ?? "custom");
+    const category = canonicalTagCategory(
+      typeof input === "string" ? "custom" : (input.category ?? "custom"),
+    );
     if (category === "period") continue;
     const label = cleanText(
       typeof input === "string" ? input : input.label,
@@ -1236,10 +1259,11 @@ export function createTags(
   let created = 0;
 
   for (const input of inputs) {
-    const category = typeof input === "string" ? "custom" : (input.category ?? "custom");
-    if (!TAG_CATEGORIES.includes(category)) {
+    const inputCategory = typeof input === "string" ? "custom" : (input.category ?? "custom");
+    if (!TAG_CATEGORIES.includes(inputCategory)) {
       throw new ArchiveDomainError("invalid-input", "지원하지 않는 태그 카테고리입니다.");
     }
+    const category = canonicalTagCategory(inputCategory);
     const label = cleanText(
       typeof input === "string" ? input : input.label,
       "태그",
@@ -1290,10 +1314,11 @@ export function updateTag(
   const label = input.label === undefined
     ? current.label
     : cleanText(input.label, "태그", ARCHIVE_LIMITS.tagLabel, true);
-  const category = input.category ?? current.category;
-  if (!TAG_CATEGORIES.includes(category)) {
+  const inputCategory = input.category ?? current.category;
+  if (!TAG_CATEGORIES.includes(inputCategory)) {
     throw new ArchiveDomainError("invalid-input", "지원하지 않는 태그 카테고리입니다.");
   }
+  const category = canonicalTagCategory(inputCategory);
   const normalizedLabel = normalizeTagLabel(label);
   const duplicate = Object.values(archive.data.tags).find(
     (tag) => tag.id !== tagId && tag.normalizedLabel === normalizedLabel,
@@ -1946,7 +1971,7 @@ function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | 
       migrated = ensureMonthlyChapter(migrated, trackId, registeredAt, migrated.updatedAt);
     }
   });
-  return migrated;
+  return normalizeArchiveTagCategories(migrated);
 }
 
 export function migrateArchive(value: unknown): MigrationResult {
@@ -1963,7 +1988,9 @@ export function migrateArchive(value: unknown): MigrationResult {
   if (!validateArchiveEnvelope(value)) {
     return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
-  const archive = ensureAutomaticRegistrationPeriodTags(value);
+  const archive = ensureAutomaticRegistrationPeriodTags(
+    normalizeArchiveTagCategories(value),
+  );
   return { status: "ok", archive, migrated: archive !== value };
 }
 

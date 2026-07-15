@@ -588,7 +588,18 @@ test("manages a reusable tag library independently from track memories", async (
   const calm = Object.values(created.archive.data.tags)
     .find((tag) => tag.normalizedLabel === "잔잔한");
   assert.ok(calm);
-  assert.equal(calm.category, "energy");
+  assert.equal(calm.category, "emotion");
+  assert.ok(
+    Object.values(created.archive.data.tags)
+      .every((tag) => tag.category !== "energy" && tag.category !== "texture"),
+  );
+
+  const legacy = structuredClone(created.archive);
+  legacy.data.tags[calm.id].category = "energy";
+  const migrated = archiveDomain.parseArchive(archiveDomain.serializeArchive(legacy));
+  assert.equal(migrated.status, "ok");
+  assert.equal(migrated.migrated, true);
+  assert.equal(migrated.archive.data.tags[calm.id].category, "emotion");
 
   const renamed = archiveDomain.updateTag(
     created.archive,
@@ -636,19 +647,25 @@ test("selects only existing tags and removes deleted tags from every memory", as
 });
 
 test("uses managed tag chips instead of suggestions or free-form memory tags", async () => {
-  const [memorySource, managerSource] = await Promise.all([
+  const [memorySource, managerSource, formatSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-tags.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-format.ts", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(memorySource, /TAG_SUGGESTIONS|id="custom-tag"/);
   assert.match(memorySource, /href="\/tags"/);
   assert.match(managerSource, /id="bulk-tags"/);
   assert.match(managerSource, /\.split\(\/\[\\n,;\]\+\//);
-  assert.match(managerSource, /TAG_CATEGORIES\.map/);
+  assert.match(
+    managerSource,
+    /MANUAL_TAG_CATEGORIES[^=]*=\s*\["genre", "emotion", "situation", "custom"\]/,
+  );
+  assert.doesNotMatch(managerSource, /"energy"|"texture"/);
+  assert.match(formatSource, /custom:\s*"커스텀"/);
 });
 
-test("keeps memory editing to tags and memo with period controls inside tags", async () => {
+test("keeps memory editing to automatic period tags, managed tags, and memo", async () => {
   const memorySource = await readFile(
     new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url),
     "utf8",
@@ -657,7 +674,10 @@ test("keeps memory editing to tags and memo with period controls inside tags", a
   assert.match(memorySource, /className="managed-tag-group period-tag-group"/);
   assert.match(memorySource, /추가 시기 · 자동/);
   assert.doesNotMatch(memorySource, /periodTags\.map\(\(tag\) => <button/);
-  assert.match(memorySource, /aria-label="기억한 시기 형식"/);
+  assert.doesNotMatch(memorySource, /기억한 시기|periodKind|period-tag-detail/);
+  assert.match(memorySource, /className="inline-tag-composer"/);
+  assert.match(memorySource, /aria-label=\{`\$\{TAG_CATEGORY_LABEL\[category\]\} 태그 추가`\}/);
+  assert.match(memorySource, /<Plus aria-hidden="true"/);
   assert.match(memorySource, /<label htmlFor="memo">메모<\/label>/);
   assert.doesNotMatch(
     memorySource,

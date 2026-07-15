@@ -2,7 +2,6 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import {
-  TAG_CATEGORIES,
   createTags,
   deleteTag,
   normalizeTagLabel,
@@ -16,9 +15,8 @@ import { TAG_CATEGORY_LABEL } from "./editorial-format";
 import { EmptyState, PageHeader } from "./editorial-ui";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 
-const MANUAL_TAG_CATEGORIES = TAG_CATEGORIES.filter(
-  (category) => category !== "period",
-);
+const MANUAL_TAG_CATEGORIES: TagCategory[] = ["genre", "emotion", "situation", "custom"];
+const TAG_LIBRARY_CATEGORIES: TagCategory[] = ["period", ...MANUAL_TAG_CATEGORIES];
 
 function parseBulkTags(value: string): string[] {
   const seen = new Set<string>();
@@ -139,7 +137,7 @@ export function TagManager({
 
         <section className="tag-library" aria-labelledby="tag-library-title">
           <div className="tag-library-head"><div><span className="section-label">YOUR CHIPS</span><h2 id="tag-library-title">등록된 태그</h2></div><label className="field tag-library-search" htmlFor="tag-search"><span className="sr-only">태그 검색</span><input id="tag-search" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="태그 검색" /></label></div>
-          {visibleTags.length ? TAG_CATEGORIES.map((category) => {
+          {visibleTags.length ? TAG_LIBRARY_CATEGORIES.map((category) => {
             const categoryTags = visibleTags.filter((tag) => tag.category === category);
             if (!categoryTags.length) return null;
             return (

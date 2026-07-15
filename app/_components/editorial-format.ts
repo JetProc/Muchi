@@ -26,11 +26,11 @@ export const COLOR_LABEL: Record<CubeColor, string> = {
 export const TAG_CATEGORY_LABEL: Record<TagCategory, string> = {
   genre: "장르",
   emotion: "감정",
-  energy: "에너지",
-  texture: "질감",
+  energy: "감정",
+  texture: "감정",
   situation: "상황",
   period: "시기",
-  custom: "나만의 언어",
+  custom: "커스텀",
 };
 
 export const SEASON_LABEL = {

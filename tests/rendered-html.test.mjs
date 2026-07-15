@@ -109,7 +109,7 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   ]);
 
   assert.match(source, /className="capture-search-compact"/);
-  assert.match(source, /<h1>곡 검색<\/h1>/);
+  assert.match(source, /<h1>곡 추가<\/h1>/);
   assert.match(source, /type="search"/);
   assert.match(source, /minLength=\{1\}/);
   assert.match(source, /enterKeyHint="search"/);

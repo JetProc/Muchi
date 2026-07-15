@@ -596,7 +596,7 @@ export function Capture({
   return (
     <div className="page-content capture-view">
       <header className="capture-search-header">
-        <h1>곡 검색</h1>
+        <h1>곡 추가</h1>
         <button
           className="text-button"
           type="button"

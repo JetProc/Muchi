@@ -25,11 +25,10 @@ export const COLOR_LABEL: Record<CubeColor, string> = {
 
 export const TAG_CATEGORY_LABEL: Record<TagCategory, string> = {
   genre: "장르",
-  emotion: "감정",
+  emotion: "감정·상황",
   energy: "감정",
   texture: "감정",
-  situation: "상황",
-  period: "시기",
+  situation: "감정·상황",
   custom: "커스텀",
 };
 
@@ -50,10 +49,9 @@ export function formatDate(value: string): string {
 
 export function formatMemory(period: MemoryPeriod): string {
   if (!period) return "시기 미기록";
-  const year = period.year ? `${period.year}년 ` : "";
   return period.kind === "month"
-    ? `${year}${period.month}월`
-    : `${year}${SEASON_LABEL[period.season]}`;
+    ? `${period.month}월`
+    : SEASON_LABEL[period.season];
 }
 
 export function chapterColorStyle(

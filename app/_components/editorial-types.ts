@@ -7,6 +7,7 @@ export type AppView =
   | "chapters"
   | "chapter"
   | "memory"
+  | "playlist"
   | "search"
   | "recap"
   | "tags"

@@ -19,21 +19,14 @@ import {
   type MotionPreference,
   type RecapEntry,
   type RecapMode,
-  type TagCategory,
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
 import type { PreviewControls } from "./editorial-media";
 import { useModalFocus } from "./editorial-accessibility";
 import { EmptyState, PageHeader, TrackLine } from "./editorial-ui";
-import { formatMemory, TAG_CATEGORY_LABEL } from "./editorial-format";
+import { formatMemory } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
-
-const SEARCH_TAG_CATEGORIES = ["period", "genre", "emotion", "situation", "custom"] as const;
-type SearchTagCategory = (typeof SEARCH_TAG_CATEGORIES)[number];
-
-function normalizeSearchTagCategory(category: TagCategory): SearchTagCategory {
-  return category === "energy" || category === "texture" ? "emotion" : category;
-}
+import { TagPicker } from "./editorial-tag-picker";
 
 function SearchResultLine({
   result,
@@ -84,14 +77,14 @@ export function Search({
   const [query, setQuery] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tagMatch, setTagMatch] = useState<"all" | "any">("all");
-  const [tagCategory, setTagCategory] = useState<SearchTagCategory>("period");
   const tags = useMemo(() => Object.values(archive.data.tags), [archive.data.tags]);
-  const categoryTags = tags
-    .filter((tag) => normalizeSearchTagCategory(tag.category) === tagCategory)
-    .sort((left, right) => {
-      const selectedDifference = Number(tagIds.includes(right.id)) - Number(tagIds.includes(left.id));
-      return selectedDifference || left.label.localeCompare(right.label, "ko");
-    });
+  const tagUsageCounts = useMemo(() => Object.values(archive.data.cubeTracks)
+    .reduce<Record<string, number>>((counts, item) => {
+      item.tagIds.forEach((tagId) => {
+        counts[tagId] = (counts[tagId] ?? 0) + 1;
+      });
+      return counts;
+    }, {}), [archive.data.cubeTracks]);
   const hasSearch = Boolean(query.trim() || tagIds.length);
   const results = hasSearch
     ? searchArchive(archive, { query, tagIds, tagMatch, includeInbox: true })
@@ -134,41 +127,14 @@ export function Search({
           ) : null}
         </div>
         {tags.length ? (
-          <div className="search-tag-rail">
-            <div className="search-tag-categories" role="group" aria-label="태그 카테고리">
-              {SEARCH_TAG_CATEGORIES.map((category) => {
-                const selectedCount = tags.filter((tag) => (
-                  normalizeSearchTagCategory(tag.category) === category && tagIds.includes(tag.id)
-                )).length;
-                return (
-                  <button
-                    key={category}
-                    className={`search-tag-category${tagCategory === category ? " is-active" : ""}`}
-                    type="button"
-                    onClick={() => setTagCategory(category)}
-                    aria-pressed={tagCategory === category}
-                  >
-                    <span>{TAG_CATEGORY_LABEL[category]}</span>
-                    {selectedCount ? <span className="search-tag-category-count">{selectedCount}</span> : null}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="search-tag-list" role="group" aria-label="태그 필터">
-              {categoryTags.map((tag) => (
-                <button
-                  key={tag.id}
-                  className={`tag${tagIds.includes(tag.id) ? " is-selected" : ""}`}
-                  type="button"
-                  onClick={() => toggle(tag.id)}
-                  aria-pressed={tagIds.includes(tag.id)}
-                >
-                  #{tag.label}
-                  {tagIds.includes(tag.id) ? <X size={10} aria-hidden="true" /> : null}
-                </button>
-              ))}
-              {!categoryTags.length ? <span className="search-tag-empty">등록된 태그가 없습니다.</span> : null}
-            </div>
+          <div className="search-tag-controls">
+            <TagPicker
+              label="태그 필터"
+              tags={tags}
+              selectedTagIds={tagIds}
+              usageCounts={tagUsageCounts}
+              onToggle={toggle}
+            />
             {tagIds.length > 1 ? (
               <select
                 className="search-tag-match"
@@ -199,8 +165,6 @@ export function Search({
                 index={index}
                 preview={preview}
                 onTagClick={(tagId) => {
-                  const tag = archive.data.tags[tagId];
-                  if (tag) setTagCategory(normalizeSearchTagCategory(tag.category));
                   setTagIds((current) => current.includes(tagId) ? current : [...current, tagId]);
                 }}
               />

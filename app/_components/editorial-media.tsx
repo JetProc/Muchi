@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import { Pause, Play } from "lucide-react";
 import {
   getCubeTracks,
   type ArchiveEnvelopeV1,
@@ -94,7 +95,7 @@ export function ChapterCover({
       artworkKeys.add(artworkKey);
       return true;
     })
-    .slice(0, 3);
+    .slice(0, 4);
   return (
     <div
       className={`chapter-artwork chapter-artwork-${Math.max(1, entries.length)}`}
@@ -139,16 +140,21 @@ export function PreviewButton({
 }) {
   const isCurrent = preview.state?.track.id === track.id;
   const playing = isCurrent && preview.state?.playing;
+  const previewLabel = !track.previewUrl
+    ? "미리듣기 없음"
+    : playing
+      ? `${track.title} 미리듣기 정지`
+      : `${track.title} 30초 미리듣기`;
   return (
     <button
-      className="play-button"
+      className="play-button preview-icon-button"
       type="button"
       disabled={!track.previewUrl}
       onClick={() => (playing ? preview.pause() : preview.play(track))}
-      aria-label={track.previewUrl ? `${track.title} 30초 미리듣기` : "미리듣기 없음"}
-      title={track.previewUrl ? "30초 미리듣기" : "미리듣기 없음"}
+      aria-label={previewLabel}
+      title={!track.previewUrl ? "미리듣기 없음" : playing ? "미리듣기 정지" : "30초 미리듣기"}
     >
-      {playing ? "정지" : "미리듣기"}
+      {playing ? <Pause aria-hidden="true" size={16} /> : <Play aria-hidden="true" size={16} />}
     </button>
   );
 }

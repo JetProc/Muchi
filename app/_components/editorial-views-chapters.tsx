@@ -2,12 +2,18 @@
 
 import {
   useEffect,
-  useRef,
+  useMemo,
   useState,
-  type CSSProperties,
   type FormEvent,
 } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import {
+  Apple,
+  AudioLines,
+  ChevronDown,
+  CirclePlay,
+  MoreHorizontal,
+  Plus,
+} from "lucide-react";
 import {
   ARCHIVE_LIMITS,
   CUBE_COLORS,
@@ -30,7 +36,6 @@ import {
   type TrackId,
   type TrackReference,
 } from "@/lib/archive";
-import { ITUNES_PREVIEW_USAGE_NOTICE } from "@/lib/itunes";
 import {
   MotionLink as Link,
   type MotionRouter,
@@ -44,22 +49,20 @@ import {
 import {
   EmptyState,
   PageHeader,
-  TrackLine,
 } from "./editorial-ui";
 import {
   COLOR_HEX,
   COLOR_LABEL,
-  TAG_CATEGORY_LABEL,
   chapterColorStyle,
   formatDate,
   formatMemory,
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { useModalFocus } from "./editorial-accessibility";
-
-const MEMORY_TAG_CATEGORIES = ["genre", "emotion", "situation", "custom"] as const;
-const CHAPTER_STACK_OFFSET = 46;
-type MemoryTagCategory = (typeof MEMORY_TAG_CATEGORIES)[number];
+import {
+  TagPicker,
+  type EditableTagCategory,
+} from "./editorial-tag-picker";
 
 export function Chapters({
   archive,
@@ -74,22 +77,25 @@ export function Chapters({
   router: MotionRouter;
   pendingTrackId: TrackId | null;
 }) {
-  const chapters = Object.values(archive.data.cubes).sort((a, b) => a.sortOrder - b.sortOrder);
+  const [activeTab, setActiveTab] = useState<"manual" | "monthly">("manual");
+  const [sortMode, setSortMode] = useState<"recent" | "name" | "tracks">("recent");
+  const chapters = useMemo(() => Object.values(archive.data.cubes), [archive.data.cubes]);
+  const manualChapters = chapters.filter((chapter) => !chapter.id.startsWith("month:"));
+  const monthlyChapters = chapters.filter((chapter) => chapter.id.startsWith("month:"));
+  const visibleChapters = [...(activeTab === "manual" ? manualChapters : monthlyChapters)]
+    .sort((left, right) => {
+      if (sortMode === "name") return left.name.localeCompare(right.name, "ko");
+      if (sortMode === "tracks") {
+        return getCubeTracks(archive, right.id).length - getCubeTracks(archive, left.id).length;
+      }
+      return right.updatedAt.localeCompare(left.updatedAt);
+    });
   const pendingTrack = pendingTrackId ? archive.data.tracks[pendingTrackId] : null;
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState<CubeColor>("violet");
   const [deleteTarget, setDeleteTarget] = useState<Cube | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const swipeStartX = useRef<number | null>(null);
-  const didSwipe = useRef(false);
-  const activeIndex = chapters.length
-    ? Math.min(selectedIndex, chapters.length - 1)
-    : 0;
-  const activeChapter = chapters[activeIndex] ?? chapters[0] ?? null;
-  const activeEntries = activeChapter ? getCubeTracks(archive, activeChapter.id) : [];
-  const stackMax = Math.min(Math.max(chapters.length - 1, 0), 2);
   const createDialogRef = useModalFocus<HTMLFormElement>(
     showForm || Boolean(pendingTrack),
     () => {
@@ -101,16 +107,6 @@ export function Chapters({
     Boolean(deleteTarget),
     () => setDeleteTarget(null),
   );
-
-  function moveStage(direction: -1 | 1) {
-    if (chapters.length < 2) return;
-    const targetIndex = (activeIndex + direction + chapters.length) % chapters.length;
-    setSelectedIndex(targetIndex);
-  }
-
-  function selectChapter(index: number) {
-    setSelectedIndex(index);
-  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -146,156 +142,58 @@ export function Chapters({
   }
 
   return (
-    <div className="page-content chapters-view">
-      <header className="chapter-stage-header">
-        <div>
-          <span className="section-label">내 챕터</span>
-          <h1>나의 음악 챕터</h1>
-        </div>
-        <button className="button button-primary" type="button" onClick={() => setShowForm(true)}>새 챕터</button>
-      </header>
-      {activeChapter ? (
-        <>
-          <section
-            className="chapter-stage"
-            aria-label={`${activeChapter.name} 챕터`}
-            tabIndex={0}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowLeft") {
-                event.preventDefault();
-                moveStage(-1);
-              }
-              if (event.key === "ArrowRight") {
-                event.preventDefault();
-                moveStage(1);
-              }
-            }}
-          >
-            <span className="sr-only" aria-live="polite">
-              {chapters.length}개 중 {activeIndex + 1}번째, {activeChapter.name}
-            </span>
-            <div className="chapter-stage-controls" aria-label="챕터 이동">
-              <button className="icon-button" type="button" onClick={() => moveStage(-1)} disabled={chapters.length < 2} aria-label="이전 챕터"><ChevronLeft aria-hidden="true" size={20} /></button>
-              <span>{activeIndex + 1} / {chapters.length}</span>
-              <button className="icon-button" type="button" onClick={() => moveStage(1)} disabled={chapters.length < 2} aria-label="다음 챕터"><ChevronRight aria-hidden="true" size={20} /></button>
-            </div>
-            <div className="chapter-stage-inner">
-              <div
-                className="chapter-lp-carousel"
-                role="region"
-                aria-roledescription="carousel"
-                aria-label="음악 챕터 둘러보기"
-                style={{ "--stack-rise": `${stackMax * CHAPTER_STACK_OFFSET}px` } as CSSProperties}
-                onPointerDown={(event) => {
-                  if (event.pointerType === "mouse" && event.button !== 0) return;
-                  swipeStartX.current = event.clientX;
-                  didSwipe.current = false;
-                }}
-                onPointerUp={(event) => {
-                  if (swipeStartX.current === null) return;
-                  const distance = event.clientX - swipeStartX.current;
-                  swipeStartX.current = null;
-                  if (Math.abs(distance) < 48) return;
-                  didSwipe.current = true;
-                  moveStage(distance < 0 ? 1 : -1);
-                }}
-                onPointerCancel={() => {
-                  swipeStartX.current = null;
-                  didSwipe.current = false;
-                }}
-                onClickCapture={(event) => {
-                  if (!didSwipe.current) return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  didSwipe.current = false;
-                }}
-              >
-                <div className="chapter-lp-stack" role="tablist" aria-label="음악 챕터 선택">
-                  {chapters.map((chapter, index) => {
-                    const entries = getCubeTracks(archive, chapter.id);
-                    const selected = index === activeIndex;
-                    const distance = chapters.length
-                      ? (index - activeIndex + chapters.length) % chapters.length
-                      : 0;
-                    const visible = distance <= stackMax;
-                    const level = visible ? stackMax - distance : 0;
-                    const layerRatio = stackMax ? level / stackMax : 1;
-                    const stackStyle = {
-                      "--stack-level": level,
-                      "--stack-x": `${(stackMax - level) * 12}px`,
-                      "--stack-y": `${level * CHAPTER_STACK_OFFSET}px`,
-                      "--stack-scale": 0.94 + layerRatio * 0.06,
-                      "--stack-opacity": 0.72 + layerRatio * 0.28,
-                    } as CSSProperties;
-                    return (
-                      <div
-                        className={`chapter-lp-slide${selected ? " is-active" : ""}`}
-                        role="presentation"
-                        key={chapter.id}
-                        hidden={!visible}
-                        style={stackStyle}
-                      >
-                        <button
-                          className="chapter-lp-card"
-                          type="button"
-                          role="tab"
-                          aria-label={`${chapter.name}, ${entries.length}곡`}
-                          aria-selected={selected}
-                          aria-controls="active-chapter-stage"
-                          tabIndex={selected ? 0 : -1}
-                          onClick={() => selectChapter(index)}
-                        >
-                          {/* The transparent LP cutout is already compressed and must preserve its exact alpha bounds. */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src="/assets/chapter-lp.png" alt="" draggable={false} />
-                          <span className="chapter-lp-card-copy">
-                            <small>{String(index + 1).padStart(2, "0")}</small>
-                            <strong>{chapter.name}</strong>
-                            <span>{entries.length}곡</span>
-                          </span>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+    <div className="page-content chapters-view chapter-library-view">
+      <h1 className="sr-only">챕터 보관함</h1>
+      <nav className="chapter-library-tabs" aria-label="챕터 종류">
+        <button className={activeTab === "manual" ? "is-active" : ""} type="button" onClick={() => setActiveTab("manual")} aria-current={activeTab === "manual" ? "page" : undefined}>내가 만든 챕터</button>
+        <button className={activeTab === "monthly" ? "is-active" : ""} type="button" onClick={() => setActiveTab("monthly")} aria-current={activeTab === "monthly" ? "page" : undefined}>월별 챕터</button>
+      </nav>
 
-              <div
-                className="chapter-stage-details"
-                id="active-chapter-stage"
-                role="tabpanel"
-                aria-label={`${activeChapter.name} 챕터 정보`}
-              >
-                <div className="chapter-stage-meta">
-                  <strong>{String(activeIndex + 1).padStart(2, "0")} / {String(chapters.length).padStart(2, "0")}</strong>
-                  <span>{activeEntries.length}곡</span>
+      <div className="chapter-library-toolbar">
+        <span className="chapter-library-count" aria-live="polite">{visibleChapters.length}개 챕터</span>
+        <div className="chapter-library-tools">
+          <label className="chapter-library-sort">
+            <span className="sr-only">챕터 정렬</span>
+            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as "recent" | "name" | "tracks")}>
+              <option value="recent">최근 활동</option>
+              <option value="name">이름순</option>
+              <option value="tracks">곡 많은 순</option>
+            </select>
+          </label>
+          {activeTab === "manual" ? <button className="button button-primary chapter-library-create" type="button" onClick={() => setShowForm(true)}><Plus aria-hidden="true" size={16} />새 챕터</button> : null}
+        </div>
+      </div>
+
+      {visibleChapters.length ? (
+        <section className="chapter-library-grid" aria-label={activeTab === "manual" ? "내가 만든 챕터" : "월별 챕터"}>
+          {visibleChapters.map((chapter) => {
+            const entries = getCubeTracks(archive, chapter.id);
+            return (
+              <article className="chapter-library-card" key={chapter.id}>
+                <div className="chapter-library-cover">
+                  <Link href={`/chapter?id=${encodeURIComponent(chapter.id)}`} intent="shared" sharedId={chapter.id} aria-label={`${chapter.name} 챕터 열기`}>
+                    <ChapterCover archive={archive} chapter={chapter} />
+                  </Link>
+                  {activeTab === "manual" ? (
+                    <button className="chapter-library-more" type="button" onClick={() => setDeleteTarget(chapter)} aria-label={`${chapter.name} 챕터 관리`} title="챕터 삭제">
+                      <MoreHorizontal size={18} aria-hidden="true" />
+                    </button>
+                  ) : null}
                 </div>
-                {activeChapter.description ? <p className="chapter-stage-description">{activeChapter.description}</p> : null}
-                {activeEntries.length ? (
-                  <ol className="chapter-stage-tracks" aria-label="대표 수록곡">
-                    {activeEntries.slice(0, 3).map(({ cubeTrack, track }, index) => (
-                      <li key={cubeTrack.id}><span>{String(index + 1).padStart(2, "0")}</span><strong>{track.title}</strong></li>
-                    ))}
-                  </ol>
-                ) : <p className="chapter-stage-empty">아직 담긴 곡이 없어요.</p>}
-                <Link
-                  className="chapter-stage-enter"
-                  href={`/chapter?id=${encodeURIComponent(activeChapter.id)}`}
-                  intent="shared"
-                  sharedId={activeChapter.id}
-                >
-                  챕터 들어가기
+                <Link className="chapter-library-copy" href={`/chapter?id=${encodeURIComponent(chapter.id)}`} intent="shared" sharedId={chapter.id}>
+                  <strong>{chapter.name}</strong>
+                  <span>{activeTab === "manual" ? "내 챕터" : "월별 챕터"} · {entries.length}곡</span>
+                  {chapter.description ? <small>{chapter.description}</small> : null}
                 </Link>
-                <button className="text-button chapter-stage-manage" type="button" onClick={() => setDeleteTarget(activeChapter)}>챕터 삭제</button>
-              </div>
-            </div>
-          </section>
-        </>
+              </article>
+            );
+          })}
+        </section>
       ) : (
         <EmptyState
           icon=""
-          title="첫 챕터의 이름을 지어주세요"
-          action={<button className="button button-primary" type="button" onClick={() => setShowForm(true)}>첫 챕터 만들기</button>}
+          title={activeTab === "manual" ? "첫 챕터의 이름을 지어주세요" : "아직 월별 챕터가 없어요"}
+          action={activeTab === "manual" ? <button className="button button-primary" type="button" onClick={() => setShowForm(true)}>첫 챕터 만들기</button> : null}
         />
       )}
 
@@ -330,14 +228,12 @@ export function ChapterDetail({
   chapterId,
   commit,
   notify,
-  preview,
   hydrated,
 }: {
   archive: ArchiveEnvelopeV1;
   chapterId: string | null;
   commit: ArchiveCommit;
   notify: Notify;
-  preview: PreviewControls;
   hydrated: boolean;
 }) {
   const chapter = chapterId ? archive.data.cubes[chapterId] : null;
@@ -347,6 +243,7 @@ export function ChapterDetail({
   const [description, setDescription] = useState("");
   const [color, setColor] = useState<CubeColor>("violet");
   const [managing, setManaging] = useState(false);
+  const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const editDialogRef = useModalFocus<HTMLFormElement>(
     editing,
     () => setEditing(false),
@@ -357,7 +254,6 @@ export function ChapterDetail({
   const activeChapter = chapter;
 
   const allTags = entries.flatMap((entry) => entry.tags);
-  const topTags = [...new Map(allTags.map((tag) => [tag.id, tag])).values()].slice(0, 8);
 
   function saveChapter(event: FormEvent) {
     event.preventDefault();
@@ -391,26 +287,85 @@ export function ChapterDetail({
   }
 
   return (
-    <div className="page-content chapter-view">
-      <Link className="text-link chapter-back" href="/chapters" intent="back">챕터 목록</Link>
-      <section className="chapter-hero" style={chapterColorStyle(chapter.color)}>
+    <div className="page-content chapter-view chapter-detail-compact">
+      <section className="chapter-hero chapter-detail-hero" style={chapterColorStyle(chapter.color)}>
         <ChapterCover archive={archive} chapter={chapter} shared />
         <div className="chapter-hero-copy">
           <span className="section-label">챕터 · {formatDate(chapter.updatedAt)}</span>
           <h1>{chapter.name}</h1>
           {chapter.description ? <p>{chapter.description}</p> : null}
+          <p className="chapter-detail-meta">{entries.length}곡 · {new Set(allTags.map((tag) => tag.id)).size}개 태그 · {entries.filter((entry) => entry.cubeTrack.memo).length}개 메모</p>
           <div className="chapter-actions"><Link className="button button-primary" href="/capture" intent="modal">곡 추가</Link><button className="text-button" type="button" onClick={() => setManaging((value) => !value)}>{managing ? "관리 완료" : "곡 관리"}</button>{managing ? <button className="text-button" type="button" onClick={openEditor}>챕터 정보 수정</button> : null}</div>
         </div>
       </section>
-      <div className="chapter-stats"><span><strong>{String(entries.length).padStart(2, "0")}</strong> 곡</span><span><strong>{String(new Set(allTags.map((tag) => tag.id)).size).padStart(2, "0")}</strong> 태그</span><span><strong>{String(entries.filter((entry) => entry.cubeTrack.memo).length).padStart(2, "0")}</strong> 메모</span></div>
-      {topTags.length ? <div className="filter-row" style={{ marginTop: 18 }}>{topTags.map((tag) => <span className="tag" key={tag.id}>#{tag.label}</span>)}</div> : null}
-      <section className="section">
-        <div className="section-head"><div><span className="section-label">수록곡</span><h2>{managing ? "순서와 곡 관리" : "이 챕터의 음악"}</h2></div></div>
+      {entries.length ? (
+        <section className="chapter-service-actions" aria-labelledby="chapter-service-title">
+          <h2 id="chapter-service-title">플레이리스트로 만들기</h2>
+          <div className="chapter-service-grid">
+            <Link className="chapter-service-link is-apple" href={`/playlist?id=${encodeURIComponent(chapter.id)}&service=apple`} intent="modal" aria-label="Apple Music으로 플레이리스트 만들기">
+              <span className="chapter-service-icon" aria-hidden="true"><Apple size={20} strokeWidth={1.9} /></span>
+              <span>Apple Music</span>
+            </Link>
+            <Link className="chapter-service-link is-spotify" href={`/playlist?id=${encodeURIComponent(chapter.id)}&service=spotify`} intent="modal" aria-label="Spotify로 플레이리스트 만들기">
+              <span className="chapter-service-icon" aria-hidden="true"><AudioLines size={20} strokeWidth={1.9} /></span>
+              <span>Spotify</span>
+            </Link>
+            <Link className="chapter-service-link is-youtube" href={`/playlist?id=${encodeURIComponent(chapter.id)}&service=youtube`} intent="modal" aria-label="YouTube Music으로 플레이리스트 만들기">
+              <span className="chapter-service-icon" aria-hidden="true"><CirclePlay size={20} strokeWidth={1.9} /></span>
+              <span>YouTube Music</span>
+            </Link>
+          </div>
+        </section>
+      ) : null}
+      <section className="section chapter-track-section">
+        <div className="section-head"><div><span className="section-label">{entries.length}곡</span><h2>{managing ? "순서와 곡 관리" : "수록곡"}</h2></div></div>
         {entries.length ? (
-          <div className="track-list track-list-unified">
+          <div className="chapter-compact-track-list">
             {entries.map((entry, index) => {
-              const otherMoments = Object.values(archive.data.cubeTracks).filter((item) => item.trackId === entry.track.id && item.id !== entry.cubeTrack.id).length;
-              return <TrackLine key={entry.cubeTrack.id} track={entry.track} index={index} preview={preview} showPreview={false} sharedId={entry.cubeTrack.id} tags={entry.tags} context={entry.cubeTrack.character || `${formatMemory(entry.cubeTrack.memoryPeriod)}${otherMoments ? ` · 다른 순간 ${otherMoments}개` : ""}`} actions={managing ? <><button className="text-button" type="button" disabled={index === 0} onClick={() => move(entry.cubeTrack, -1)} aria-label="위로 이동">위로</button><button className="text-button" type="button" disabled={index === entries.length - 1} onClick={() => move(entry.cubeTrack, 1)} aria-label="아래로 이동">아래로</button><button className="text-button" type="button" onClick={() => removeEntry(entry.cubeTrack, entry.track.title)} aria-label="이 챕터에서 곡과 기억 삭제">삭제</button></> : <Link className="button" href={`/memory?id=${encodeURIComponent(entry.cubeTrack.id)}`} intent="shared" sharedId={entry.cubeTrack.id}>기억 열기</Link>} />;
+              const expanded = expandedTrackId === entry.cubeTrack.id;
+              const summary = entry.cubeTrack.memo.trim()
+                || entry.cubeTrack.character.trim()
+                || `${entry.track.artist}${entry.track.album ? ` · ${entry.track.album}` : ""}`;
+              return (
+                <article className={`chapter-compact-track${expanded ? " is-expanded" : ""}`} key={entry.cubeTrack.id}>
+                  <div className="chapter-compact-track-main">
+                    <button
+                      className="chapter-compact-track-toggle"
+                      type="button"
+                      onClick={() => setExpandedTrackId((current) => current === entry.cubeTrack.id ? null : entry.cubeTrack.id)}
+                      aria-expanded={expanded}
+                      aria-controls={`chapter-track-detail-${entry.cubeTrack.id}`}
+                    >
+                      <AlbumArtwork track={entry.track} sharedId={entry.cubeTrack.id} decorative />
+                      <span className="chapter-compact-track-copy">
+                        <strong>{entry.track.title}</strong>
+                        <span>{entry.track.artist}</span>
+                      </span>
+                      <ChevronDown size={15} aria-hidden="true" />
+                    </button>
+                    {managing ? (
+                      <div className="chapter-compact-track-manage">
+                        <button type="button" disabled={index === 0} onClick={() => move(entry.cubeTrack, -1)} aria-label={`${entry.track.title} 위로 이동`}>위</button>
+                        <button type="button" disabled={index === entries.length - 1} onClick={() => move(entry.cubeTrack, 1)} aria-label={`${entry.track.title} 아래로 이동`}>아래</button>
+                        <button type="button" onClick={() => removeEntry(entry.cubeTrack, entry.track.title)} aria-label={`${entry.track.title} 삭제`}>삭제</button>
+                      </div>
+                    ) : (
+                      <Link className="chapter-memory-link" href={`/memory?id=${encodeURIComponent(entry.cubeTrack.id)}`} intent="shared" sharedId={entry.cubeTrack.id}>기억 열기</Link>
+                    )}
+                  </div>
+                  <div className="chapter-compact-track-detail" id={`chapter-track-detail-${entry.cubeTrack.id}`} aria-hidden={!expanded}>
+                    <div>
+                      <p>{summary}</p>
+                      {entry.tags.length ? (
+                        <div className="chapter-compact-track-tags" aria-label="곡 태그">
+                          {entry.tags.slice(0, 6).map((tag) => <span key={tag.id}>#{tag.label}</span>)}
+                          {entry.tags.length > 6 ? <span>+{entry.tags.length - 6}</span> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+              );
             })}
           </div>
         ) : <EmptyState icon="♪" title="이 순간의 첫 곡을 담아보세요" action={<Link className="button button-primary" href="/capture">곡 찾기</Link>} />}
@@ -446,10 +401,15 @@ export function MemoryPanel({
   return (
     <aside className="memory-art-panel">
       <AlbumArtwork track={track} sharedId={cubeTrack.id} priority />
-      <div className="memory-art-copy"><span className="section-label">{formatMemory(cubeTrack.memoryPeriod)}</span><h2>{track.title}</h2><p>{track.artist}{track.album ? ` · ${track.album}` : ""}</p></div>
-      <PreviewButton track={track} preview={preview} />
-      {track.provider === "itunes" ? <p className="legal-note">{ITUNES_PREVIEW_USAGE_NOTICE}</p> : null}
-      {track.externalUrl ? <a className="text-link" href={track.externalUrl} target="_blank" rel="noopener noreferrer">원본 열기</a> : null}
+      <div className="memory-art-copy">
+        <span className="section-label">{formatMemory(cubeTrack.memoryPeriod)}</span>
+        <h2>{track.title}</h2>
+        <p>{track.artist}{track.album ? ` · ${track.album}` : ""}</p>
+        <div className="memory-preview-actions">
+          <PreviewButton track={track} preview={preview} />
+          {track.externalUrl ? <a className="text-link" href={track.externalUrl} target="_blank" rel="noopener noreferrer">원본 열기</a> : null}
+        </div>
+      </div>
     </aside>
   );
 }
@@ -457,106 +417,32 @@ export function MemoryPanel({
 interface TagEditorProps {
   tags: TagDefinition[];
   selectedTagIds: string[];
+  usageCounts: Record<string, number>;
   memo: string;
   toggleTag: (tagId: string) => void;
-  addTag: (category: MemoryTagCategory, label: string) => boolean;
+  addTag: (category: EditableTagCategory, label: string) => boolean;
   setMemo: (value: string) => void;
 }
 
-export function TagEditor(props: TagEditorProps) {
-  const {
-    tags,
-    selectedTagIds,
-    memo,
-    toggleTag,
-    addTag,
-    setMemo,
-  } = props;
-  const [expanded, setExpanded] = useState(false);
-  const [tagDrafts, setTagDrafts] = useState<Record<MemoryTagCategory, string>>({
-    genre: "",
-    emotion: "",
-    situation: "",
-    custom: "",
-  });
-  const periodTags = tags.filter(
-    (tag) => tag.category === "period" && selectedTagIds.includes(tag.id),
-  );
-  const quickTags = tags
-    .filter((tag) => tag.category !== "period")
-    .sort((left, right) => Number(selectedTagIds.includes(right.id)) - Number(selectedTagIds.includes(left.id)))
-    .slice(0, 6);
-
-  function submitTag(category: MemoryTagCategory) {
-    const label = tagDrafts[category].trim();
-    if (!label || !addTag(category, label)) return;
-    setTagDrafts((current) => ({ ...current, [category]: "" }));
-  }
-
+export function TagEditor({
+  tags,
+  selectedTagIds,
+  usageCounts,
+  memo,
+  toggleTag,
+  addTag,
+  setMemo,
+}: TagEditorProps) {
   return (
     <>
       <div className="field managed-tag-field">
-        <div className="managed-tag-heading"><span className="field-label">태그</span><span className="field-hint">{selectedTagIds.length} / {ARCHIVE_LIMITS.tagsPerCubeTrack}</span></div>
-        <div className="managed-tag-quick">
-          {periodTags.map((tag) => <span key={tag.id} className="tag is-selected">#{tag.label}</span>)}
-          {quickTags.map((tag) => <button key={tag.id} className={`tag${selectedTagIds.includes(tag.id) ? " is-selected" : ""}`} type="button" onClick={() => toggleTag(tag.id)} aria-pressed={selectedTagIds.includes(tag.id)}>#{tag.label}</button>)}
-        </div>
-        <button className="text-button managed-tag-more" type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>{expanded ? "태그 접기" : "태그 더 보기"}</button>
-        {expanded ? <div className="managed-tag-groups">
-          <div className="managed-tag-group period-tag-group">
-            <span>추가 시기 · 자동</span>
-            {periodTags.length ? <div className="filter-row">{periodTags.map((tag) => <span key={tag.id} className="tag is-selected">#{tag.label}</span>)}</div> : null}
-          </div>
-          {MEMORY_TAG_CATEGORIES.map((category) => {
-            const categoryTags = tags.filter((tag) => tag.category === category);
-            return (
-              <div className="managed-tag-group" key={category}>
-                <span>{TAG_CATEGORY_LABEL[category]}</span>
-                <div className="filter-row">
-                  {categoryTags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      className={`tag${selectedTagIds.includes(tag.id) ? " is-selected" : ""}`}
-                      type="button"
-                      onClick={() => toggleTag(tag.id)}
-                      aria-pressed={selectedTagIds.includes(tag.id)}
-                    >
-                      #{tag.label}
-                    </button>
-                  ))}
-                  <div className="inline-tag-composer">
-                    <input
-                      className="inline-tag-input"
-                      value={tagDrafts[category]}
-                      onChange={(event) => setTagDrafts((current) => ({
-                        ...current,
-                        [category]: event.target.value,
-                      }))}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter") return;
-                        event.preventDefault();
-                        submitTag(category);
-                      }}
-                      maxLength={ARCHIVE_LIMITS.tagLabel}
-                      placeholder="새 태그"
-                      aria-label={`${TAG_CATEGORY_LABEL[category]} 태그 추가`}
-                    />
-                    <button
-                      className="inline-tag-add"
-                      type="button"
-                      onClick={() => submitTag(category)}
-                      disabled={!tagDrafts[category].trim()}
-                      aria-label={`${TAG_CATEGORY_LABEL[category]} 태그 추가하기`}
-                    >
-                      <Plus aria-hidden="true" size={14} strokeWidth={1.8} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div> : null}
-        <Link className="text-link" href="/tags" intent="tab">태그 칩 만들기·관리</Link>
+        <TagPicker
+          tags={tags}
+          selectedTagIds={selectedTagIds}
+          usageCounts={usageCounts}
+          onToggle={toggleTag}
+          onCreate={addTag}
+        />
       </div>
       <div className="field"><label htmlFor="memo">메모</label><textarea id="memo" className="textarea" value={memo} onChange={(event) => setMemo(event.target.value)} maxLength={1000} placeholder="떠오르는 장면" /><span className="field-hint">{memo.length} / 1,000</span></div>
     </>
@@ -589,6 +475,12 @@ export function Memory({
   const [assigning, setAssigning] = useState(false);
   const availableTags = Object.values((draftArchive ?? archive).data.tags)
     .sort((left, right) => left.label.localeCompare(right.label, "ko"));
+  const tagUsageCounts = Object.values(archive.data.cubeTracks).reduce<Record<string, number>>((counts, item) => {
+    item.tagIds.forEach((tagId) => {
+      counts[tagId] = (counts[tagId] ?? 0) + 1;
+    });
+    return counts;
+  }, {});
   const assignDialogRef = useModalFocus<HTMLDivElement>(
     assigning,
     () => setAssigning(false),
@@ -616,7 +508,7 @@ export function Memory({
       : [...current, tagId].slice(0, ARCHIVE_LIMITS.tagsPerCubeTrack));
   }
 
-  function addTag(category: MemoryTagCategory, label: string): boolean {
+  function addTag(category: EditableTagCategory, label: string): boolean {
     try {
       const result = createTags(draftArchive ?? archive, [{ label, category }]);
       const tag = result.tags[0];
@@ -654,8 +546,8 @@ export function Memory({
     const result = addTrackToCube(archive, activeTrack.id, targetChapterId);
     if (commit(
       result.archive,
-      result.added
-        ? "같은 곡을 새로운 순간에 담았어요. 추가 시기는 자동으로 기록됩니다."
+          result.added
+            ? "같은 곡을 새로운 순간에 담았어요."
         : "이미 있던 순간을 열었어요.",
     )) {
       setAssigning(false);
@@ -676,6 +568,7 @@ export function Memory({
           <TagEditor
             tags={availableTags}
             selectedTagIds={selectedTagIds}
+            usageCounts={tagUsageCounts}
             memo={memo}
             toggleTag={toggleTag}
             addTag={addTag}

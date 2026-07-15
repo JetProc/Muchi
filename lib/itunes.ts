@@ -2,8 +2,6 @@ import type { TrackReference } from "./archive";
 
 export const ITUNES_PREVIEW_ATTRIBUTION = "Provided courtesy of iTunes";
 export const ITUNES_PREVIEW_DURATION_SECONDS = 30;
-export const ITUNES_PREVIEW_USAGE_NOTICE =
-  "미리듣기는 홍보 목적으로만 스트리밍하며 다운로드하거나 저장하지 않습니다.";
 
 const CACHE_TTL_MS = 10 * 60 * 1_000;
 const REQUEST_TIMEOUT_MS = 8_000;

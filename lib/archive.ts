@@ -1,4 +1,4 @@
-export const ARCHIVE_SCHEMA_VERSION = 2 as const;
+export const ARCHIVE_SCHEMA_VERSION = 3 as const;
 export const ARCHIVE_SEED_VERSION = 1 as const;
 export const ARCHIVE_STORAGE_KEY = "music-world:archive:v1";
 
@@ -47,7 +47,6 @@ export const TAG_CATEGORIES = [
   "energy",
   "texture",
   "situation",
-  "period",
   "custom",
 ] as const;
 export type TagCategory = (typeof TAG_CATEGORIES)[number];
@@ -601,7 +600,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
     },
     "seed:cube:winter-2018": {
       id: "seed:cube:winter-2018",
-      name: "2018년 겨울",
+      name: "겨울의 기억",
       description: "차갑고 따뜻했던 오래된 장면들",
       color: "cyan",
       sortOrder: 1,
@@ -753,7 +752,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       preferences: { ...DEFAULT_PREFERENCES },
     },
   };
-  return ensureAutomaticRegistrationPeriodTags(archive);
+  return archive;
 }
 
 function seedCubeTrack(
@@ -795,55 +794,20 @@ function registrationMonth(value: string): { key: string; year: number; month: n
   return { key: `${year}-${String(month).padStart(2, "0")}`, year, month };
 }
 
-function ensureRegistrationPeriodTag(
-  archive: ArchiveEnvelopeV1,
-  trackId: TrackId,
-  now: string,
-): { archive: ArchiveEnvelopeV1; tagId: string } {
-  const track = assertRecord(archive.data.tracks, trackId, "곡");
-  const registeredAt = track.registeredAt ?? now;
-  const { key, year, month } = registrationMonth(registeredAt);
-  const label = `${year}년 ${month}월`;
-  const normalizedLabel = normalizeTagLabel(label);
-  const existing = Object.values(archive.data.tags).find(
-    (tag) => tag.category === "period" && tag.normalizedLabel === normalizedLabel,
-  );
-  if (existing) return { archive, tagId: existing.id };
-
-  const preferredId = `auto:period:${key}`;
-  const id = archive.data.tags[preferredId] ? createId("tag") : preferredId;
-  const tag: TagDefinition = {
-    id,
-    label,
-    normalizedLabel,
-    category: "period",
-    source: "user",
-    createdAt: registeredAt,
-  };
-  return {
-    archive: withData(
-      archive,
-      { ...archive.data, tags: { ...archive.data.tags, [id]: tag } },
-      now,
-    ),
-    tagId: id,
-  };
-}
-
 function ensureMonthlyChapter(
   archive: ArchiveEnvelopeV1,
   trackId: TrackId,
   registeredAt: string,
   now: string,
 ): ArchiveEnvelopeV1 {
-  const { key, year, month } = registrationMonth(registeredAt);
+  const { key, month } = registrationMonth(registeredAt);
   const chapterId = `month:${key}`;
   const withChapter = archive.data.cubes[chapterId]
     ? archive
     : createCube(archive, {
         id: chapterId,
-        name: `${year}년 ${month}월`,
-        description: `${year}년 ${month}월에 등록한 곡들`,
+        name: `${month}월`,
+        description: `${month}월에 등록한 곡들`,
         color: CUBE_COLORS[(month - 1) % CUBE_COLORS.length],
       }, now).archive;
   return addTrackToCube(withChapter, trackId, chapterId, now).archive;
@@ -1007,45 +971,22 @@ export function addTrackToCube(
 ): { archive: ArchiveEnvelopeV1; cubeTrack: CubeTrack; added: boolean } {
   assertRecord(archive.data.tracks, trackId, "곡");
   assertRecord(archive.data.cubes, cubeId, "큐브");
-  const period = ensureRegistrationPeriodTag(archive, trackId, now);
-  const existing = Object.values(period.archive.data.cubeTracks).find(
+  const existing = Object.values(archive.data.cubeTracks).find(
     (item) => item.trackId === trackId && item.cubeId === cubeId,
   );
   if (existing) {
-    if (
-      existing.tagIds.includes(period.tagId)
-      || existing.tagIds.length >= ARCHIVE_LIMITS.tagsPerCubeTrack
-    ) {
-      return { archive: period.archive, cubeTrack: existing, added: false };
-    }
-    const cubeTrack = {
-      ...existing,
-      tagIds: [period.tagId, ...existing.tagIds],
-      updatedAt: now,
-    };
-    return {
-      archive: withData(
-        period.archive,
-        {
-          ...period.archive.data,
-          cubeTracks: { ...period.archive.data.cubeTracks, [existing.id]: cubeTrack },
-        },
-        now,
-      ),
-      cubeTrack,
-      added: false,
-    };
+    return { archive, cubeTrack: existing, added: false };
   }
 
   const id = createId("cube-track");
-  const sortOrder = Object.values(period.archive.data.cubeTracks).filter(
+  const sortOrder = Object.values(archive.data.cubeTracks).filter(
     (item) => item.cubeId === cubeId,
   ).length;
   const cubeTrack: CubeTrack = {
     id,
     cubeId,
     trackId,
-    tagIds: [period.tagId],
+    tagIds: [],
     character: "",
     memoryPeriod: null,
     place: "",
@@ -1057,33 +998,19 @@ export function addTrackToCube(
     updatedAt: now,
   };
   const cubes = {
-    ...period.archive.data.cubes,
-    [cubeId]: { ...period.archive.data.cubes[cubeId], updatedAt: now },
+    ...archive.data.cubes,
+    [cubeId]: { ...archive.data.cubes[cubeId], updatedAt: now },
   };
   const next = withData(
-    period.archive,
+    archive,
     {
-      ...period.archive.data,
+      ...archive.data,
       cubes,
-      cubeTracks: { ...period.archive.data.cubeTracks, [id]: cubeTrack },
+      cubeTracks: { ...archive.data.cubeTracks, [id]: cubeTrack },
     },
     now,
   );
   return { archive: next, cubeTrack, added: true };
-}
-
-function ensureAutomaticRegistrationPeriodTags(
-  archive: ArchiveEnvelopeV1,
-): ArchiveEnvelopeV1 {
-  return Object.values(archive.data.cubeTracks).reduce(
-    (current, cubeTrack) => addTrackToCube(
-      current,
-      cubeTrack.trackId,
-      cubeTrack.cubeId,
-      current.updatedAt,
-    ).archive,
-    archive,
-  );
 }
 
 export function moveInboxTrackToCube(
@@ -1176,26 +1103,24 @@ export function setCubeTrackTags(
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
   const cubeTrack = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
-  const period = ensureRegistrationPeriodTag(archive, cubeTrack.trackId, now);
-  if (inputs.length >= ARCHIVE_LIMITS.tagsPerCubeTrack) {
+  if (inputs.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
     throw new ArchiveDomainError(
       "limit-exceeded",
-      `자동 시기 태그를 포함해 곡마다 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
+      `곡마다 태그를 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
     );
   }
 
-  const tags = { ...period.archive.data.tags };
+  const tags = { ...archive.data.tags };
   const byNormalized = new Map(
     Object.values(tags).map((tag) => [tag.normalizedLabel, tag] as const),
   );
-  const tagIds: string[] = [period.tagId];
-  const seen = new Set<string>([tags[period.tagId].normalizedLabel]);
+  const tagIds: string[] = [];
+  const seen = new Set<string>();
 
   for (const input of inputs) {
     const category = canonicalTagCategory(
       typeof input === "string" ? "custom" : (input.category ?? "custom"),
     );
-    if (category === "period") continue;
     const label = cleanText(
       typeof input === "string" ? input : input.label,
       "태그",
@@ -1228,19 +1153,19 @@ export function setCubeTrackTags(
 
   const nextCubeTrack = { ...cubeTrack, tagIds, updatedAt: now };
   const data = compactUnreferencedEntities({
-    ...period.archive.data,
+    ...archive.data,
     tags,
-    cubeTracks: { ...period.archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
+    cubeTracks: { ...archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
     cubes: {
-      ...period.archive.data.cubes,
+      ...archive.data.cubes,
       [cubeTrack.cubeId]: {
-        ...period.archive.data.cubes[cubeTrack.cubeId],
+        ...archive.data.cubes[cubeTrack.cubeId],
         updatedAt: now,
       },
     },
   });
   return withData(
-    period.archive,
+    archive,
     data,
     now,
   );
@@ -1367,28 +1292,24 @@ export function setCubeTrackTagIds(
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
   const cubeTrack = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
-  const period = ensureRegistrationPeriodTag(archive, cubeTrack.trackId, now);
-  const manualTagIds = [...new Set(inputTagIds)].filter((tagId) => {
-    const tag = assertRecord(period.archive.data.tags, tagId, "태그");
-    return tag.category !== "period";
-  });
-  const tagIds = [period.tagId, ...manualTagIds];
+  const tagIds = [...new Set(inputTagIds)];
+  tagIds.forEach((tagId) => assertRecord(archive.data.tags, tagId, "태그"));
   if (tagIds.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
     throw new ArchiveDomainError(
       "limit-exceeded",
-      `자동 시기 태그를 포함해 곡마다 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
+      `곡마다 태그를 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
     );
   }
   const nextCubeTrack = { ...cubeTrack, tagIds, updatedAt: now };
   return withData(
-    period.archive,
+    archive,
     {
-      ...period.archive.data,
-      cubeTracks: { ...period.archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
+      ...archive.data,
+      cubeTracks: { ...archive.data.cubeTracks, [cubeTrackId]: nextCubeTrack },
       cubes: {
-        ...period.archive.data.cubes,
+        ...archive.data.cubes,
         [cubeTrack.cubeId]: {
-          ...period.archive.data.cubes[cubeTrack.cubeId],
+          ...archive.data.cubes[cubeTrack.cubeId],
           updatedAt: now,
         },
       },
@@ -1718,7 +1639,7 @@ export function removeSeedData(
     Object.entries(archive.data.tags).filter(
       ([id, tag]) => (
         usedTagIds.has(id)
-        || (tag.source !== "seed" && !id.startsWith("auto:period:"))
+        || tag.source !== "seed"
       ),
     ),
   );
@@ -1946,6 +1867,53 @@ function legacyRegistrationDate(
   return dates.sort((left, right) => Date.parse(left) - Date.parse(right))[0] ?? fallback;
 }
 
+function stripLegacyPeriodTags(value: Record<string, unknown>): unknown {
+  if (
+    !isRecord(value.data)
+    || !isRecord(value.data.tags)
+    || !isRecord(value.data.cubeTracks)
+    || !isRecord(value.data.cubes)
+  ) return value;
+
+  const periodTagIds = new Set(
+    Object.entries(value.data.tags)
+      .filter(([id, tag]) => id.startsWith("auto:period:") || (isRecord(tag) && tag.category === "period"))
+      .map(([id]) => id),
+  );
+  const tags = Object.fromEntries(
+    Object.entries(value.data.tags).filter(([id]) => !periodTagIds.has(id)),
+  );
+  const cubeTracks = Object.fromEntries(
+    Object.entries(value.data.cubeTracks).map(([id, entry]) => {
+      if (!isRecord(entry) || !hasOnlyStrings(entry.tagIds)) return [id, entry];
+      return [id, {
+        ...entry,
+        tagIds: entry.tagIds.filter((tagId) => !periodTagIds.has(tagId)),
+      }];
+    }),
+  );
+  const cubes = Object.fromEntries(
+    Object.entries(value.data.cubes).map(([id, cube]) => {
+      const match = /^month:\d{4}-(\d{2})$/.exec(id);
+      if (!match || !isRecord(cube)) return [id, cube];
+      const month = Number(match[1]);
+      const legacyName = typeof cube.name === "string" && /^\d{4}년 \d{1,2}월$/.test(cube.name);
+      const legacyDescription = typeof cube.description === "string"
+        && /^\d{4}년 \d{1,2}월에 등록한 곡들$/.test(cube.description);
+      if (!legacyName && !legacyDescription) return [id, cube];
+      return [id, {
+        ...cube,
+        ...(legacyName ? { name: `${month}월` } : {}),
+        ...(legacyDescription ? { description: `${month}월에 등록한 곡들` } : {}),
+      }];
+    }),
+  );
+  return {
+    ...value,
+    data: { ...value.data, tags, cubeTracks, cubes },
+  };
+}
+
 function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
   if (!isRecord(value.data) || !isRecord(value.data.tracks) || !validIsoDate(value.updatedAt)) {
     return null;
@@ -1963,11 +1931,11 @@ function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | 
         : track,
     ]),
   );
-  const candidate: unknown = {
+  const candidate = stripLegacyPeriodTags({
     ...value,
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
     data: { ...value.data, tracks },
-  };
+  });
   if (!validateArchiveEnvelope(candidate)) return null;
 
   const userTrackIds = new Set<TrackId>();
@@ -1988,6 +1956,16 @@ function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | 
   return normalizeArchiveTagCategories(migrated);
 }
 
+function migrateVersionTwo(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
+  const candidate = stripLegacyPeriodTags({
+    ...value,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  });
+  return validateArchiveEnvelope(candidate)
+    ? normalizeArchiveTagCategories(candidate)
+    : null;
+}
+
 export function migrateArchive(value: unknown): MigrationResult {
   if (!isRecord(value)) return { status: "invalid", error: "저장 데이터가 객체가 아닙니다." };
   if (typeof value.schemaVersion === "number" && value.schemaVersion > ARCHIVE_SCHEMA_VERSION) {
@@ -1999,12 +1977,16 @@ export function migrateArchive(value: unknown): MigrationResult {
       ? { status: "ok", archive: migrated, migrated: true }
       : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
+  if (value.schemaVersion === 2) {
+    const migrated = migrateVersionTwo(value);
+    return migrated
+      ? { status: "ok", archive: migrated, migrated: true }
+      : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+  }
   if (!validateArchiveEnvelope(value)) {
     return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
-  const archive = ensureAutomaticRegistrationPeriodTags(
-    normalizeArchiveTagCategories(value),
-  );
+  const archive = normalizeArchiveTagCategories(value);
   return { status: "ok", archive, migrated: archive !== value };
 }
 

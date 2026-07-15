@@ -8,6 +8,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import {
+  ChevronLeft,
   House,
   Library,
   Plus,
@@ -30,6 +31,7 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
   chapters: { label: "CHAPTERS", path: "/chapters", index: "02" },
   chapter: { label: "CHAPTER", path: "/chapters", index: "02" },
   memory: { label: "MEMORY", path: "/chapters", index: "03" },
+  playlist: { label: "PLAYLIST", path: "/chapters", index: "03" },
   search: { label: "SEARCH", path: "/search", index: "04" },
   recap: { label: "RECAP", path: "/recap", index: "05" },
   settings: { label: "SETTINGS", path: "/settings", index: "06" },
@@ -59,7 +61,7 @@ export function TextNavigation({ view }: { view: AppView }) {
         const meta = VIEW_META[item];
         const Icon = MOBILE_NAV_ICON[item];
         const active = item === view || (
-          item === "chapters" && (view === "chapter" || view === "memory")
+          item === "chapters" && (view === "chapter" || view === "memory" || view === "playlist")
         );
         return (
           <Link
@@ -213,6 +215,7 @@ export function EditorialShell({
   preview,
   toast,
   online,
+  onBack,
 }: {
   view: AppView;
   inboxCount: number;
@@ -220,9 +223,11 @@ export function EditorialShell({
   preview: PreviewControls;
   toast: string | null;
   online: boolean;
+  onBack: () => void;
 }) {
   const playerOpen = Boolean(preview.state);
   const [fullPlayerOpen, setFullPlayerOpen] = useState(false);
+  const showBack = view !== "home";
 
   function setPlayerVisibility(open: boolean) {
     transitionEditorialUI(() => {
@@ -234,10 +239,18 @@ export function EditorialShell({
     <div className={`app-shell editorial-shell${playerOpen ? " has-player" : ""}`}>
       <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
       <header className="editorial-header">
-        <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
-          <strong>MUMU</strong>
-          <span>PERSONAL MUSIC ARCHIVE</span>
-        </Link>
+        <div className="header-leading">
+          {showBack ? (
+            <button className="header-back-button" type="button" onClick={onBack} aria-label="뒤로가기">
+              <ChevronLeft aria-hidden="true" size={20} strokeWidth={2} />
+              <span>뒤로</span>
+            </button>
+          ) : null}
+          <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
+            <strong>MUMU</strong>
+            <span>PERSONAL MUSIC ARCHIVE</span>
+          </Link>
+        </div>
         <div className="header-index" aria-hidden="true">
           <span>{VIEW_META[view].index}</span>
           <i />

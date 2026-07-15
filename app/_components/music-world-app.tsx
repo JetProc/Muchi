@@ -46,6 +46,7 @@ import {
   Settings,
 } from "./editorial-views-discovery";
 import { TagManager } from "./editorial-views-tags";
+import { PlaylistBuilder } from "./editorial-views-playlist";
 import type { AppView } from "./editorial-types";
 
 export type { AppView } from "./editorial-types";
@@ -260,6 +261,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           preview={preview}
           toast={null}
           online={online}
+          onBack={router.back}
         >
           <div className="page-content">
             <div className="archive-boot" role="status" aria-live="polite">
@@ -283,9 +285,11 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "chapters":
         return <Chapters archive={archive} commit={commit} notify={notify} router={router} pendingTrackId={pendingTrackId} />;
       case "chapter":
-        return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} preview={preview} hydrated={hydrated} />;
+        return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} hydrated={hydrated} />;
       case "memory":
         return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} preview={preview} router={router} hydrated={hydrated} />;
+      case "playlist":
+        return <PlaylistBuilder archive={archive} chapterId={queryId} initialServiceId={searchParams.get("service")} preview={preview} hydrated={hydrated} />;
       case "search":
         return <Search archive={archive} preview={preview} />;
       case "recap":
@@ -307,6 +311,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         preview={preview}
         toast={toast}
         online={online}
+        onBack={router.back}
       >
       {storageBlocked ? (
         <div

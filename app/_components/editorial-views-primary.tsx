@@ -221,9 +221,14 @@ export function Home({
                   sharedId={chapter.id}
                   key={chapter.id}
                 >
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <strong>{chapter.name}</strong>
-                  <small>{getCubeTracks(archive, chapter.id).length}곡</small>
+                  <span className="chapter-preview-art" aria-hidden="true">
+                    <ChapterCover archive={archive} chapter={chapter} />
+                  </span>
+                  <span className="chapter-preview-copy">
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{chapter.name}</strong>
+                    <small>{getCubeTracks(archive, chapter.id).length}곡</small>
+                  </span>
                 </Link>
               ))}
             </div>

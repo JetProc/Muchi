@@ -6,6 +6,7 @@ import ts from "typescript";
 const projectRoot = new URL("../", import.meta.url);
 const terminalThemeMarker = "MUMU CATALOG 1996 — terminal theme contract";
 const readableThemeMarker = "MUMU READABLE CATALOG — calm hierarchy layer";
+const appleThemeMarker = "MUMU APPLE GALLERY — final theme";
 
 function getTerminalTheme(css) {
   const markerIndex = css.lastIndexOf(terminalThemeMarker);
@@ -16,6 +17,12 @@ function getTerminalTheme(css) {
 function getReadableTheme(css) {
   const markerIndex = css.lastIndexOf(readableThemeMarker);
   assert.notEqual(markerIndex, -1, "readability layer marker must exist");
+  return css.slice(markerIndex);
+}
+
+function getAppleTheme(css) {
+  const markerIndex = css.lastIndexOf(appleThemeMarker);
+  assert.notEqual(markerIndex, -1, "Apple theme marker must exist");
   return css.slice(markerIndex);
 }
 
@@ -95,6 +102,7 @@ test("renders every primary chapter archive destination with its stable shell", 
     "/recap",
     "/settings",
     "/tags",
+    "/playlist?id=cube%3Adawn",
   ];
 
   for (const pathname of destinations) {
@@ -140,43 +148,41 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(terminalTheme, /\.capture-results \.section-head\s*\{[^}]*margin-bottom:\s*8px;/s);
 });
 
-test("keeps the restored December 1996 catalog theme active", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const terminalTheme = getTerminalTheme(css);
+test("loads the Apple gallery theme after the legacy structural stylesheet", async () => {
+  const [layoutSource, css] = await Promise.all([
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+  ]);
+  const appleTheme = getAppleTheme(css);
 
-  assert.doesNotMatch(terminalTheme, /@media \(max-width:\s*0px\)\s*\{/);
-  assert.match(terminalTheme, /--frame-ink:\s*#000000;/);
-  assert.match(terminalTheme, /--canvas:\s*#ffffff;/);
-  assert.match(terminalTheme, /--primary:\s*#e91d2a;/);
-  assert.match(terminalTheme, /body\s*\{[^}]*border:\s*8px solid var\(--frame-ink\);/s);
-  assert.match(terminalTheme, /border-radius:\s*0 !important;/);
-  assert.match(terminalTheme, /box-shadow:\s*none !important;/);
+  assert.ok(layoutSource.indexOf('import "./globals.css"') < layoutSource.indexOf('import "./apple-theme.css"'));
+  assert.match(appleTheme, /--apple-primary:\s*#0066cc;/);
+  assert.match(appleTheme, /--apple-primary-focus:\s*#0071e3;/);
+  assert.match(appleTheme, /--apple-primary-on-dark:\s*#2997ff;/);
+  assert.match(appleTheme, /--apple-canvas-parchment:\s*#f5f5f7;/);
+  assert.match(appleTheme, /--apple-ink:\s*#1d1d1f;/);
+  assert.doesNotMatch(appleTheme, /(?:linear|radial|conic)-gradient\(/);
 });
 
-test("adds a calm mobile readability layer without replacing the restored catalog", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const readableTheme = getReadableTheme(css);
+test("uses Apple typography, whitespace, and flat mobile surfaces", async () => {
+  const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
+  const appleTheme = getAppleTheme(css);
 
-  assert.ok(css.indexOf(terminalThemeMarker) < css.indexOf(readableThemeMarker));
-  assert.match(readableTheme, /body\s*\{[^}]*border:\s*0;[^}]*font-family:\s*var\(--font-ui\);/s);
-  assert.match(readableTheme, /\.app-shell,\s*\.app-shell\.has-player\s*\{[^}]*padding-bottom:\s*calc\(96px \+ env\(safe-area-inset-bottom\)\);/s);
-  assert.match(readableTheme, /\.page-header,\s*\.capture-search-header,\s*\.chapter-stage-header\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*var\(--readable-shadow\) !important;/s);
-  assert.match(readableTheme, /\.track-line\s*\{[^}]*border:\s*0;[^}]*box-shadow:\s*var\(--readable-shadow\) !important;/s);
-  assert.match(readableTheme, /\.track-info small,\s*\.track-info em\s*\{[^}]*font-size:\s*12px;/s);
-  assert.match(readableTheme, /\.footer-band\s*\{[^}]*box-shadow:\s*0 -8px 24px rgba\(0, 0, 0, 0\.08\) !important;/s);
-  assert.match(readableTheme, /@media \(max-width:\s*479px\)[\s\S]*?body\s*\{[^}]*font-size:\s*15px;/s);
-  assert.match(readableTheme, /@media \(max-width:\s*479px\)[\s\S]*?\.text-navigation a\s*\{[^}]*font-size:\s*11px;/s);
+  assert.match(appleTheme, /body\s*\{[^}]*font-family:\s*var\(--apple-font-text\);[^}]*font-size:\s*17px;[^}]*line-height:\s*1\.47;/s);
+  assert.match(appleTheme, /h1,\s*h2,\s*h3\s*\{[^}]*font-family:\s*var\(--apple-font-display\);[^}]*font-weight:\s*600;/s);
+  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*44px;[^}]*background:\s*var\(--apple-surface-black\);/s);
+  assert.match(appleTheme, /\.page-content\s*\{[^}]*padding:\s*var\(--apple-space-6\) var\(--apple-page-gutter\)/s);
+  assert.match(appleTheme, /\.store-surface,[\s\S]*?\.search-empty\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);[^}]*border-radius:\s*var\(--apple-radius-lg\) !important;[^}]*box-shadow:\s*none !important;/s);
+  assert.match(appleTheme, /@media \(max-width:\s*419px\)[\s\S]*?h1\s*\{[^}]*font-size:\s*28px;/s);
 });
 
 test("keeps toast messages compact above the fixed mobile navigation", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const readableTheme = getReadableTheme(css);
+  const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
+  const appleTheme = getAppleTheme(css);
 
-  assert.match(readableTheme, /\.toast\s*\{[^}]*top:\s*auto;[^}]*right:\s*auto;[^}]*bottom:\s*calc\(82px \+ env\(safe-area-inset-bottom\)\);[^}]*left:\s*50%;/s);
-  assert.match(readableTheme, /\.toast\s*\{[^}]*width:\s*min\(420px, calc\(100% - 28px\)\);[^}]*min-height:\s*48px;/s);
-  assert.match(readableTheme, /\.toast\s*\{[^}]*pointer-events:\s*none;[^}]*animation:\s*readable-toast-in 220ms ease-out both !important;/s);
-  assert.match(readableTheme, /\.app-shell\.has-player \.toast\s*\{[^}]*bottom:\s*calc\(150px \+ env\(safe-area-inset-bottom\)\);/s);
-  assert.match(readableTheme, /@keyframes readable-toast-in\s*\{[\s\S]*?from\s*\{[^}]*transform:\s*translate\(-50%, 10px\);[^}]*\}[\s\S]*?to\s*\{[^}]*transform:\s*translate\(-50%, 0\);/s);
+  assert.match(appleTheme, /\.toast\s*\{[^}]*bottom:\s*calc\(82px \+ env\(safe-area-inset-bottom\)\);[^}]*width:\s*min\(420px, calc\(100% - 32px\)\);/s);
+  assert.match(appleTheme, /\.toast\s*\{[^}]*border-radius:\s*var\(--apple-radius-pill\) !important;[^}]*pointer-events:\s*none;/s);
+  assert.match(appleTheme, /\.app-shell\.has-player \.toast\s*\{[^}]*bottom:\s*calc\(150px \+ env\(safe-area-inset-bottom\)\);/s);
 });
 
 test("uses an accessible settings icon in the editorial header", async () => {
@@ -193,10 +199,25 @@ test("uses an accessible settings icon in the editorial header", async () => {
   assert.doesNotMatch(source, /href="\/settings"[^>]*>SETTINGS<\/Link>/s);
 });
 
-test("keeps the complete December 1996 design direction in the repository", async () => {
+test("adds one shared back action to every non-home view", async () => {
+  const [shellSource, appSource, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(shellSource, /const showBack = view !== "home"/);
+  assert.match(shellSource, /className="header-back-button"/);
+  assert.match(shellSource, /onClick=\{onBack\} aria-label="뒤로가기"/);
+  assert.equal((appSource.match(/onBack=\{router\.back\}/g) ?? []).length, 2);
+  assert.match(css, /\.header-back-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*min-height:\s*44px;/s);
+  assert.match(css, /\.header-back-button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--apple-primary-focus\);/s);
+});
+
+test("keeps the complete Apple web design direction in the repository", async () => {
   const design = await readFile(new URL("../design.md", import.meta.url), "utf8");
 
-  assert.match(design, /^# Dell December 1996 Design Direction$/m);
+  assert.match(design, /^# Apple Web Design Direction$/m);
   for (const heading of [
     "## Overview",
     "## Colors",
@@ -209,44 +230,47 @@ test("keeps the complete December 1996 design direction in the repository", asyn
   ]) {
     assert.ok(design.includes(heading), heading);
   }
-  assert.match(design, /8px solid \{colors\.frame-ink\}/);
-  assert.match(design, /drop-shadow\(2px 2px 0 #000\)/);
+  assert.match(design, /Action Blue.*#0066cc/);
+  assert.match(design, /SF Pro Display/);
+  assert.match(design, /Body copy at 17px/);
+  assert.match(design, /single product shadow only to product or album photography/i);
+  assert.match(design, /Minimum 44 × 44px/);
 });
 
-test("applies the closed catalog palette and period typography", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const terminalTheme = getTerminalTheme(css);
+test("applies the closed Apple palette and SF system typography", async () => {
+  const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
+  const appleTheme = getAppleTheme(css);
   const palette = [...new Set(
-    (terminalTheme.match(/#[0-9a-f]{6}/gi) ?? []).map((color) => color.toLowerCase()),
+    (appleTheme.match(/#[0-9a-f]{6}/gi) ?? []).map((color) => color.toLowerCase()),
   )].sort();
 
-  assert.deepEqual(palette, [
-    "#000000", "#0000ee", "#6a26a4", "#8c9ae0", "#8e8a25",
-    "#9ab6c8", "#a5b8c0", "#b3bd95", "#c0d4a7", "#d77a7a",
-    "#e6915d", "#e91d2a", "#fcc20f", "#ffffff",
-  ]);
-  assert.match(terminalTheme, /--font-display:\s*"Arial Black",\s*Helvetica/);
-  assert.match(terminalTheme, /--font-ui:\s*Helvetica,\s*Arial/);
-  assert.match(terminalTheme, /--font-body:\s*"Times New Roman",\s*Times/);
-  assert.match(terminalTheme, /--shadow-control:\s*none;/);
-  assert.match(terminalTheme, /--shadow-surface:\s*none;/);
-  assert.match(terminalTheme, /--shadow-floating:\s*none;/);
+  for (const color of [
+    "#000000", "#0066cc", "#0071e3", "#1d1d1f", "#252527", "#272729",
+    "#2997ff", "#2a2a2c", "#7a7a7a", "#cccccc", "#d2d2d7", "#e0e0e0",
+    "#f0f0f0", "#f5f5f7", "#fafafc", "#ffffff",
+  ]) assert.ok(palette.includes(color), color);
+  for (const legacyAccent of ["#e91d2a", "#fcc20f", "#0000ee"]) {
+    assert.ok(!palette.includes(legacyAccent), legacyAccent);
+  }
+  assert.match(appleTheme, /--apple-font-display:\s*"SF Pro Display",\s*system-ui,\s*-apple-system/);
+  assert.match(appleTheme, /--apple-font-text:\s*"SF Pro Text",\s*system-ui,\s*-apple-system/);
+  assert.match(appleTheme, /--apple-product-shadow:\s*rgba\(0, 0, 0, 0\.22\) 3px 5px 30px 0;/);
 });
 
 test("keeps common controls readable and touch friendly", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const terminalTheme = getTerminalTheme(css);
+  const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
+  const appleTheme = getAppleTheme(css);
 
-  assert.match(terminalTheme, /@media \(max-width: 719px\)[\s\S]*?\.button,[\s\S]*?\.tag-manager-menu > summary\s*\{[^}]*min-height:\s*44px;/s);
-  assert.match(terminalTheme, /\.chapter-stage-controls \.icon-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
-  assert.match(terminalTheme, /\.track-line\s*\{[^}]*border:\s*1px solid var\(--frame-ink\);/s);
-  assert.match(terminalTheme, /box-shadow:\s*none !important;/);
+  assert.match(appleTheme, /\.button,[\s\S]*?\.tag-manager-menu > summary\s*\{[^}]*min-height:\s*44px;/s);
+  assert.match(appleTheme, /\.icon-button,[\s\S]*?\.preview-icon-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+  assert.match(appleTheme, /\.button:active,[\s\S]*?button\.tag:active\s*\{[^}]*transform:\s*scale\(0\.95\);/s);
+  assert.match(appleTheme, /:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--apple-primary-focus\);/s);
 });
 
 test("keeps the compact fixed navigation with Korean labels", async () => {
   const [source, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(source, /home:\s*"홈"/);
@@ -254,16 +278,16 @@ test("keeps the compact fixed navigation with Korean labels", async () => {
   assert.match(source, /capture:\s*"추가"/);
   assert.match(source, /search:\s*"검색"/);
   assert.match(source, /className="text-navigation icon-label-nav"/);
-  const terminalTheme = getTerminalTheme(css);
-  assert.match(terminalTheme, /\.footer-band\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0;/s);
+  const appleTheme = getAppleTheme(css);
+  assert.match(appleTheme, /\.footer-band\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0;[^}]*backdrop-filter:\s*saturate\(180%\) blur\(20px\) !important;/s);
 });
 
 test("anchors modal backdrops to the viewport", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const terminalTheme = getTerminalTheme(css);
+  const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
+  const appleTheme = getAppleTheme(css);
 
-  assert.match(terminalTheme, /\.dialog-backdrop,[\s\S]*?\.welcome-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;/s);
-  assert.match(terminalTheme, /\.dialog,[\s\S]*?border:\s*4px solid var\(--frame-ink\)/s);
+  assert.match(appleTheme, /\.dialog-backdrop,[\s\S]*?\.welcome-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;/s);
+  assert.match(appleTheme, /\.dialog,[\s\S]*?\.tag-picker-panel\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);[^}]*border-radius:\s*var\(--apple-radius-lg\) !important;[^}]*box-shadow:\s*none !important;/s);
 });
 
 test("keeps dialog semantics on the focused surface instead of the backdrop", async () => {
@@ -286,52 +310,63 @@ test("keeps dialog semantics on the focused surface instead of the backdrop", as
   assert.match(source, /className="welcome-card" role="dialog" aria-modal="true"/);
 });
 
-test("keeps track rows neutral with hard-edged photo bevels", async () => {
-  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  const terminalTheme = getTerminalTheme(css);
+test("keeps track rows flat while reserving elevation for album artwork", async () => {
+  const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
+  const appleTheme = getAppleTheme(css);
 
-  assert.match(terminalTheme, /\.track-line\s*\{[^}]*border:\s*1px solid var\(--frame-ink\);[^}]*background:\s*var\(--canvas\);/s);
-  assert.match(terminalTheme, /\.track-line \.track-actions\s*\{[^}]*background:\s*var\(--canvas\);/s);
-  assert.doesNotMatch(terminalTheme, /\.track-line:nth-child\(8n/);
-  assert.match(terminalTheme, /\.track-art\s*\{[^}]*filter:\s*drop-shadow\(2px 2px 0 var\(--frame-ink\)\) !important;/s);
+  assert.match(appleTheme, /\.track-line\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);[^}]*border-radius:\s*var\(--apple-radius-lg\) !important;[^}]*box-shadow:\s*none !important;/s);
+  assert.match(appleTheme, /\.track-art,[\s\S]*?\.chapter-library-cover \.chapter-artwork\s*\{[^}]*box-shadow:\s*var\(--apple-product-shadow\) !important;/s);
+  assert.doesNotMatch(appleTheme, /drop-shadow\(2px 2px 0/);
 });
 
-test("uses one album-cover track row across chapter, add, and archive search", async () => {
-  const [chapterSource, addSource, searchSource, css] = await Promise.all([
+test("uses a compact accordion inside chapters and unified rows elsewhere", async () => {
+  const [chapterSource, addSource, searchSource, globals] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  for (const source of [chapterSource, addSource, searchSource]) {
+  for (const source of [addSource, searchSource]) {
     assert.equal((source.match(/className="track-list track-list-unified"/g) ?? []).length, 1);
   }
-  assert.match(css, /\.track-list-unified \.track-line\s*\{[^}]*--track-cover-size:\s*clamp\(56px, 16vw, 72px\);[^}]*grid-template-columns:\s*24px var\(--track-cover-size\) minmax\(0, 1fr\) auto;/s);
-  assert.match(css, /\.track-list-unified \.track-line \.track-art\s*\{[^}]*width:\s*var\(--track-cover-size\);[^}]*height:\s*var\(--track-cover-size\);[^}]*aspect-ratio:\s*1;/s);
-  assert.match(css, /\.track-list-unified \.track-line \.track-actions\s*\{[^}]*grid-column:\s*4;[^}]*grid-row:\s*1;/s);
+  assert.doesNotMatch(chapterSource, /className="track-list track-list-unified"/);
+  assert.match(chapterSource, /className="chapter-compact-track-list"/);
+  assert.match(chapterSource, /className="chapter-compact-track-copy"/);
+  assert.match(chapterSource, /<strong>\{entry\.track\.title\}<\/strong>[\s\S]*?<span>\{entry\.track\.artist\}<\/span>/);
+  assert.match(chapterSource, /aria-expanded=\{expanded\}/);
+  assert.match(chapterSource, /setExpandedTrackId/);
+  assert.match(chapterSource, /className="chapter-memory-link"/);
+  assert.match(chapterSource, /entry\.tags\.slice\(0, 6\)/);
+  const legacyThemeEnd = globals.indexOf("} /* end inactive legacy visual themes */");
+  const compactChapterStyles = globals.indexOf("/* Chapter detail — compact expandable track list");
+  assert.ok(legacyThemeEnd >= 0 && compactChapterStyles > legacyThemeEnd);
+  assert.match(globals, /\.chapter-compact-track-main\s*\{[^}]*min-height:\s*54px;/s);
+  assert.match(globals, /\.chapter-compact-track-detail\s*\{[^}]*grid-template-rows:\s*0fr;/s);
+  assert.match(globals, /\.chapter-compact-track\.is-expanded \.chapter-compact-track-detail\s*\{[^}]*grid-template-rows:\s*1fr;/s);
 });
 
-test("turns the chapter index into an accessible overlapping LP deck", async () => {
+test("shows chapters as a sortable playlist-folder grid", async () => {
   const [source, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
-  const terminalTheme = getTerminalTheme(css);
 
-  assert.match(source, /aria-roledescription="carousel"/);
-  assert.match(source, /className="chapter-stage-controls"/);
-  assert.match(source, /aria-label="이전 챕터"/);
-  assert.match(source, /aria-label="다음 챕터"/);
-  assert.match(source, /onPointerDown=/);
-  assert.match(source, /event\.key === "ArrowLeft"/);
-  assert.match(source, /event\.key === "ArrowRight"/);
-  assert.match(source, /src="\/assets\/chapter-lp\.png"/);
-  assert.match(source, /const CHAPTER_STACK_OFFSET = 46;/);
-  assert.match(source, /--stack-rise.*CHAPTER_STACK_OFFSET/s);
-  assert.match(source, /--stack-y.*CHAPTER_STACK_OFFSET/s);
-  assert.match(terminalTheme, /\.chapter-lp-card\s*\{[^}]*border:\s*1px solid var\(--frame-ink\);[^}]*filter:\s*drop-shadow\(2px 2px 0 var\(--frame-ink\)\) !important;/s);
-  assert.match(terminalTheme, /\.chapter-stage-controls \.icon-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
+  assert.doesNotMatch(source, /useEmblaCarousel|chapter-carousel|chapter-stage-controls/);
+  assert.match(source, /className="chapter-library-tabs" aria-label="챕터 종류"/);
+  assert.match(source, />내가 만든 챕터<\/button>/);
+  assert.match(source, />월별 챕터<\/button>/);
+  assert.match(source, /chapter\.id\.startsWith\("month:"\)/);
+  assert.match(source, /className="chapter-library-sort"/);
+  assert.match(source, /<option value="recent">최근 활동<\/option>/);
+  assert.match(source, /<option value="tracks">곡 많은 순<\/option>/);
+  assert.match(source, /className="chapter-library-grid"/);
+  assert.match(source, /className="chapter-library-card"/);
+  assert.match(source, /<ChapterCover archive=\{archive\} chapter=\{chapter\} \/>/);
+  assert.match(css, /\.chapter-library-grid\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(auto-fill, minmax\(148px, 1fr\)\);/s);
+  assert.match(css, /\.chapter-library-cover\s*\{[^}]*aspect-ratio:\s*1;/s);
+  assert.match(css, /@media \(max-width: 479px\)[\s\S]*?\.chapter-library-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\);/s);
+  assert.match(css, /\.chapter-library-copy strong\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s);
 });
 
 test("shows the recap switch state as visible text as well as semantics", async () => {
@@ -350,9 +385,9 @@ test("keeps the home focused on three personal archive priorities", async () => 
       new URL("../app/_components/editorial-views-primary.tsx", import.meta.url),
       "utf8",
     ),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
   ]);
-  const terminalTheme = getTerminalTheme(css);
+  const appleTheme = getAppleTheme(css);
 
   assert.match(source, /className="home-section home-continue"/);
   assert.match(source, /className="home-section chapter-preview"/);
@@ -360,7 +395,7 @@ test("keeps the home focused on three personal archive priorities", async () => 
   assert.match(source, /memories\.slice\(0, 3\)/);
   assert.match(source, /href="\/recap">이맘때의 음악/);
   assert.doesNotMatch(source, /COMMUNITY_PREVIEW|다른 사람의 장면|home-monthly/);
-  assert.match(terminalTheme, /\.album-hero\s*\{[^}]*background:\s*var\(--primary\);/s);
+  assert.match(appleTheme, /\.album-hero\s*\{[^}]*background:\s*var\(--apple-surface-tile-1\);/s);
 });
 
 test("keeps destructive track actions behind explicit management modes", async () => {
@@ -374,8 +409,8 @@ test("keeps destructive track actions behind explicit management modes", async (
   assert.match(primarySource, /actions=\{managing \? <button className="button button-danger"/);
   assert.match(chapterSource, /const \[managing, setManaging\] = useState\(false\)/);
   assert.match(chapterSource, /managing \? "관리 완료" : "곡 관리"/);
-  assert.match(chapterSource, /actions=\{managing \? <>/);
-  assert.match(chapterSource, /: <Link className="button"[^>]*>기억 열기<\/Link>/);
+  assert.match(chapterSource, /className="chapter-compact-track-manage"/);
+  assert.match(chapterSource, /: \(\s*<Link className="chapter-memory-link"[^>]*>기억 열기<\/Link>/s);
 });
 
 test("defers new memory tags until the memory form is saved", async () => {
@@ -410,7 +445,7 @@ test("uses a compact swipe-first mobile home without primary playback", async ()
   const [source, uiSource, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-ui.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
   ]);
   const heroSource = source.slice(source.indexOf("export function AlbumHero"), source.indexOf("export function Home"));
 
@@ -421,15 +456,18 @@ test("uses a compact swipe-first mobile home without primary playback", async ()
   assert.match(source, /showPreview=\{false\}/);
   assert.match(uiSource, /showPreview = true/);
   assert.match(uiSource, /\{showPreview \? <PreviewButton/);
-  const terminalTheme = getTerminalTheme(css);
-  assert.match(terminalTheme, /\.editorial-header\s*\{[^}]*position:\s*fixed;/s);
-  assert.match(terminalTheme, /@media \(max-width: 479px\)[\s\S]*?\.editorial-header\s*\{[^}]*height:\s*52px;/s);
-  assert.match(terminalTheme, /@media \(max-width: 479px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*88px minmax\(0, 1fr\);/s);
-  assert.match(terminalTheme, /@media \(max-width: 479px\)[\s\S]*?\.track-line \.track-art\s*\{[^}]*width:\s*56px;[^}]*height:\s*56px;/s);
+  assert.match(source, /className="chapter-preview-art"/);
+  assert.match(source, /className="chapter-preview-art"[\s\S]*?<ChapterCover archive=\{archive\} chapter=\{chapter\} \/>/);
+  const appleTheme = getAppleTheme(css);
+  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*position:\s*fixed;/s);
+  assert.match(appleTheme, /@media \(max-width: 640px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\);/s);
+  assert.match(appleTheme, /@media \(max-width: 419px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*112px minmax\(0, 1fr\);/s);
+  assert.match(appleTheme, /@media \(max-width: 419px\)[\s\S]*?\.track-list-unified \.track-line\s*\{[^}]*--track-cover-size:\s*60px;/s);
 });
 
-test("removes redundant helper copy while preserving safety-critical text", async () => {
+test("removes redundant helper copy and keeps preview controls compact", async () => {
   const paths = [
+    "editorial-media.tsx",
     "editorial-ui.tsx",
     "editorial-views-primary.tsx",
     "editorial-views-chapters.tsx",
@@ -437,11 +475,19 @@ test("removes redundant helper copy while preserving safety-critical text", asyn
     "editorial-views-tags.tsx",
     "music-world-app.tsx",
   ];
-  const sources = await Promise.all(paths.map((name) => readFile(
-    new URL(`../app/_components/${name}`, import.meta.url),
-    "utf8",
-  )));
+  const [componentSources, itunesSource, css] = await Promise.all([
+    Promise.all(paths.map((name) => readFile(
+      new URL(`../app/_components/${name}`, import.meta.url),
+      "utf8",
+    ))),
+    readFile(new URL("../lib/itunes.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+  ]);
+  const sources = componentSources;
   const source = sources.join("\n");
+  const mediaSource = sources[0];
+  const chapterSource = sources[3];
+  const readableTheme = getAppleTheme(css);
 
   assert.doesNotMatch(source, /\bcopy=/);
   assert.doesNotMatch(source, /같은 곡도 순간마다 다르게 느껴집니다/);
@@ -450,28 +496,33 @@ test("removes redundant helper copy while preserving safety-critical text", asyn
   assert.doesNotMatch(source, /welcome-steps/);
   assert.match(source, /삭제되지만 다른 챕터의 같은 곡은 그대로 남습니다/);
   assert.match(source, /이 기기에만 저장되는 데모입니다/);
-  assert.match(source, /ITUNES_PREVIEW_USAGE_NOTICE/);
+  assert.doesNotMatch(chapterSource, /ITUNES_PREVIEW_USAGE_NOTICE|미리듣기는 홍보 목적으로만/);
+  assert.doesNotMatch(itunesSource, /ITUNES_PREVIEW_USAGE_NOTICE|미리듣기는 홍보 목적으로만/);
+  assert.match(mediaSource, /className="play-button preview-icon-button"/);
+  assert.match(mediaSource, /const previewLabel = !track\.previewUrl[\s\S]*?\? `\$\{track\.title\} 미리듣기 정지`[\s\S]*?: `\$\{track\.title\} 30초 미리듣기`/);
+  assert.match(mediaSource, /aria-label=\{previewLabel\}/);
+  assert.match(mediaSource, /playing \? <Pause[^>]*aria-hidden="true"[^>]*\/> : <Play[^>]*aria-hidden="true"[^>]*\/>/);
+  assert.doesNotMatch(mediaSource, /\{playing \? "정지" : "미리듣기"\}/);
+  assert.match(readableTheme, /\.preview-icon-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*padding:\s*0;/s);
+  assert.match(readableTheme, /\.memory-preview-actions\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;/s);
 });
 
-test("shows tag categories inline before archive search results", async () => {
-  const [source, css] = await Promise.all([
+test("keeps archive search compact with the shared tag picker", async () => {
+  const [source, pickerSource, css] = await Promise.all([
     readFile(
       new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url),
       "utf8",
     ),
+    readFile(new URL("../app/_components/editorial-tag-picker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
-  const terminalTheme = getTerminalTheme(css);
 
   assert.match(source, /className="page-content search-view"/);
   assert.match(source, /<h1 className="sr-only">기록 검색<\/h1>/);
   assert.match(source, /className="input search-input"\s*\n\s*type="search"/);
-  assert.match(source, /className="search-tag-categories" role="group" aria-label="태그 카테고리"/);
-  assert.match(source, /SEARCH_TAG_CATEGORIES\.map\(\(category\) =>/);
-  assert.match(source, /className="search-tag-list" role="group"/);
-  assert.doesNotMatch(source, /className="search-tag-more"/);
-  assert.doesNotMatch(source, /className="dialog search-tag-dialog"/);
-  assert.doesNotMatch(source, /tagPanelOpen/);
+  assert.match(source, /className="search-tag-controls"/);
+  assert.match(source, /<TagPicker\s+label="태그 필터"/);
+  assert.doesNotMatch(source, /search-tag-categories|search-tag-list|SEARCH_TAG_CATEGORIES/);
   assert.match(source, /tagMatch/);
   assert.match(source, /maxTags=\{2\}/);
   assert.match(source, /className="search-results-section"/);
@@ -479,15 +530,59 @@ test("shows tag categories inline before archive search results", async () => {
   assert.match(source, /const results = hasSearch/);
   assert.doesNotMatch(source, /내 언어로 음악을 다시 찾기/);
   assert.doesNotMatch(source, /className="search-editor/);
-  assert.ok(
-    source.indexOf("search-tag-categories") < source.indexOf("search-tag-list"),
-  );
-  assert.ok(
-    source.indexOf("search-results-section") > source.indexOf("search-tag-list"),
-  );
-  assert.match(terminalTheme, /\.search-tag-categories\s*\{[^}]*display:\s*grid;/s);
-  assert.match(terminalTheme, /\.search-tag-list\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/s);
-  assert.match(terminalTheme, /\.search-results-section\s*\{[^}]*margin-top:\s*16px;/s);
+  assert.ok(source.indexOf("search-tag-controls") < source.indexOf("search-results-section"));
+  assert.match(pickerSource, /role="dialog"/);
+  assert.match(pickerSource, /TAG_PICKER_CATEGORIES = \["mood", "genre", "custom"\]/);
+  assert.match(pickerSource, /mood: "감정·상황"/);
+  assert.match(pickerSource, /className="tag-picker-category-list"/);
+  assert.match(pickerSource, /className="tag-picker-category-row"/);
+  assert.doesNotMatch(pickerSource, /role="tablist"|tag-picker-categories|"frequent"/);
+  assert.match(css, /\.tag-picker-panel\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*0;/s);
+  assert.match(css, /\.tag-picker-category-list\s*\{[^}]*border-top:/s);
+  assert.match(css, /\.tag-picker-options\s*\{[^}]*max-height:\s*286px;/s);
+});
+
+test("builds a mobile playlist creation UI without streaming side effects", async () => {
+  const [chapterSource, playlistSource, appSource, typesSource, routeSource, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-types.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/playlist/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const readableTheme = getReadableTheme(css);
+
+  assert.match(chapterSource, /className="chapter-service-grid"/);
+  assert.match(chapterSource, /service=apple/);
+  assert.match(chapterSource, /service=spotify/);
+  assert.match(chapterSource, /service=youtube/);
+  assert.match(chapterSource, /Apple Music으로 플레이리스트 만들기/);
+  assert.match(chapterSource, /Spotify로 플레이리스트 만들기/);
+  assert.match(chapterSource, /YouTube Music으로 플레이리스트 만들기/);
+  assert.match(playlistSource, /Apple Music/);
+  assert.match(playlistSource, /Spotify/);
+  assert.match(playlistSource, /YouTube Music/);
+  assert.match(playlistSource, /icon: Apple/);
+  assert.match(playlistSource, /icon: AudioLines/);
+  assert.match(playlistSource, /icon: CirclePlay/);
+  assert.match(playlistSource, /곡 확인/);
+  assert.match(playlistSource, /서비스 선택/);
+  assert.match(playlistSource, /매칭 확인/);
+  assert.match(playlistSource, /플레이리스트를 만들었어요/);
+  assert.match(playlistSource, /MUMU의 챕터와 기억은 바뀌지 않아요/);
+  assert.match(playlistSource, /presetServiceId \? 3 : 2/);
+  assert.match(appSource, /initialServiceId=\{searchParams\.get\("service"\)\}/);
+  assert.doesNotMatch(playlistSource, /fetch\(|localStorage|sessionStorage/);
+  assert.match(appSource, /case "playlist":/);
+  assert.match(typesSource, /\| "playlist"/);
+  assert.match(routeSource, /<MusicWorldApp view="playlist" \/>/);
+  assert.match(readableTheme, /\.playlist-service-list\s*\{[^}]*display:\s*grid;/s);
+  assert.match(readableTheme, /\.playlist-builder-actions\s*\{[^}]*position:\s*sticky;/s);
+  assert.match(readableTheme, /\.playlist-service-icon\.is-apple[\s\S]*?background:\s*#fa243c;/);
+  assert.match(readableTheme, /\.playlist-service-icon\.is-spotify[\s\S]*?background:\s*#1ed760;/);
+  assert.match(readableTheme, /\.playlist-service-icon\.is-youtube[\s\S]*?background:\s*#ff0033;/);
+  assert.match(readableTheme, /\.chapter-service-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/s);
 });
 
 test("redirects legacy presentation routes to the chapter archive", async () => {
@@ -653,8 +748,8 @@ test("keeps the same song's tags and memory independent in each cube", async () 
   const dawnTags = withMemory.data.cubeTracks[dawnRadio.id].tagIds.map(
     (tagId) => withMemory.data.tags[tagId],
   );
-  assert.equal(dawnTags.length, 4);
-  assert.equal(dawnTags.filter((tag) => tag.category === "period").length, 1);
+  assert.equal(dawnTags.length, 3);
+  assert.equal(dawnTags.some((tag) => tag.category === "period"), false);
   assert.equal(
     withMemory.data.cubeTracks[dawnRadio.id].character,
     "도시를 가르는 야간 주행곡",
@@ -734,25 +829,20 @@ test("stores a stable registration date and groups registered tracks into search
   assert.equal(recaptured.data.tracks[secondTrack.id].registeredAt, laterInJuly);
 
   const monthlyChapters = Object.values(recaptured.data.cubes)
-    .filter((chapter) => chapter.name === "2026년 7월");
+    .filter((chapter) => chapter.name === "7월");
   assert.equal(monthlyChapters.length, 1);
   const monthlyTrackIds = archiveDomain.getCubeTracks(recaptured, monthlyChapters[0].id)
     .map((entry) => entry.track.id)
     .sort();
   assert.deepEqual(monthlyTrackIds, [firstTrack.id, secondTrack.id].sort());
 
-  const julyPeriodTags = Object.values(recaptured.data.tags)
-    .filter((tag) => tag.category === "period" && tag.label === "2026년 7월");
-  assert.equal(julyPeriodTags.length, 1);
+  assert.equal(
+    Object.values(recaptured.data.tags).some((tag) => tag.category === "period"),
+    false,
+  );
   assert.ok(
     archiveDomain.getCubeTracks(recaptured, monthlyChapters[0].id)
-      .every((entry) => entry.cubeTrack.tagIds.includes(julyPeriodTags[0].id)),
-  );
-  assert.equal(
-    Object.values(recaptured.data.tags)
-      .filter((tag) => tag.category === "period" && tag.label === "2026년 8월")
-      .length,
-    0,
+      .every((entry) => entry.cubeTrack.tagIds.every((tagId) => !tagId.startsWith("auto:period:"))),
   );
 
   for (const query of ["2026-07", "2026년 7월"]) {
@@ -793,20 +883,55 @@ test("migrates existing archives with registration dates and monthly chapters", 
   assert.equal(parsed.archive.schemaVersion, archiveDomain.ARCHIVE_SCHEMA_VERSION);
   assert.equal(parsed.archive.data.tracks[track.id].registeredAt, capturedAt);
   const decemberChapter = Object.values(parsed.archive.data.cubes)
-    .find((chapter) => chapter.name === "2025년 12월");
+    .find((chapter) => chapter.name === "12월");
   assert.ok(decemberChapter);
   assert.deepEqual(
     archiveDomain.getCubeTracks(parsed.archive, decemberChapter.id)
       .map((entry) => entry.track.id),
     [track.id],
   );
-  const decemberPeriodTag = Object.values(parsed.archive.data.tags)
-    .find((tag) => tag.category === "period" && tag.label === "2025년 12월");
-  assert.ok(decemberPeriodTag);
-  assert.ok(
-    archiveDomain.getCubeTracks(parsed.archive, decemberChapter.id)[0]
-      .cubeTrack.tagIds.includes(decemberPeriodTag.id),
+  assert.equal(
+    Object.values(parsed.archive.data.tags).some((tag) => tag.category === "period"),
+    false,
   );
+});
+
+test("migrates legacy period tags into internal registration data only", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const legacy = structuredClone(archiveDomain.createSeedArchive());
+  const cubeTrack = Object.values(legacy.data.cubeTracks)[0];
+  const periodTagId = "auto:period:2026-07";
+  legacy.schemaVersion = 2;
+  legacy.data.tags[periodTagId] = {
+    id: periodTagId,
+    label: "2026년 7월",
+    normalizedLabel: "2026년 7월",
+    category: "period",
+    source: "user",
+    createdAt: "2026-07-01T00:00:00.000Z",
+  };
+  cubeTrack.tagIds = [periodTagId, ...cubeTrack.tagIds];
+  legacy.data.cubes["month:2026-07"] = {
+    id: "month:2026-07",
+    name: "2026년 7월",
+    description: "2026년 7월에 등록한 곡들",
+    color: "violet",
+    sortOrder: 99,
+    source: "user",
+    createdAt: "2026-07-01T00:00:00.000Z",
+    updatedAt: "2026-07-01T00:00:00.000Z",
+  };
+
+  const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
+
+  assert.equal(parsed.status, "ok");
+  assert.equal(parsed.migrated, true);
+  assert.equal(parsed.archive.schemaVersion, archiveDomain.ARCHIVE_SCHEMA_VERSION);
+  assert.equal(parsed.archive.data.tags[periodTagId], undefined);
+  assert.equal(parsed.archive.data.cubeTracks[cubeTrack.id].tagIds.includes(periodTagId), false);
+  assert.match(parsed.archive.data.tracks[cubeTrack.trackId].registeredAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(parsed.archive.data.cubes["month:2026-07"].name, "7월");
+  assert.equal(parsed.archive.data.cubes["month:2026-07"].description, "7월에 등록한 곡들");
 });
 
 test("manages a reusable tag library independently from track memories", async () => {
@@ -862,8 +987,7 @@ test("selects only existing tags and removes deleted tags from every memory", as
     "2026-07-04T00:00:00.000Z",
   );
   const assignedTagIds = selected.data.cubeTracks[cubeTrack.id].tagIds;
-  assert.deepEqual(assignedTagIds.slice(1), selectedTagIds);
-  assert.equal(selected.data.tags[assignedTagIds[0]].category, "period");
+  assert.deepEqual(assignedTagIds, selectedTagIds);
   assert.throws(
     () => archiveDomain.setCubeTrackTagIds(selected, cubeTrack.id, ["missing:tag"]),
     /태그.*찾을 수 없습니다/,
@@ -916,37 +1040,49 @@ test("supports all or any matching when archive search uses multiple tags", asyn
 });
 
 test("uses managed tag chips instead of suggestions or free-form memory tags", async () => {
-  const [memorySource, managerSource, formatSource] = await Promise.all([
+  const [memorySource, pickerSource, managerSource, formatSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-tag-picker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-tags.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-format.ts", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(memorySource, /TAG_SUGGESTIONS|id="custom-tag"/);
-  assert.match(memorySource, /href="\/tags"/);
+  assert.match(pickerSource, /manageHref = "\/tags"/);
   assert.match(managerSource, /id="bulk-tags"/);
   assert.match(managerSource, /\.split\(\/\[\\n,;\]\+\//);
   assert.match(
     managerSource,
-    /MANUAL_TAG_CATEGORIES[^=]*=\s*\["genre", "emotion", "situation", "custom"\]/,
+    /MANUAL_TAG_CATEGORIES[^=]*=\s*\["emotion", "genre", "custom"\]/,
   );
-  assert.doesNotMatch(managerSource, /"energy"|"texture"/);
+  assert.match(managerSource, /category === "situation" \|\| category === "energy" \|\| category === "texture"/);
   assert.match(formatSource, /custom:\s*"커스텀"/);
 });
 
-test("keeps memory editing to automatic period tags, managed tags, and memo", async () => {
-  const memorySource = await readFile(
-    new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url),
-    "utf8",
-  );
+test("uses one searchable tag picker without exposing period tags", async () => {
+  const [memorySource, managerSource, discoverySource, pickerSource, archiveSource, formatSource] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-tags.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-tag-picker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/archive.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-format.ts", import.meta.url), "utf8"),
+  ]);
 
-  assert.match(memorySource, /className="managed-tag-group period-tag-group"/);
-  assert.match(memorySource, /추가 시기 · 자동/);
-  assert.doesNotMatch(memorySource, /periodTags\.map\(\(tag\) => <button/);
+  assert.match(memorySource, /<TagPicker/);
+  assert.match(memorySource, /onCreate=\{addTag\}/);
+  assert.match(discoverySource, /<TagPicker/);
+  assert.doesNotMatch(memorySource, /managed-tag-groups|managed-tag-option|inline-tag-composer|period-tag-group|추가 시기 · 자동/);
+  assert.doesNotMatch(managerSource, /TAG_LIBRARY_CATEGORIES|category === "period"|추가일 기준 자동/);
+  assert.match(pickerSource, /type EditableTagCategory = "emotion" \| "situation" \| "genre" \| "custom"/);
+  assert.match(pickerSource, /category === "mood" \? "emotion" : category/);
+  assert.match(pickerSource, /role="listbox"/);
+  assert.doesNotMatch(pickerSource, /aria-label="새 태그 카테고리"/);
+  assert.match(formatSource, /emotion:\s*"감정·상황"/);
+  assert.match(formatSource, /situation:\s*"감정·상황"/);
+  assert.doesNotMatch(archiveSource, /"period",\s*\n\] as const/);
+  assert.doesNotMatch(formatSource, /period\.year|\$\{year\}/);
   assert.doesNotMatch(memorySource, /기억한 시기|periodKind|period-tag-detail/);
-  assert.match(memorySource, /className="inline-tag-composer"/);
-  assert.match(memorySource, /aria-label=\{`\$\{TAG_CATEGORY_LABEL\[category\]\} 태그 추가`\}/);
-  assert.match(memorySource, /<Plus aria-hidden="true"/);
   assert.match(memorySource, /<label htmlFor="memo">메모<\/label>/);
   assert.doesNotMatch(
     memorySource,

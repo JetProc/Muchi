@@ -100,10 +100,13 @@ test("renders every primary chapter archive destination with its stable shell", 
 });
 
 test("keeps Add search compact and opens link import in a modal", async () => {
-  const source = await readFile(
-    new URL("../app/_components/editorial-views-primary.tsx", import.meta.url),
-    "utf8",
-  );
+  const [source, css] = await Promise.all([
+    readFile(
+      new URL("../app/_components/editorial-views-primary.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
 
   assert.match(source, /className="capture-search-compact"/);
   assert.match(source, /<h1>곡 검색<\/h1>/);
@@ -117,6 +120,9 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.doesNotMatch(source, />CLOSE<\/Link>/);
   assert.doesNotMatch(source, /검색 및 30초 미리듣기는 iTunes에서 제공됩니다/);
   assert.doesNotMatch(source, /검색하면 곡 목록이 여기에 표시됩니다/);
+  assert.match(source, /<h2 className="capture-results-count">/);
+  assert.match(css, /\.capture-results \.capture-results-count\s*\{[^}]*font-size:\s*12px;/s);
+  assert.match(css, /\.capture-results \.section-head\s*\{[^}]*margin-bottom:\s*8px;/s);
 });
 
 test("uses an accessible settings icon in the editorial header", async () => {
@@ -241,9 +247,13 @@ test("keeps archive search compact and prioritizes the result list", async () =>
   ]);
 
   assert.match(source, /className="page-content search-view"/);
-  assert.match(source, /<h1>기록 검색<\/h1>/);
+  assert.match(source, /<h1 className="sr-only">기록 검색<\/h1>/);
   assert.match(source, /className="input search-input"\s*\n\s*type="search"/);
   assert.match(source, /className="search-tag-list" role="group"/);
+  assert.match(source, /className="search-tag-more"/);
+  assert.match(source, /className="dialog search-tag-dialog"/);
+  assert.match(source, /tagMatch/);
+  assert.match(source, /maxTags=\{2\}/);
   assert.match(source, /className="search-results-section"/);
   assert.doesNotMatch(source, /내 언어로 음악을 다시 찾기/);
   assert.doesNotMatch(source, /className="search-editor/);
@@ -251,8 +261,8 @@ test("keeps archive search compact and prioritizes the result list", async () =>
     source.indexOf("search-results-section") > source.indexOf("search-tag-list"),
   );
   assert.match(css, /\.search-tag-list\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;/s);
-  assert.match(css, /\.search-results-section\s*\{[^}]*margin-top:\s*16px;/s);
-  assert.match(css, /\.search-title-row h1\s*\{[^}]*font-size:\s*clamp\(28px,/s);
+  assert.match(css, /\.search-results-section\s*\{[^}]*margin-top:\s*8px;/s);
+  assert.match(css, /\.search-tag-dialog-list\s*\{[^}]*overflow-y:\s*auto;/s);
 });
 
 test("redirects legacy presentation routes to the chapter archive", async () => {
@@ -644,6 +654,40 @@ test("selects only existing tags and removes deleted tags from every memory", as
     Object.values(removed.data.cubeTracks)
       .every((entry) => !entry.tagIds.includes(selectedTagIds[0])),
   );
+});
+
+test("supports all or any matching when archive search uses multiple tags", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const seed = archiveDomain.createSeedArchive();
+  const [first, second] = Object.values(seed.data.cubeTracks);
+  const firstTagged = archiveDomain.setCubeTrackTags(
+    seed,
+    first.id,
+    ["검색 전용 A"],
+    "2026-07-06T00:00:00.000Z",
+  );
+  const tagged = archiveDomain.setCubeTrackTags(
+    firstTagged,
+    second.id,
+    ["검색 전용 B"],
+    "2026-07-07T00:00:00.000Z",
+  );
+  const tagA = Object.values(tagged.data.tags).find((tag) => tag.label === "검색 전용 A");
+  const tagB = Object.values(tagged.data.tags).find((tag) => tag.label === "검색 전용 B");
+  assert.ok(tagA && tagB);
+
+  const allMatches = archiveDomain.searchArchive(tagged, {
+    tagIds: [tagA.id, tagB.id],
+    tagMatch: "all",
+  });
+  const anyMatches = archiveDomain.searchArchive(tagged, {
+    tagIds: [tagA.id, tagB.id],
+    tagMatch: "any",
+  });
+
+  assert.equal(allMatches.length, 0);
+  assert.ok(anyMatches.some((result) => result.kind === "cube-track" && result.cubeTrack.id === first.id));
+  assert.ok(anyMatches.some((result) => result.kind === "cube-track" && result.cubeTrack.id === second.id));
 });
 
 test("uses managed tag chips instead of suggestions or free-form memory tags", async () => {

@@ -112,6 +112,8 @@ export function TrackLine({
   context,
   actions,
   sharedId,
+  maxTags = 5,
+  onTagClick,
 }: {
   track: TrackReference;
   index: number;
@@ -120,6 +122,8 @@ export function TrackLine({
   context?: string;
   actions?: ReactNode;
   sharedId?: string;
+  maxTags?: number;
+  onTagClick?: (tag: TagDefinition) => void;
 }) {
   return (
     <article
@@ -134,7 +138,17 @@ export function TrackLine({
         {context ? <em>{context}</em> : null}
         {tags.length ? (
           <div className="tag-row" style={{ marginTop: 7 }}>
-            {tags.slice(0, 5).map((tag) => <span className="tag" key={tag.id}>#{tag.label}</span>)}
+            {tags.slice(0, maxTags).map((tag) => onTagClick ? (
+              <button
+                className="tag"
+                key={tag.id}
+                type="button"
+                onClick={() => onTagClick(tag)}
+                aria-label={`${tag.label} 태그로 검색`}
+              >
+                #{tag.label}
+              </button>
+            ) : <span className="tag" key={tag.id}>#{tag.label}</span>)}
           </div>
         ) : null}
       </div>

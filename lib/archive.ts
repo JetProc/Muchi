@@ -185,6 +185,7 @@ export interface SearchArchiveOptions {
   query?: string;
   tagIds?: string[];
   tagLabels?: string[];
+  tagMatch?: "all" | "any";
   cubeIds?: string[];
   includeInbox?: boolean;
 }
@@ -1476,6 +1477,7 @@ export function searchArchive(
   const requiredTagLabels = new Set(
     (options.tagLabels ?? []).map(normalizeTagLabel).filter(Boolean),
   );
+  const tagMatch = options.tagMatch ?? "all";
   const results: ArchiveSearchResult[] = [];
 
   for (const cubeTrack of Object.values(archive.data.cubeTracks)) {
@@ -1483,13 +1485,25 @@ export function searchArchive(
     const cube = archive.data.cubes[cubeTrack.cubeId];
     if (!track || !cube) continue;
     if (cubeIds.size && !cubeIds.has(cube.id)) continue;
-    if ([...requiredTagIds].some((tagId) => !cubeTrack.tagIds.includes(tagId))) continue;
+    const matchesTagIds = [...requiredTagIds].filter((tagId) => cubeTrack.tagIds.includes(tagId));
+    if (
+      requiredTagIds.size
+      && (tagMatch === "all"
+        ? matchesTagIds.length !== requiredTagIds.size
+        : matchesTagIds.length === 0)
+    ) continue;
 
     const tags = cubeTrack.tagIds
       .map((tagId) => archive.data.tags[tagId])
       .filter((tag): tag is TagDefinition => Boolean(tag));
     const normalizedLabels = new Set(tags.map((tag) => tag.normalizedLabel));
-    if ([...requiredTagLabels].some((label) => !normalizedLabels.has(label))) continue;
+    const matchesTagLabels = [...requiredTagLabels].filter((label) => normalizedLabels.has(label));
+    if (
+      requiredTagLabels.size
+      && (tagMatch === "all"
+        ? matchesTagLabels.length !== requiredTagLabels.size
+        : matchesTagLabels.length === 0)
+    ) continue;
 
     const memory = memoryPeriodText(cubeTrack.memoryPeriod);
     const searchable = normalizeSearch(

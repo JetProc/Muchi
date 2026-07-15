@@ -6,6 +6,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { Check, SlidersHorizontal, X } from "lucide-react";
 import {
   removeSeedData,
   resetArchive,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
 import type { PreviewControls } from "./editorial-media";
+import { useModalFocus } from "./editorial-accessibility";
 import { EmptyState, PageHeader, TrackLine } from "./editorial-ui";
 import { formatMemory } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
@@ -29,10 +31,12 @@ function SearchResultLine({
   result,
   index,
   preview,
+  onTagClick,
 }: {
   result: ArchiveSearchResult;
   index: number;
   preview: PreviewControls;
+  onTagClick: (tagId: string) => void;
 }) {
   if (result.kind === "inbox") {
     return (
@@ -52,6 +56,8 @@ function SearchResultLine({
       preview={preview}
       sharedId={result.cubeTrack.id}
       tags={result.tags}
+      maxTags={2}
+      onTagClick={(tag) => onTagClick(tag.id)}
       context={`${result.cube.name} · ${result.cubeTrack.character || formatMemory(result.cubeTrack.memoryPeriod)}`}
       actions={<Link className="button" href={`/memory?id=${encodeURIComponent(result.cubeTrack.id)}`} intent="shared" sharedId={result.cubeTrack.id}>OPEN MEMORY</Link>}
     />
@@ -67,20 +73,63 @@ export function Search({
 }) {
   const [query, setQuery] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const tags = Object.values(archive.data.tags).sort((a, b) => a.label.localeCompare(b.label, "ko"));
-  const results = searchArchive(archive, { query, tagIds, includeInbox: true });
+  const [tagMatch, setTagMatch] = useState<"all" | "any">("all");
+  const [tagPanelOpen, setTagPanelOpen] = useState(false);
+  const [tagQuery, setTagQuery] = useState("");
+  const tagDialogRef = useModalFocus<HTMLDivElement>(tagPanelOpen, () => setTagPanelOpen(false));
+  const tags = useMemo(() => Object.values(archive.data.tags), [archive.data.tags]);
+  const tagUsage = useMemo(() => {
+    const usage = new Map<string, { count: number; latest: number }>();
+    Object.values(archive.data.cubeTracks).forEach((entry) => {
+      const updatedAt = Date.parse(entry.updatedAt);
+      entry.tagIds.forEach((tagId) => {
+        const current = usage.get(tagId) ?? { count: 0, latest: 0 };
+        usage.set(tagId, {
+          count: current.count + 1,
+          latest: Math.max(current.latest, Number.isNaN(updatedAt) ? 0 : updatedAt),
+        });
+      });
+    });
+    return usage;
+  }, [archive.data.cubeTracks]);
+  const recentTags = useMemo(() => [...tags].sort((left, right) => {
+    const leftUsage = tagUsage.get(left.id) ?? { count: 0, latest: 0 };
+    const rightUsage = tagUsage.get(right.id) ?? { count: 0, latest: 0 };
+    return rightUsage.latest - leftUsage.latest
+      || rightUsage.count - leftUsage.count
+      || left.label.localeCompare(right.label, "ko");
+  }), [tagUsage, tags]);
+  const selectedTags = tagIds
+    .map((tagId) => archive.data.tags[tagId])
+    .filter(Boolean);
+  const railTags = [
+    ...selectedTags,
+    ...recentTags
+      .filter((tag) => !tagIds.includes(tag.id))
+      .slice(0, Math.max(0, 5 - selectedTags.length)),
+  ];
+  const normalizedTagQuery = tagQuery.trim().toLocaleLowerCase("ko");
+  const filteredTags = [...tags]
+    .filter((tag) => tag.label.toLocaleLowerCase("ko").includes(normalizedTagQuery))
+    .sort((left, right) => {
+      const selectedDifference = Number(tagIds.includes(right.id)) - Number(tagIds.includes(left.id));
+      return selectedDifference || left.label.localeCompare(right.label, "ko");
+    });
+  const results = searchArchive(archive, { query, tagIds, tagMatch, includeInbox: true });
   function toggle(id: string) {
     setTagIds((current) => current.includes(id)
       ? current.filter((item) => item !== id)
       : [...current, id]);
   }
+  function resetSearch() {
+    setQuery("");
+    setTagIds([]);
+    setTagMatch("all");
+  }
   return (
     <div className="page-content search-view">
       <header className="search-workspace-header">
-        <div className="search-title-row">
-          <span className="section-label">SEARCH</span>
-          <h1>기록 검색</h1>
-        </div>
+        <h1 className="sr-only">기록 검색</h1>
         <div className="search-query-row">
           <label className="sr-only" htmlFor="archive-query">곡, 아티스트, 챕터, 등록 월, 기억 검색</label>
           <input
@@ -95,22 +144,19 @@ export function Search({
           />
           {query || tagIds.length ? (
             <button
-              className="text-button search-reset"
+              className="search-reset"
               type="button"
-              onClick={() => {
-                setQuery("");
-                setTagIds([]);
-              }}
+              onClick={resetSearch}
+              aria-label="검색 초기화"
             >
-              초기화
+              <X size={15} aria-hidden="true" />
             </button>
           ) : null}
         </div>
         {tags.length ? (
           <div className="search-tag-rail">
-            <span className="field-label">TAG</span>
             <div className="search-tag-list" role="group" aria-label="태그 필터">
-              {tags.map((tag) => (
+              {railTags.map((tag) => (
                 <button
                   key={tag.id}
                   className={`tag${tagIds.includes(tag.id) ? " is-selected" : ""}`}
@@ -119,17 +165,32 @@ export function Search({
                   aria-pressed={tagIds.includes(tag.id)}
                 >
                   #{tag.label}
+                  {tagIds.includes(tag.id) ? <X size={10} aria-hidden="true" /> : null}
                 </button>
               ))}
             </div>
+            {tagIds.length > 1 ? (
+              <select
+                className="search-tag-match"
+                value={tagMatch}
+                onChange={(event) => setTagMatch(event.target.value as "all" | "any")}
+                aria-label="태그 조합 방식"
+              >
+                <option value="all">모두</option>
+                <option value="any">하나 이상</option>
+              </select>
+            ) : null}
+            <button className="search-tag-more" type="button" onClick={() => setTagPanelOpen(true)}>
+              <SlidersHorizontal size={13} aria-hidden="true" />
+              <span>태그{tagIds.length ? ` ${tagIds.length}` : ""}</span>
+            </button>
           </div>
         ) : null}
       </header>
 
       <section className="search-results-section" aria-labelledby="search-results-title">
         <div className="search-results-head">
-          <h2 id="search-results-title">검색 결과</h2>
-          <span className="section-label" aria-live="polite">{String(results.length).padStart(2, "0")}</span>
+          <h2 id="search-results-title" aria-live="polite">{results.length}개의 기록</h2>
         </div>
         {results.length ? (
           <div className="track-list">
@@ -139,11 +200,70 @@ export function Search({
                 key={result.kind === "inbox" ? `inbox:${result.track.id}` : result.cubeTrack.id}
                 index={index}
                 preview={preview}
+                onTagClick={(tagId) => {
+                  setTagIds((current) => current.includes(tagId) ? current : [...current, tagId]);
+                }}
               />
             ))}
           </div>
-        ) : <EmptyState icon="" title="검색 결과 없음" />}
+        ) : <div className="search-empty">검색 결과가 없습니다.</div>}
       </section>
+
+      {tagPanelOpen ? (
+        <div className="dialog-backdrop" role="presentation" onClick={() => setTagPanelOpen(false)}>
+          <div
+            ref={tagDialogRef}
+            className="dialog search-tag-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="search-tag-dialog-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sheet-handle" aria-hidden="true" />
+            <div className="search-tag-dialog-head">
+              <h2 id="search-tag-dialog-title">태그</h2>
+              <button className="icon-button" type="button" onClick={() => setTagPanelOpen(false)} aria-label="태그 닫기">
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+            <label className="sr-only" htmlFor="archive-tag-query">태그 검색</label>
+            <input
+              id="archive-tag-query"
+              className="input search-tag-query"
+              type="search"
+              value={tagQuery}
+              onChange={(event) => setTagQuery(event.target.value)}
+              placeholder="태그 검색"
+              autoComplete="off"
+            />
+            <div className="search-tag-dialog-list" role="group" aria-label="전체 태그">
+              {filteredTags.map((tag) => {
+                const selected = tagIds.includes(tag.id);
+                return (
+                  <button
+                    className={`search-tag-option${selected ? " is-selected" : ""}`}
+                    key={tag.id}
+                    type="button"
+                    onClick={() => toggle(tag.id)}
+                    aria-pressed={selected}
+                  >
+                    <span>#{tag.label}</span>
+                    <span className="search-tag-option-meta">
+                      {tagUsage.get(tag.id)?.count ?? 0}
+                      {selected ? <Check size={14} aria-hidden="true" /> : null}
+                    </span>
+                  </button>
+                );
+              })}
+              {!filteredTags.length ? <div className="search-tag-dialog-empty">일치하는 태그가 없습니다.</div> : null}
+            </div>
+            <div className="dialog-actions search-tag-dialog-actions">
+              {tagIds.length ? <button className="button" type="button" onClick={() => { setTagIds([]); setTagMatch("all"); }}>선택 초기화</button> : <span />}
+              <button className="button button-primary" type="button" onClick={() => setTagPanelOpen(false)}>완료</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

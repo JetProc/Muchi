@@ -622,7 +622,7 @@ export function Capture({
       {resultSource ? (
         <section className="section capture-results" aria-live="polite" aria-busy={loadingMore}>
           <div className="section-head">
-            <h2>
+            <h2 className="capture-results-count">
               {results.length
                 ? resultSource === "link"
                   ? `가져온 음악 ${results.length}곡`

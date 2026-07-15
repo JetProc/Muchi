@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
+  useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
 } from "react";
-import useEmblaCarousel from "embla-carousel-react";
 import { Plus } from "lucide-react";
 import {
   ARCHIVE_LIMITS,
@@ -81,16 +81,14 @@ export function Chapters({
   const [color, setColor] = useState<CubeColor>("violet");
   const [deleteTarget, setDeleteTarget] = useState<Cube | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [carouselRef, carouselApi] = useEmblaCarousel({
-    align: "center",
-    containScroll: "trimSnaps",
-    loop: chapters.length > 1,
-  });
+  const swipeStartX = useRef<number | null>(null);
+  const didSwipe = useRef(false);
   const activeIndex = chapters.length
     ? Math.min(selectedIndex, chapters.length - 1)
     : 0;
   const activeChapter = chapters[activeIndex] ?? chapters[0] ?? null;
   const activeEntries = activeChapter ? getCubeTracks(archive, activeChapter.id) : [];
+  const stackMax = Math.min(Math.max(chapters.length - 1, 0), 2);
   const createDialogRef = useModalFocus<HTMLDivElement>(
     showForm || Boolean(pendingTrack),
     () => {
@@ -103,31 +101,14 @@ export function Chapters({
     () => setDeleteTarget(null),
   );
 
-  const syncCarouselSelection = useCallback(() => {
-    if (!carouselApi) return;
-    setSelectedIndex(carouselApi.selectedScrollSnap());
-  }, [carouselApi]);
-
-  useEffect(() => {
-    if (!carouselApi) return;
-    carouselApi.on("select", syncCarouselSelection);
-    carouselApi.on("reInit", syncCarouselSelection);
-    return () => {
-      carouselApi.off("select", syncCarouselSelection);
-      carouselApi.off("reInit", syncCarouselSelection);
-    };
-  }, [carouselApi, syncCarouselSelection]);
-
   function moveStage(direction: -1 | 1) {
     if (chapters.length < 2) return;
     const targetIndex = (activeIndex + direction + chapters.length) % chapters.length;
     setSelectedIndex(targetIndex);
-    carouselApi?.scrollTo(targetIndex);
   }
 
   function selectChapter(index: number) {
     setSelectedIndex(index);
-    carouselApi?.scrollTo(index);
   }
 
   function submit(event: FormEvent) {
@@ -195,17 +176,59 @@ export function Chapters({
             <div className="chapter-stage-inner">
               <div
                 className="chapter-lp-carousel"
-                ref={carouselRef}
                 role="region"
                 aria-roledescription="carousel"
                 aria-label="음악 챕터 둘러보기"
+                style={{ "--stack-rise": `${stackMax * 110}px` } as CSSProperties}
+                onPointerDown={(event) => {
+                  if (event.pointerType === "mouse" && event.button !== 0) return;
+                  swipeStartX.current = event.clientX;
+                  didSwipe.current = false;
+                }}
+                onPointerUp={(event) => {
+                  if (swipeStartX.current === null) return;
+                  const distance = event.clientX - swipeStartX.current;
+                  swipeStartX.current = null;
+                  if (Math.abs(distance) < 48) return;
+                  didSwipe.current = true;
+                  moveStage(distance < 0 ? 1 : -1);
+                }}
+                onPointerCancel={() => {
+                  swipeStartX.current = null;
+                  didSwipe.current = false;
+                }}
+                onClickCapture={(event) => {
+                  if (!didSwipe.current) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  didSwipe.current = false;
+                }}
               >
                 <div className="chapter-lp-stack" role="tablist" aria-label="음악 챕터 선택">
                   {chapters.map((chapter, index) => {
                     const entries = getCubeTracks(archive, chapter.id);
                     const selected = index === activeIndex;
+                    const distance = chapters.length
+                      ? (index - activeIndex + chapters.length) % chapters.length
+                      : 0;
+                    const visible = distance <= stackMax;
+                    const level = visible ? stackMax - distance : 0;
+                    const layerRatio = stackMax ? level / stackMax : 1;
+                    const stackStyle = {
+                      "--stack-level": level,
+                      "--stack-x": `${(stackMax - level) * 12}px`,
+                      "--stack-y": `${level * 110}px`,
+                      "--stack-scale": 0.94 + layerRatio * 0.06,
+                      "--stack-opacity": 0.72 + layerRatio * 0.28,
+                    } as CSSProperties;
                     return (
-                      <div className={`chapter-lp-slide${selected ? " is-active" : ""}`} role="presentation" key={chapter.id}>
+                      <div
+                        className={`chapter-lp-slide${selected ? " is-active" : ""}`}
+                        role="presentation"
+                        key={chapter.id}
+                        hidden={!visible}
+                        style={stackStyle}
+                      >
                         <button
                           className="chapter-lp-card"
                           type="button"

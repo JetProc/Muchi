@@ -155,7 +155,10 @@ test("uses whitespace and tone instead of decorative divider lines", async () =>
     /border-(?:top|right|bottom|left):\s*1px solid var\(--line\)/,
   );
   assert.doesNotMatch(css, /border:\s*1px solid var\(--line-strong\)/);
-  assert.match(css, /\.track-list\s*{[^}]*gap:\s*4px;/s);
+  assert.match(css, /--shadow-control:/);
+  assert.match(css, /--shadow-surface:/);
+  assert.match(css, /\.button\s*{[^}]*box-shadow:\s*var\(--shadow-control\)/s);
+  assert.match(css, /\.track-list\s*{[^}]*gap:\s*8px;/s);
   assert.match(css, /\.chapter-stats\s*{[^}]*gap:\s*8px;/s);
 });
 
@@ -168,19 +171,17 @@ test("keeps track rows compact with actions aligned at the right edge", async ()
   assert.match(css, /\.track-line \.track-art\s*\{[^}]*width:\s*44px;/s);
 });
 
-test("turns the chapter index into an accessible overlapping LP carousel", async () => {
-  const [source, packageJsonSource] = await Promise.all([
+test("turns the chapter index into an accessible overlapping LP deck", async () => {
+  const [source, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
-  const packageJson = JSON.parse(packageJsonSource);
 
   assert.match(source, /className="chapter-stage"/);
-  assert.equal(packageJson.dependencies["embla-carousel-react"], "^8.6.0");
-  assert.match(source, /import useEmblaCarousel from "embla-carousel-react"/);
-  assert.match(source, /ref=\{carouselRef\}/);
   assert.match(source, /aria-roledescription="carousel"/);
-  assert.doesNotMatch(source, /stageTouchStart|onTouchStart=/);
+  assert.match(source, /onPointerDown=/);
+  assert.match(source, /Math\.abs\(distance\) < 48/);
+  assert.match(source, /hidden=\{!visible\}/);
   assert.match(source, /className="chapter-lp-stack" role="tablist"/);
   assert.match(source, /src="\/assets\/chapter-lp\.png"/);
   assert.match(source, /className="chapter-lp-card-copy"/);
@@ -189,6 +190,9 @@ test("turns the chapter index into an accessible overlapping LP carousel", async
   assert.match(source, /role="tablist" aria-label="음악 챕터 선택"/);
   assert.match(source, /aria-selected=\{selected\}/);
   assert.match(source, />\s*챕터 들어가기\s*</);
+  assert.match(css, /\.chapter-lp-slide\s*\{[^}]*position:\s*absolute;/s);
+  assert.match(css, /translateY\(var\(--stack-y\)\)/);
+  assert.match(css, /drop-shadow\(0 12px 16px/);
 });
 
 test("keeps the home focused on personal archives with a restrained community preview", async () => {

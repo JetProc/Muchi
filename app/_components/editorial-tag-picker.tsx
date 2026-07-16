@@ -35,6 +35,7 @@ function categoryForNewTag(category: TagPickerCategory): EditableTagCategory {
 interface TagPickerProps {
   tags: TagDefinition[];
   selectedTagIds: string[];
+  suggestedTagIds?: string[];
   onToggle: (tagId: string) => void;
   usageCounts?: Record<string, number>;
   label?: string;
@@ -43,9 +44,28 @@ interface TagPickerProps {
   manageHref?: string;
 }
 
+function editDistance(left: string, right: string): number {
+  const row = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    let previous = row[0];
+    row[0] = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const above = row[rightIndex];
+      row[rightIndex] = Math.min(
+        row[rightIndex] + 1,
+        row[rightIndex - 1] + 1,
+        previous + Number(left[leftIndex - 1] !== right[rightIndex - 1]),
+      );
+      previous = above;
+    }
+  }
+  return row[right.length];
+}
+
 export function TagPicker({
   tags,
   selectedTagIds,
+  suggestedTagIds = [],
   onToggle,
   usageCounts = {},
   label = "태그",
@@ -80,6 +100,22 @@ export function TagPicker({
       tag.label.toLocaleLowerCase("ko").includes(normalizedQuery)
     ));
   }, [activeCategory, query, tagsByCategory]);
+  const suggestedTags = useMemo(() => suggestedTagIds
+    .map((tagId) => tags.find((tag) => tag.id === tagId))
+    .filter((tag): tag is TagDefinition => Boolean(tag))
+    .filter((tag) => !selectedTagIds.includes(tag.id))
+    .slice(0, 5), [selectedTagIds, suggestedTagIds, tags]);
+  const similarTags = useMemo(() => {
+    const normalizedDraft = draft.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
+    if (normalizedDraft.length < 2) return [];
+    return tags.filter((tag) => {
+      if (tag.normalizedLabel === normalizedDraft) return true;
+      if (Math.abs(tag.normalizedLabel.length - normalizedDraft.length) > 2) return false;
+      return tag.normalizedLabel.includes(normalizedDraft)
+        || normalizedDraft.includes(tag.normalizedLabel)
+        || editDistance(tag.normalizedLabel, normalizedDraft) <= 2;
+    }).slice(0, 3);
+  }, [draft, tags]);
 
   function openCategory(category: TagPickerCategory) {
     setActiveCategory(category);
@@ -107,6 +143,17 @@ export function TagPicker({
         <span className="field-label">{label}</span>
         {selectedTagIds.length ? <span className="tag-picker-total">{selectedTagIds.length} / {maxSelected}</span> : null}
       </div>
+
+      {suggestedTags.length ? (
+        <div className="tag-picker-suggestions" aria-label="자주 쓰거나 최근에 쓴 태그">
+          <span>빠른 선택</span>
+          <div>
+            {suggestedTags.map((tag) => (
+              <button type="button" key={tag.id} onClick={() => onToggle(tag.id)}>#{tag.label}</button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="tag-picker-category-list">
         {TAG_PICKER_CATEGORIES.map((category) => {
@@ -213,6 +260,22 @@ export function TagPicker({
                     <button type="button" onClick={submitTag} disabled={!draft.trim()} aria-label="새 태그 추가">
                       <Plus size={15} aria-hidden="true" />
                     </button>
+                    {similarTags.length ? (
+                      <div className="tag-picker-similar" role="status">
+                        <span>비슷한 기존 태그</span>
+                        {similarTags.map((tag) => (
+                          <button
+                            type="button"
+                            key={tag.id}
+                            onClick={() => {
+                              if (!selectedTagIds.includes(tag.id)) onToggle(tag.id);
+                              setDraft("");
+                              setCreating(false);
+                            }}
+                          >#{tag.label} 쓰기</button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <button className="tag-picker-create-trigger" type="button" onClick={() => setCreating(true)}>

@@ -31,7 +31,12 @@ export function useModalFocus<T extends HTMLElement>(
       ? document.activeElement
       : null;
     const previousOverflow = document.body.style.overflow;
+    const scrollViewport = container.closest(".app-shell")
+      ?.querySelector<HTMLElement>(".shell-main") ?? null;
+    const fallbackFocus = scrollViewport;
+    const previousViewportOverflow = scrollViewport?.style.overflowY ?? "";
     document.body.style.overflow = "hidden";
+    if (scrollViewport) scrollViewport.style.overflowY = "hidden";
 
     const getFocusable = () => Array.from(
       container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
@@ -78,10 +83,12 @@ export function useModalFocus<T extends HTMLElement>(
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("keydown", handleKeyDown, true);
       document.body.style.overflow = previousOverflow;
+      if (scrollViewport) scrollViewport.style.overflowY = previousViewportOverflow;
       if (container.getAttribute("tabindex") === "-1") {
         container.removeAttribute("tabindex");
       }
-      previousFocus?.focus({ preventScroll: true });
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+      else fallbackFocus?.focus({ preventScroll: true });
     };
   }, [open]);
 

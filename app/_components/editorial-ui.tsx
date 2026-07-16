@@ -2,26 +2,21 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import {
-  getCubeTracks,
   type ArchiveEnvelopeV1,
   type Cube,
   type TagDefinition,
   type TrackReference,
 } from "@/lib/archive";
-import { MotionLink as Link } from "./editorial-motion";
 import {
   AlbumArtwork,
   ChapterCover,
-  PreviewButton,
-  type PreviewControls,
 } from "./editorial-media";
-import { chapterColorStyle, formatDate } from "./editorial-format";
+import { formatChapterPath } from "./editorial-format";
 
 export function EmptyState({
   title,
   action,
 }: {
-  icon?: string;
   title: string;
   action?: ReactNode;
 }) {
@@ -56,76 +51,54 @@ export function PageHeader({
   );
 }
 
-export function ChapterIndex({
+export function ChapterChoice({
   archive,
   chapter,
   index,
-  onDelete,
+  detail,
+  onSelect,
 }: {
   archive: ArchiveEnvelopeV1;
   chapter: Cube;
   index: number;
-  onDelete?: (chapter: Cube) => void;
+  detail: ReactNode;
+  onSelect: (chapterId: string) => void;
 }) {
-  const entries = getCubeTracks(archive, chapter.id);
-  const tagCount = new Set(entries.flatMap((entry) => entry.cubeTrack.tagIds)).size;
   return (
-    <article className="chapter-index-item" style={chapterColorStyle(chapter.color)}>
-      <Link
-        className="chapter-index-link"
-        href={`/chapter?id=${encodeURIComponent(chapter.id)}`}
-        intent="shared"
-        sharedId={chapter.id}
-      >
-        <span className="chapter-number">{String(index + 1).padStart(2, "0")}</span>
-        <ChapterCover archive={archive} chapter={chapter} shared />
-        <div className="chapter-index-copy">
-          <span className="section-label">CHAPTER {String(index + 1).padStart(2, "0")}</span>
-          <h2>{chapter.name}</h2>
-          {chapter.description ? <p>{chapter.description}</p> : null}
-          <div className="meta-row">
-            <span>{entries.length} TRACKS</span>
-            <span>{tagCount} TAGS</span>
-            <span>{formatDate(chapter.updatedAt)}</span>
-          </div>
-        </div>
-      </Link>
-      {onDelete ? (
-        <button
-          className="text-button chapter-delete"
-          type="button"
-          onClick={() => onDelete(chapter)}
-          aria-label={`${chapter.name} 삭제`}
-        >
-          DELETE
-        </button>
-      ) : null}
-    </article>
+    <button
+      className="chapter-choice"
+      type="button"
+      onClick={() => onSelect(chapter.id)}
+    >
+      <span>{String(index + 1).padStart(2, "0")}</span>
+      <ChapterCover archive={archive} chapter={chapter} />
+      <span className="track-info">
+        <strong>{formatChapterPath(archive, chapter)}</strong>
+        <small>{detail}</small>
+      </span>
+      <em>선택</em>
+    </button>
   );
 }
 
 export function TrackLine({
   track,
   index,
-  preview,
   tags = [],
   context,
   actions,
   sharedId,
   maxTags = 2,
   onTagClick,
-  showPreview = true,
 }: {
   track: TrackReference;
   index: number;
-  preview: PreviewControls;
   tags?: TagDefinition[];
   context?: string;
   actions?: ReactNode;
   sharedId?: string;
   maxTags?: number;
   onTagClick?: (tag: TagDefinition) => void;
-  showPreview?: boolean;
 }) {
   return (
     <article
@@ -133,7 +106,7 @@ export function TrackLine({
       style={{ "--track-delay": `${Math.min(index, 6) * 24}ms` } as CSSProperties}
     >
       <span className="track-number">{String(index + 1).padStart(2, "0")}</span>
-      <AlbumArtwork track={track} index={index} sharedId={sharedId} decorative />
+      <AlbumArtwork track={track} sharedId={sharedId} decorative />
       <div className="track-info">
         <strong>{track.title}</strong>
         <small>{track.artist}{track.album ? ` · ${track.album}` : ""}</small>
@@ -155,7 +128,6 @@ export function TrackLine({
         ) : null}
       </div>
       <div className="track-actions">
-        {showPreview ? <PreviewButton track={track} preview={preview} /> : null}
         {actions}
       </div>
     </article>

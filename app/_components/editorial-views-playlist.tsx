@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Apple,
   AudioLines,
   Check,
-  ChevronLeft,
   ChevronRight,
   CircleAlert,
   CircleCheck,
@@ -21,10 +25,9 @@ import {
   type TrackId,
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
-import type { PreviewControls } from "./editorial-media";
 import { EmptyState, TrackLine } from "./editorial-ui";
 
-type PlaylistStep = 1 | 2 | 3 | "done";
+export type PlaylistStep = 1 | 2 | 3 | "done";
 type MusicServiceId = "apple" | "spotify" | "youtube";
 type MatchStatus = "matched" | "review" | "missing";
 
@@ -77,14 +80,14 @@ export function PlaylistBuilder({
   archive,
   chapterId,
   initialServiceId,
-  preview,
-  hydrated,
+  step,
+  onStepChange,
 }: {
   archive: ArchiveEnvelopeV1;
   chapterId: string | null;
   initialServiceId: string | null;
-  preview: PreviewControls;
-  hydrated: boolean;
+  step: PlaylistStep;
+  onStepChange: (step: PlaylistStep) => void;
 }) {
   const chapter = chapterId ? archive.data.cubes[chapterId] : null;
   const presetServiceId = isMusicServiceId(initialServiceId) ? initialServiceId : null;
@@ -92,15 +95,16 @@ export function PlaylistBuilder({
     () => chapter ? getCubeTracks(archive, chapter.id) : [],
     [archive, chapter],
   );
-  const [step, setStep] = useState<PlaylistStep>(1);
   const [playlistName, setPlaylistName] = useState(chapter?.name ?? "");
   const [selectedTrackIds, setSelectedTrackIds] = useState<TrackId[]>(
     () => entries.map((entry) => entry.track.id),
   );
   const [serviceId, setServiceId] = useState<MusicServiceId>(() => presetServiceId ?? "apple");
   const [resolvedTrackIds, setResolvedTrackIds] = useState<TrackId[]>([]);
+  const viewRef = useRef<HTMLDivElement>(null);
   const selectedService = MUSIC_SERVICES.find((service) => service.id === serviceId) ?? MUSIC_SERVICES[0];
   const SelectedServiceIcon = selectedService.icon;
+  const serviceParticle = selectedService.id === "spotify" ? "로" : "으로";
   const selectedEntries = entries.filter((entry) => selectedTrackIds.includes(entry.track.id));
   const statusByTrackId = new Map(entries.map((entry, index) => [
     entry.track.id,
@@ -113,11 +117,12 @@ export function PlaylistBuilder({
   const reviewCount = selectedEntries.filter((entry) => matchStatus(entry.track.id) === "review").length;
   const missingCount = selectedEntries.filter((entry) => matchStatus(entry.track.id) === "missing").length;
 
-  if (!hydrated || !chapterId) {
-    return <div className="page-content"><EmptyState icon="" title="플레이리스트를 준비하고 있어요" /></div>;
-  }
-  if (!chapter) {
-    return <div className="page-content"><EmptyState icon="" title="챕터를 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
+  useLayoutEffect(() => {
+    viewRef.current?.closest<HTMLElement>(".shell-main")?.scrollTo({ top: 0 });
+  }, [step]);
+
+  if (!chapterId || !chapter) {
+    return <div className="page-content"><EmptyState title="챕터를 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
   }
 
   function toggleTrack(trackId: TrackId) {
@@ -126,26 +131,21 @@ export function PlaylistBuilder({
       : [...current, trackId]);
   }
 
-  function goBack() {
-    if (step === 3) setStep(presetServiceId ? 1 : 2);
-    if (step === 2) setStep(1);
-  }
-
   if (step === "done") {
     return (
-      <div className="page-content playlist-builder-view playlist-builder-complete">
+      <div ref={viewRef} className="page-content playlist-builder-view playlist-builder-complete">
         <div className={`playlist-complete-mark is-${selectedService.id}`} aria-hidden="true">
           <SelectedServiceIcon size={28} strokeWidth={1.8} />
           <Check size={18} strokeWidth={2.4} />
         </div>
-        <span className="section-label">플레이리스트 준비 완료</span>
-        <h1>플레이리스트를 만들었어요</h1>
+        <span className="section-label">플레이리스트 내보내기 준비 완료</span>
+        <h1>내보낼 준비가 됐어요</h1>
         <div className="playlist-complete-summary">
           <strong>{playlistName || chapter.name}</strong>
           <span>{selectedService.name} · {selectedEntries.length - missingCount}곡</span>
         </div>
         <a className="button button-primary playlist-open-service" href={selectedService.url} target="_blank" rel="noopener noreferrer">
-          {selectedService.name}에서 열기
+          {selectedService.name} 열기
           <ExternalLink size={15} aria-hidden="true" />
         </a>
         {missingCount ? <p className="playlist-complete-note">{missingCount}곡은 찾지 못해 제외했어요.</p> : null}
@@ -155,17 +155,8 @@ export function PlaylistBuilder({
   }
 
   return (
-    <div className="page-content playlist-builder-view">
+    <div ref={viewRef} className="page-content playlist-builder-view">
       <header className="playlist-builder-header">
-        {step === 1 ? (
-          <Link className="playlist-back-button" href={`/chapter?id=${encodeURIComponent(chapter.id)}`} intent="back" aria-label="챕터로 돌아가기">
-            <ChevronLeft size={18} aria-hidden="true" />
-          </Link>
-        ) : (
-          <button className="playlist-back-button" type="button" onClick={goBack} aria-label="이전 단계">
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-        )}
         <div>
           <span className="section-label">플레이리스트 만들기</span>
           <h1>{STEP_LABEL[step - 1]}</h1>
@@ -202,8 +193,6 @@ export function PlaylistBuilder({
                   key={entry.cubeTrack.id}
                   track={entry.track}
                   index={index}
-                  preview={preview}
-                  showPreview={false}
                   sharedId={entry.cubeTrack.id}
                   context={entry.track.album}
                   actions={(
@@ -248,6 +237,7 @@ export function PlaylistBuilder({
             <div><CircleAlert size={17} aria-hidden="true" /><span>확인 필요</span><strong>{reviewCount}</strong></div>
             <div><Search size={17} aria-hidden="true" /><span>찾지 못함</span><strong>{missingCount}</strong></div>
           </div>
+          <p className="playlist-simulation-note">현재 매칭 결과는 실제 서비스 연동 전 미리보기예요.</p>
           <div className="playlist-match-list">
             {selectedEntries.map((entry) => {
               const status = matchStatus(entry.track.id);
@@ -271,9 +261,9 @@ export function PlaylistBuilder({
       ) : null}
 
       <div className="playlist-builder-actions">
-        {step === 1 ? <button className="button button-primary" type="button" disabled={!selectedTrackIds.length || !playlistName.trim()} onClick={() => setStep(presetServiceId ? 3 : 2)}>{presetServiceId ? `${selectedService.name}으로 계속` : "다음"}</button> : null}
-        {step === 2 ? <button className="button button-primary" type="button" onClick={() => setStep(3)}>{selectedService.name}으로 계속</button> : null}
-        {step === 3 ? <button className="button button-primary" type="button" disabled={!matchedCount} onClick={() => setStep("done")}><ListMusic size={16} aria-hidden="true" />{matchedCount + reviewCount}곡으로 플레이리스트 만들기</button> : null}
+        {step === 1 ? <button className="button button-primary" type="button" disabled={!selectedTrackIds.length || !playlistName.trim()} onClick={() => onStepChange(2)}>다음</button> : null}
+        {step === 2 ? <button className="button button-primary" type="button" onClick={() => onStepChange(3)}>{selectedService.name}{serviceParticle} 계속</button> : null}
+        {step === 3 ? <button className="button button-primary" type="button" disabled={!matchedCount} onClick={() => onStepChange("done")}><ListMusic size={16} aria-hidden="true" />{matchedCount + reviewCount}곡 내보내기 준비</button> : null}
       </div>
     </div>
   );

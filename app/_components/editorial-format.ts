@@ -1,8 +1,12 @@
 import type { CSSProperties } from "react";
-import type {
-  CubeColor,
-  MemoryPeriod,
-  TagCategory,
+import {
+  getCubeAncestors,
+  getCubeTracks,
+  type ArchiveEnvelopeV1,
+  type Cube,
+  type CubeColor,
+  type MemoryPeriod,
+  type TagCategory,
 } from "@/lib/archive";
 
 export const COLOR_HEX: Record<CubeColor, string> = {
@@ -47,11 +51,49 @@ export function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+export function formatCalendarDate(value: string): string {
+  const [year, month, day] = value.split("-").map(Number);
+  return `${year}년 ${month}월 ${day}일`;
+}
+
 export function formatMemory(period: MemoryPeriod): string {
   if (!period) return "시기 미기록";
+  const year = period.year ? `${period.year}년 ` : "";
   return period.kind === "month"
-    ? `${period.month}월`
-    : SEASON_LABEL[period.season];
+    ? `${year}${period.month}월`
+    : `${year}${SEASON_LABEL[period.season]}`;
+}
+
+const MONTHLY_CHAPTER_ID = /^month:(\d{4})-(\d{2})$/;
+
+export function isMonthlyChapter(chapter: Cube): boolean {
+  return MONTHLY_CHAPTER_ID.test(chapter.id);
+}
+
+export function isAssignableChapter(chapter: Cube): boolean {
+  return !isMonthlyChapter(chapter);
+}
+
+export function formatChapterTitle(chapter: Cube): string {
+  const match = MONTHLY_CHAPTER_ID.exec(chapter.id);
+  if (!match) return chapter.name;
+  return `${match[1]}년 ${Number(match[2])}월`;
+}
+
+export function formatChapterPath(
+  archive: ArchiveEnvelopeV1,
+  chapter: Cube,
+): string {
+  return [...getCubeAncestors(archive, chapter.id), chapter]
+    .map(formatChapterTitle)
+    .join(" / ");
+}
+
+export function isVisibleChapter(
+  archive: ArchiveEnvelopeV1,
+  chapter: Cube,
+): boolean {
+  return !isMonthlyChapter(chapter) || getCubeTracks(archive, chapter.id).length > 0;
 }
 
 export function chapterColorStyle(

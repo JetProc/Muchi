@@ -12,6 +12,16 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#F1E8D8",
     theme_color: "#17130F",
     lang: "ko-KR",
+    share_target: {
+      action: "/capture",
+      method: "GET",
+      enctype: "application/x-www-form-urlencoded",
+      params: {
+        title: "title",
+        text: "text",
+        url: "url",
+      },
+    },
     icons: [
       {
         src: "/favicon.png",

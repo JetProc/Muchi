@@ -162,7 +162,7 @@ export function TagManager({
                 </div>
               </section>
             );
-          }) : <EmptyState icon="#" title={query ? "검색 결과가 없어요" : "아직 등록한 태그가 없어요"} />}
+          }) : <EmptyState title={query ? "검색 결과가 없어요" : "아직 등록한 태그가 없어요"} />}
       </section>
 
       {createOpen ? (

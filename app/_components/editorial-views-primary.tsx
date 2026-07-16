@@ -6,11 +6,15 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { Apple, AudioLines, ChevronLeft, ChevronRight, CirclePlay } from "lucide-react";
 import {
   addTrackToCube,
   captureTrack,
   captureTrackToInbox,
+  getCubesInTreeOrder,
   getCubeTracks,
+  getLatestCubeTrackNote,
+  getRootCubes,
   moveInboxTrackToCube,
   removeInboxTrack,
   type ArchiveEnvelopeV1,
@@ -35,11 +39,20 @@ import {
   AlbumArtwork,
   ChapterCover,
   LoadingDots,
-  type PreviewControls,
 } from "./editorial-media";
-import { EmptyState, PageHeader, TrackLine } from "./editorial-ui";
+import {
+  ChapterChoice,
+  EmptyState,
+  PageHeader,
+  TrackLine,
+} from "./editorial-ui";
 import { useModalFocus } from "./editorial-accessibility";
-import { formatDate } from "./editorial-format";
+import {
+  formatChapterTitle,
+  formatDate,
+  isAssignableChapter,
+  isVisibleChapter,
+} from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 
 const CAPTURE_DRAFT_KEY = "music-world:capture-draft:v1";
@@ -108,7 +121,7 @@ export function AlbumHero({
             <AlbumArtwork track={featured.track} sharedId={featured.cubeTrack.id} priority />
           </Link>
           <div className="album-feature-copy">
-            <span className="section-label">최근 기억 · {featured.chapter.name}</span>
+            <span className="section-label">최근 기억 · {formatChapterTitle(featured.chapter)}</span>
             <h1 id="featured-memory-title">{featured.track.title}</h1>
             <p className="album-artist">{featured.track.artist}</p>
             <div className="album-actions">
@@ -123,9 +136,9 @@ export function AlbumHero({
             </div>
             <div className="album-memory-reveal" aria-hidden={!expanded}>
               <p>
-                {featured.cubeTrack.memo
+                {getLatestCubeTrackNote(featured.cubeTrack)?.body
                   || featured.cubeTrack.character
-                  || `${featured.chapter.name}에 남긴 음악`}
+                  || `${formatChapterTitle(featured.chapter)}에 남긴 음악`}
               </p>
               {featured.tags.length ? (
                 <div className="tag-row">
@@ -139,14 +152,13 @@ export function AlbumHero({
         </div>
       ) : (
         <EmptyState
-          icon=""
           title="첫 음악을 기록해 주세요"
           action={<Link className="button button-primary" href="/capture" intent="modal">첫 곡 기록하기</Link>}
         />
       )}
       {memories.length > 1 ? (
-        <div className="hero-pagination" aria-hidden="true">
-          <div>
+        <div className="hero-pagination">
+          <div className="hero-pagination-dots" aria-hidden="true">
             {memories.slice(0, 8).map((entry, index) => (
               <span
                 className={index === safeActiveIndex ? "is-active" : ""}
@@ -154,21 +166,31 @@ export function AlbumHero({
               />
             ))}
           </div>
+          <div className="hero-carousel-controls">
+            <button type="button" onClick={() => moveFeatured(-1)} aria-label="이전 음악">
+              <ChevronLeft size={20} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => moveFeatured(1)} aria-label="다음 음악">
+              <ChevronRight size={20} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       ) : null}
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {featured ? `${safeActiveIndex + 1} / ${memories.length}, ${featured.track.title}, ${featured.track.artist}` : ""}
+      </p>
     </section>
   );
 }
 
-export function Home({
-  archive,
-  preview,
-}: {
+export function Home({ archive }: {
   archive: ArchiveEnvelopeV1;
-  preview: PreviewControls;
 }) {
-  const chapters = Object.values(archive.data.cubes).sort((a, b) => a.sortOrder - b.sortOrder);
-  const memories = chapters
+  const allChapters = getCubesInTreeOrder(archive)
+    .filter((chapter) => isVisibleChapter(archive, chapter));
+  const chapters = getRootCubes(archive)
+    .filter((chapter) => isVisibleChapter(archive, chapter));
+  const memories = allChapters
     .flatMap((chapter) => getCubeTracks(archive, chapter.id).map((entry) => ({ ...entry, chapter })))
     .sort((a, b) => b.cubeTrack.updatedAt.localeCompare(a.cubeTrack.updatedAt));
   const inboxEntries = Object.values(archive.data.inbox)
@@ -193,8 +215,6 @@ export function Home({
             <TrackLine
               track={continueTrack}
               index={0}
-              preview={preview}
-              showPreview={false}
               context={`${formatDate(continueEntry.capturedAt)} 저장 · 아직 챕터 없음`}
               actions={<Link className="text-link" href="/inbox">정리하기</Link>}
             />
@@ -226,7 +246,7 @@ export function Home({
                   </span>
                   <span className="chapter-preview-copy">
                     <span>{String(index + 1).padStart(2, "0")}</span>
-                    <strong>{chapter.name}</strong>
+                    <strong>{formatChapterTitle(chapter)}</strong>
                     <small>{getCubeTracks(archive, chapter.id).length}곡</small>
                   </span>
                 </Link>
@@ -255,10 +275,8 @@ export function Home({
                   key={memory.cubeTrack.id}
                   track={memory.track}
                   index={index}
-                  preview={preview}
-                  showPreview={false}
                   tags={memory.tags}
-                  context={memory.chapter.name}
+                  context={formatChapterTitle(memory.chapter)}
                   sharedId={memory.cubeTrack.id}
                   actions={(
                     <Link
@@ -284,15 +302,17 @@ export function Home({
 export function Capture({
   archive,
   commit,
-  preview,
+  notify,
   online,
   router,
+  sharedUrl,
 }: {
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
-  preview: PreviewControls;
+  notify: Notify;
   online: boolean;
   router: MotionRouter;
+  sharedUrl: string | null;
 }) {
   const [musicUrl, setMusicUrl] = useState("");
   const [query, setQuery] = useState("");
@@ -305,13 +325,16 @@ export function Capture({
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [assigning, setAssigning] = useState<TrackReference | null>(null);
+  const [recordMode, setRecordMode] = useState<"choose" | "quick" | "detail">("choose");
   const [manualFallback, setManualFallback] = useState<ManualTrackFallback | null>(null);
   const [manualTitle, setManualTitle] = useState("");
   const [manualArtist, setManualArtist] = useState("");
   const [manualAlbum, setManualAlbum] = useState("");
   const [resultSource, setResultSource] = useState<"link" | "search" | null>(null);
-  const chapters = Object.values(archive.data.cubes).sort((a, b) => a.sortOrder - b.sortOrder);
+  const chapters = getCubesInTreeOrder(archive)
+    .filter((chapter) => isVisibleChapter(archive, chapter) && isAssignableChapter(chapter));
   const draftReady = useRef(false);
+  const shareHandled = useRef(false);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const visibleResults = resultSource === "search"
     ? results.slice(0, visibleResultCount)
@@ -355,6 +378,14 @@ export function Capture({
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (!sharedUrl || shareHandled.current) return;
+    const matchedUrl = sharedUrl.match(/https?:\/\/\S+/)?.[0]?.replace(/[),.]+$/, "") ?? sharedUrl;
+    setMusicUrl(matchedUrl);
+    setLinkDialogOpen(true);
+    shareHandled.current = true;
+  }, [sharedUrl]);
 
   useEffect(() => {
     if (!draftReady.current) return;
@@ -493,7 +524,7 @@ export function Capture({
     }
   }
 
-  function saveChapter(track: TrackReference, chapterId: string) {
+  function saveChapter(track: TrackReference, chapterId: string, mode: "quick" | "detail") {
     const captured = captureTrack(archive, track);
     const result = captured.data.inbox[track.id]
       ? moveInboxTrackToCube(captured, track.id, chapterId)
@@ -505,18 +536,18 @@ export function Capture({
       clearCaptureDraft();
       setAssigning(null);
       router.push(
-        `/memory?id=${encodeURIComponent(result.cubeTrack.id)}`,
+        `/memory?id=${encodeURIComponent(result.cubeTrack.id)}&mode=${mode}`,
         "shared",
         result.cubeTrack.id,
       );
     }
   }
 
-  function createChapterForTrack(track: TrackReference) {
+  function createChapterForTrack(track: TrackReference, mode: "quick" | "detail") {
     const captured = captureTrackToInbox(archive, track);
     if (commit(captured, "곡을 잃지 않도록 먼저 보관했어요. 이제 챕터 이름만 정해 주세요.")) {
       setAssigning(null);
-      router.push(`/chapters?trackId=${encodeURIComponent(track.id)}`);
+      router.push(`/chapters?trackId=${encodeURIComponent(track.id)}&recordMode=${mode}`);
     }
   }
 
@@ -544,6 +575,26 @@ export function Capture({
         </form>
       </section>
 
+      <section className="playlist-import-prototype" aria-labelledby="playlist-import-title">
+        <div>
+          <span className="section-label">PROTOTYPE</span>
+          <h2 id="playlist-import-title">기존 플레이리스트 가져오기</h2>
+        </div>
+        <div className="playlist-import-actions">
+          {[
+            { name: "Apple Music", icon: Apple },
+            { name: "Spotify", icon: AudioLines },
+            { name: "YouTube Music", icon: CirclePlay },
+          ].map(({ name, icon: Icon }) => (
+            <button className="playlist-import-button" type="button" key={name} onClick={() => notify(`${name} 가져오기 연결을 확인 중이에요. 프로토타입에서는 버튼만 제공됩니다.`)}>
+              <Icon size={17} aria-hidden="true" />
+              <span>{name}</span>
+            </button>
+          ))}
+        </div>
+        <p>아직 실제 곡을 가져오지는 않아요.</p>
+      </section>
+
       {error ? <div className="notice notice-danger" style={{ marginTop: 18 }} role="alert">{error}</div> : null}
 
       {resultSource ? (
@@ -567,10 +618,11 @@ export function Capture({
                       key={track.id}
                       track={track}
                       index={index}
-                      preview={preview}
-                      showPreview={false}
                       context={contexts.length ? `이미 ${contexts.length}개의 순간에 기록됨` : track.genre || "장르 정보 없음"}
-                      actions={<button className="button button-primary" type="button" onClick={() => setAssigning(track)}>추가</button>}
+                      actions={<button className="button button-primary" type="button" onClick={() => {
+                        setRecordMode("choose");
+                        setAssigning(track);
+                      }}>추가</button>}
                     />
                   );
                 })}
@@ -627,16 +679,36 @@ export function Capture({
       {assigning ? (
         <div className="dialog-backdrop" role="presentation" onClick={() => setAssigning(null)}>
           <div ref={assignDialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="assign-title" onClick={(event) => event.stopPropagation()}>
-            <span className="section-label">곡 추가</span>
-            <h2 id="assign-title">어느 챕터에 담을까요?</h2>
+            <span className="section-label">{recordMode === "choose" ? "저장 방식" : "챕터 선택"}</span>
+            <h2 id="assign-title">{recordMode === "choose" ? "어떻게 남길까요?" : "어느 챕터에 담을까요?"}</h2>
             <p>{assigning.artist} · {assigning.title}</p>
-            <div className="track-list" style={{ marginTop: 22 }}>
-              {chapters.map((chapter, index) => (
-                <button key={chapter.id} className="chapter-choice" type="button" onClick={() => saveChapter(assigning, chapter.id)}><span>{String(index + 1).padStart(2, "0")}</span><ChapterCover archive={archive} chapter={chapter} /><span className="track-info"><strong>{chapter.name}</strong><small>{chapter.description || "설명 없음"}</small></span><em>선택</em></button>
-              ))}
+            {recordMode === "choose" ? (
+              <div className="record-mode-list">
+                <button type="button" onClick={() => saveInbox(assigning)}><strong>곡만 보관</strong><span>태그와 메모는 나중에</span></button>
+                <button type="button" onClick={() => setRecordMode("quick")}><strong>한 줄 기록</strong><span>날짜·태그·짧은 감상</span></button>
+                <button type="button" onClick={() => setRecordMode("detail")}><strong>자세히 기록</strong><span>성격·시기·태그·날짜별 메모</span></button>
+              </div>
+            ) : (
+              <>
+                <div className="track-list" style={{ marginTop: 22 }}>
+                  {chapters.map((chapter, index) => (
+                    <ChapterChoice
+                      archive={archive}
+                      chapter={chapter}
+                      detail={chapter.description || "설명 없음"}
+                      index={index}
+                      key={chapter.id}
+                      onSelect={(chapterId) => saveChapter(assigning, chapterId, recordMode)}
+                    />
+                  ))}
+                </div>
+                {!chapters.length ? <p className="notice notice-warning">먼저 챕터를 하나 만들어 주세요.</p> : null}
+              </>
+            )}
+            <div className="dialog-actions">
+              <button className="button" type="button" onClick={() => recordMode === "choose" ? setAssigning(null) : setRecordMode("choose")}>{recordMode === "choose" ? "취소" : "뒤로"}</button>
+              {recordMode !== "choose" ? <button className="button button-primary" type="button" onClick={() => createChapterForTrack(assigning, recordMode)}>새 챕터</button> : null}
             </div>
-            {!chapters.length ? <p className="notice notice-warning">먼저 챕터를 하나 만들어 주세요.</p> : null}
-            <div className="dialog-actions"><button className="button" type="button" onClick={() => setAssigning(null)}>취소</button><button className="button" type="button" onClick={() => saveInbox(assigning)}>나중에 정리</button><button className="button button-primary" type="button" onClick={() => createChapterForTrack(assigning)}>새 챕터</button></div>
           </div>
         </div>
       ) : null}
@@ -648,19 +720,18 @@ export function Inbox({
   archive,
   commit,
   notify,
-  preview,
   router,
 }: {
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
   notify: Notify;
-  preview: PreviewControls;
   router: MotionRouter;
 }) {
   const entries = Object.values(archive.data.inbox)
     .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
     .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
-  const chapters = Object.values(archive.data.cubes).sort((a, b) => a.sortOrder - b.sortOrder);
+  const chapters = getCubesInTreeOrder(archive)
+    .filter((chapter) => isVisibleChapter(archive, chapter) && isAssignableChapter(chapter));
   const [selectedTrack, setSelectedTrack] = useState<TrackId | null>(null);
   const [managing, setManaging] = useState(false);
   const assignDialogRef = useModalFocus<HTMLDivElement>(
@@ -701,11 +772,11 @@ export function Inbox({
           {entries.map((entry, index) => {
             const track = archive.data.tracks[entry.trackId];
             return track ? (
-              <TrackLine key={entry.trackId} track={track} index={index} preview={preview} showPreview={false} context={`${formatDate(entry.capturedAt)} 저장 · 정리 대기`} actions={managing ? <button className="button button-danger" type="button" onClick={() => commit(removeInboxTrack(archive, track.id), "정리 대기 목록에서 곡을 제거했어요.")}>제거</button> : <button className="button button-primary" type="button" onClick={() => setSelectedTrack(track.id)}>챕터 고르기</button>} />
+              <TrackLine key={entry.trackId} track={track} index={index} context={`${formatDate(entry.capturedAt)} 저장 · 정리 대기`} actions={managing ? <button className="button button-danger" type="button" onClick={() => commit(removeInboxTrack(archive, track.id), "정리 대기 목록에서 곡을 제거했어요.")}>제거</button> : <button className="button button-primary" type="button" onClick={() => setSelectedTrack(track.id)}>챕터 고르기</button>} />
             ) : null;
           })}
         </div>
-      ) : <EmptyState icon="⌄" title="정리할 곡이 없어요" action={<Link className="button button-primary" href="/capture">첫 곡 저장하기</Link>} />}
+      ) : <EmptyState title="정리할 곡이 없어요" action={<Link className="button button-primary" href="/capture">첫 곡 저장하기</Link>} />}
 
       {selectedTrack ? (
         <div className="dialog-backdrop" role="presentation" onClick={() => setSelectedTrack(null)}>
@@ -713,7 +784,14 @@ export function Inbox({
             <span className="section-label">챕터 선택</span><h2 id="inbox-assign-title">이 곡이 머물 순간은?</h2>
             <div className="track-list" style={{ marginTop: 22 }}>
               {chapters.map((chapter, index) => (
-                <button key={chapter.id} className="chapter-choice" type="button" onClick={() => assign(selectedTrack, chapter.id)}><span>{String(index + 1).padStart(2, "0")}</span><ChapterCover archive={archive} chapter={chapter} /><span className="track-info"><strong>{chapter.name}</strong><small>{getCubeTracks(archive, chapter.id).length}곡</small></span><em>선택</em></button>
+                <ChapterChoice
+                  archive={archive}
+                  chapter={chapter}
+                  detail={`${getCubeTracks(archive, chapter.id).length}곡`}
+                  index={index}
+                  key={chapter.id}
+                  onSelect={(chapterId) => assign(selectedTrack, chapterId)}
+                />
               ))}
             </div>
             {!chapters.length ? <div className="notice notice-warning">먼저 챕터를 만들어 주세요.</div> : null}

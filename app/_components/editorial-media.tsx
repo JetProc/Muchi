@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { Pause, Play } from "lucide-react";
 import {
   getCubeTracks,
@@ -8,21 +8,11 @@ import {
   type Cube,
   type TrackReference,
 } from "@/lib/archive";
-import { sharedArtworkStyle } from "./editorial-motion";
-import { chapterColorStyle } from "./editorial-format";
-
-function artworkFallbackStyle(
-  index: number,
-): CSSProperties & { "--art-a": string; "--art-b": string } {
-  const pairs = [
-    ["#8e2f25", "#17130f"],
-    ["#ef5a37", "#6d241d"],
-    ["#7b7264", "#2c2822"],
-    ["#b58f5c", "#453627"],
-  ];
-  const pair = pairs[index % pairs.length];
-  return { "--art-a": pair[0], "--art-b": pair[1] };
-}
+import { sharedArtworkKey, sharedArtworkStyle } from "./editorial-motion";
+import {
+  chapterColorStyle,
+  formatChapterTitle,
+} from "./editorial-format";
 
 export interface PreviewState {
   track: TrackReference;
@@ -39,14 +29,12 @@ export interface PreviewControls {
 
 export function AlbumArtwork({
   track,
-  index = 0,
   sharedId,
   className = "",
   priority = false,
   decorative = false,
 }: {
   track: TrackReference;
-  index?: number;
   sharedId?: string;
   className?: string;
   priority?: boolean;
@@ -60,7 +48,8 @@ export function AlbumArtwork({
   return (
     <div
       className={`track-art ${loaded ? "is-loaded" : "is-loading"} ${className}`.trim()}
-      style={{ ...artworkFallbackStyle(index), ...sharedArtworkStyle(sharedId) }}
+      data-shared-transition-id={sharedArtworkKey(sharedId)}
+      style={sharedArtworkStyle(sharedId)}
     >
       {/* Remote promotional artwork is intentionally never cached by the service worker. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -81,11 +70,9 @@ export function AlbumArtwork({
 export function ChapterCover({
   archive,
   chapter,
-  shared = false,
 }: {
   archive: ArchiveEnvelopeV1;
   chapter: Cube;
-  shared?: boolean;
 }) {
   const artworkKeys = new Set<string>();
   const entries = getCubeTracks(archive, chapter.id)
@@ -99,18 +86,18 @@ export function ChapterCover({
   return (
     <div
       className={`chapter-artwork chapter-artwork-${Math.max(1, entries.length)}`}
+      data-shared-transition-id={sharedArtworkKey(chapter.id)}
       style={{
         ...chapterColorStyle(chapter.color),
-        ...sharedArtworkStyle(shared ? chapter.id : undefined),
+        ...sharedArtworkStyle(chapter.id),
       }}
       role="img"
-      aria-label={`${chapter.name} 대표 앨범 아트 모음`}
+      aria-label={`${formatChapterTitle(chapter)} 대표 앨범 아트 모음`}
     >
-      {entries.length ? entries.map((entry, index) => (
+      {entries.length ? entries.map((entry) => (
         <AlbumArtwork
           key={entry.cubeTrack.id}
           track={entry.track}
-          index={index}
           className="chapter-artwork-tile"
           decorative
         />

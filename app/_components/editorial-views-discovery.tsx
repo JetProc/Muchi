@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,10 +11,10 @@ import { X } from "lucide-react";
 import {
   removeSeedData,
   resetArchive,
+  parseArchive,
   searchArchive,
   selectRecap,
   serializeArchive,
-  validateArchiveEnvelope,
   type ArchiveEnvelopeV1,
   type ArchiveSearchResult,
   type MotionPreference,
@@ -21,22 +22,26 @@ import {
   type RecapMode,
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
-import type { PreviewControls } from "./editorial-media";
 import { useModalFocus } from "./editorial-accessibility";
 import { EmptyState, PageHeader, TrackLine } from "./editorial-ui";
-import { formatMemory } from "./editorial-format";
+import {
+  formatChapterTitle,
+  formatCalendarDate,
+  formatDate,
+  formatMemory,
+} from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { TagPicker } from "./editorial-tag-picker";
+
+const LAST_BACKUP_AT_KEY = "music-world:last-backup-at:v1";
 
 function SearchResultLine({
   result,
   index,
-  preview,
   onTagClick,
 }: {
   result: ArchiveSearchResult;
   index: number;
-  preview: PreviewControls;
   onTagClick: (tagId: string) => void;
 }) {
   if (result.kind === "inbox") {
@@ -44,35 +49,30 @@ function SearchResultLine({
       <TrackLine
         track={result.track}
         index={index}
-        preview={preview}
-        showPreview={false}
         context="임시 보관함 · 아직 미분류"
         actions={<Link className="button" href="/inbox">정리하기</Link>}
       />
     );
   }
+  const noteContext = result.matchedNote
+    ? `${result.matchedNote.listenedOn ? formatCalendarDate(result.matchedNote.listenedOn) : "날짜 미지정"} · ${result.matchedNote.body}`
+    : result.cubeTrack.character || formatMemory(result.cubeTrack.memoryPeriod);
   return (
     <TrackLine
       track={result.track}
       index={index}
-      preview={preview}
-      showPreview={false}
       sharedId={result.cubeTrack.id}
       tags={result.tags}
       maxTags={2}
       onTagClick={(tag) => onTagClick(tag.id)}
-      context={`${result.cube.name} · ${result.cubeTrack.character || formatMemory(result.cubeTrack.memoryPeriod)}`}
+      context={`${formatChapterTitle(result.cube)} · ${noteContext}`}
       actions={<Link className="button" href={`/memory?id=${encodeURIComponent(result.cubeTrack.id)}`} intent="shared" sharedId={result.cubeTrack.id}>기억 열기</Link>}
     />
   );
 }
 
-export function Search({
-  archive,
-  preview,
-}: {
+export function Search({ archive }: {
   archive: ArchiveEnvelopeV1;
-  preview: PreviewControls;
 }) {
   const [query, setQuery] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
@@ -163,7 +163,6 @@ export function Search({
                 result={result}
                 key={result.kind === "inbox" ? `inbox:${result.track.id}` : result.cubeTrack.id}
                 index={index}
-                preview={preview}
                 onTagClick={(tagId) => {
                   setTagIds((current) => current.includes(tagId) ? current : [...current, tagId]);
                 }}
@@ -184,50 +183,46 @@ export function Search({
 function RecapLine({
   entry,
   index,
-  preview,
 }: {
   entry: RecapEntry;
   index: number;
-  preview: PreviewControls;
 }) {
   const reason = {
     "same-month": "몇 년 전 같은 달",
     "same-season": "같은 계절의 기억",
-    "saved-date": "저장했던 이맘때",
+    "saved-date": "지난 감상",
     random: "우연히 꺼낸 기억",
   }[entry.reason];
+  const dateContext = entry.note.listenedOn
+    ? `감상 날짜 · ${formatCalendarDate(entry.note.listenedOn)}`
+    : entry.cubeTrack.memoryPeriod
+      ? `기억 시기 · ${formatMemory(entry.cubeTrack.memoryPeriod)}`
+      : `MUMU 저장일 · ${formatDate(entry.note.createdAt)}`;
   return (
     <TrackLine
       track={entry.track}
       index={index}
-      preview={preview}
-      showPreview={false}
       sharedId={entry.cubeTrack.id}
       tags={entry.tags}
-      context={`${reason} · ${entry.cube.name} · ${formatMemory(entry.cubeTrack.memoryPeriod)}`}
+      context={`${reason} · ${dateContext} · ${formatChapterTitle(entry.cube)}`}
       actions={<Link className="button" href={`/memory?id=${encodeURIComponent(entry.cubeTrack.id)}`} intent="shared" sharedId={entry.cubeTrack.id}>기억 열기</Link>}
     />
   );
 }
 
-export function RecapSpread({
-  entries,
-  preview,
-}: {
+export function RecapSpread({ entries }: {
   entries: RecapEntry[];
-  preview: PreviewControls;
 }) {
   return (
     <section className="recap-spread">
       {entries.length ? (
         <div className="track-list">
           {entries.map((entry, index) => (
-            <RecapLine key={entry.cubeTrack.id} entry={entry} index={index} preview={preview} />
+            <RecapLine key={`${entry.cubeTrack.id}:${entry.note.id}`} entry={entry} index={index} />
           ))}
         </div>
       ) : (
         <EmptyState
-          icon=""
           title="아직 돌아올 기억이 부족해요"
           action={<Link className="button button-primary" href="/chapters">곡에 기억 남기기</Link>}
         />
@@ -236,12 +231,8 @@ export function RecapSpread({
   );
 }
 
-export function Recap({
-  archive,
-  preview,
-}: {
+export function Recap({ archive }: {
   archive: ArchiveEnvelopeV1;
-  preview: PreviewControls;
 }) {
   const [mode, setMode] = useState<RecapMode>("this-time");
   const [createOpen, setCreateOpen] = useState(false);
@@ -254,10 +245,12 @@ export function Recap({
   };
   return (
     <div className="page-content recap-view">
-      <div className="recap-create-action">
-        <button className="button button-primary" type="button" onClick={() => setCreateOpen(true)}>회고 만들기</button>
-      </div>
-      <RecapSpread entries={entries} preview={preview} />
+      <PageHeader
+        eyebrow="회고"
+        title={label[mode]}
+        action={<button className="button button-primary" type="button" onClick={() => setCreateOpen(true)}>회고 만들기</button>}
+      />
+      <RecapSpread entries={entries} />
       {createOpen ? (
         <div className="dialog-backdrop" role="presentation" onClick={() => setCreateOpen(false)}>
           <div ref={createDialogRef} className="dialog recap-create-dialog" role="dialog" aria-modal="true" aria-labelledby="recap-create-title" onClick={(event) => event.stopPropagation()}>
@@ -299,6 +292,18 @@ export function Settings({
   setStorageBlocked: (value: string | null) => void;
 }) {
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        setLastBackupAt(window.localStorage.getItem(LAST_BACKUP_AT_KEY));
+      } catch {
+        // Backup status is helpful but not required to use the archive.
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   function setMotion(motion: MotionPreference) {
     commit({
@@ -330,6 +335,13 @@ export function Settings({
     anchor.download = `mumu-backup-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
+    const exportedAt = new Date().toISOString();
+    try {
+      window.localStorage.setItem(LAST_BACKUP_AT_KEY, exportedAt);
+      setLastBackupAt(exportedAt);
+    } catch {
+      // The backup file was already created even if status storage fails.
+    }
     notify("현재 음악 기록을 JSON 파일로 백업했어요.");
   }
 
@@ -338,10 +350,11 @@ export function Settings({
     if (!file) return;
     file.text().then((raw) => {
       try {
-        const value: unknown = JSON.parse(raw);
-        if (!validateArchiveEnvelope(value)) throw new Error("MUMU 백업 파일 형식이 아닙니다.");
+        const parsed = parseArchive(raw);
+        if (parsed.status === "future-version") throw new Error(`더 새로운 MUMU 백업(v${parsed.schemaVersion})은 이 버전에서 열 수 없습니다.`);
+        if (parsed.status !== "ok") throw new Error("MUMU 백업 파일 형식이 아니거나 손상되었습니다.");
         if (window.confirm("현재 기록을 이 백업으로 교체할까요? 이 작업은 되돌릴 수 없습니다.")) {
-          commit(value, "백업한 음악 기록을 복원했어요.", true);
+          commit(parsed.archive, parsed.migrated ? "이전 형식의 백업을 안전하게 변환해 복원했어요." : "백업한 음악 기록을 복원했어요.", true);
         }
       } catch (error) {
         notify(error instanceof Error ? error.message : "백업 파일을 읽지 못했어요.");
@@ -376,9 +389,10 @@ export function Settings({
       </section>
       <section className="settings-group" aria-labelledby="settings-data-title">
         <h2 id="settings-data-title">데이터</h2>
+        <div className="notice notice-warning settings-storage-notice"><span aria-hidden="true">!</span><div><strong>현재 기록은 이 브라우저에만 저장됩니다.</strong><br />기기 변경이나 브라우저 데이터 삭제 전에 JSON 백업을 보관해 주세요.</div></div>
         <div className="panel settings-list">
           <div className="setting-row"><h3>태그 관리</h3><Link className="button" href="/tags" intent="tab">{Object.keys(archive.data.tags).length}개 보기</Link></div>
-          <div className="setting-row"><h3>내 기록 백업</h3><div className="track-actions"><button className="button" type="button" onClick={exportData}>내보내기</button><button className="button" type="button" onClick={() => importInputRef.current?.click()}>불러오기</button><input ref={importInputRef} className="sr-only" id="backup-import" type="file" accept="application/json,.json" onChange={importData} tabIndex={-1} /></div></div>
+          <div className="setting-row"><div><h3>내 기록 백업</h3><p>{lastBackupAt ? `마지막 백업 · ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeZone: "Asia/Seoul" }).format(new Date(lastBackupAt))}` : "아직 백업한 기록이 없어요."}</p></div><div className="track-actions"><button className="button" type="button" onClick={exportData}>내보내기</button><button className="button" type="button" onClick={() => importInputRef.current?.click()}>불러오기</button><input ref={importInputRef} className="sr-only" id="backup-import" type="file" accept="application/json,.json" onChange={importData} tabIndex={-1} /></div></div>
           <div className="setting-row"><h3>샘플 기록</h3><button className="button" type="button" onClick={() => commit(removeSeedData(archive), "샘플 기록을 제거했어요.", true)}>샘플만 제거</button></div>
         </div>
       </section>
@@ -388,7 +402,6 @@ export function Settings({
           <div className="setting-row"><div><h3>아카이브 초기화</h3><p>현재 기록을 다른 데이터로 교체합니다.</p></div><div className="track-actions"><button className="button" type="button" onClick={() => replace("seed")}>샘플로 초기화</button><button className="button button-danger" type="button" onClick={() => replace("empty")}>모든 기록 지우기</button></div></div>
         </div>
       </section>
-      <div className="notice notice-warning" style={{ marginTop: 18 }}><span aria-hidden="true">!</span><div><strong>이 기기에만 저장되는 데모입니다.</strong><br />브라우저 데이터 삭제, 비공개 모드 종료, 기기 변경 시 기록이 사라질 수 있습니다. 민감한 개인정보는 입력하지 마세요.</div></div>
     </div>
   );
 }

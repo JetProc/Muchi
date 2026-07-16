@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import {
   type AnchorHTMLAttributes,
+  type CSSProperties,
   type MouseEvent,
   type ReactNode,
   useCallback,
@@ -36,6 +37,47 @@ let activeTransition: ViewTransitionHandle | null = null;
 let fallbackTimer: number | null = null;
 let navigationSequence = 0;
 
+function clearSharedTransitionElements() {
+  document.querySelectorAll<HTMLElement>(".has-shared-transition")
+    .forEach((element) => element.classList.remove("has-shared-transition"));
+}
+
+function findSharedTransitionCandidate(
+  sharedId?: string,
+  sourceElement?: HTMLElement,
+) {
+  const key = sharedArtworkKey(sharedId);
+  if (!key) return null;
+
+  const matches = (element: Element | null | undefined): element is HTMLElement => (
+    element instanceof HTMLElement
+    && element.dataset.sharedTransitionId === key
+  );
+  const closestCandidate = sourceElement?.closest<HTMLElement>("[data-shared-transition-id]");
+  if (matches(closestCandidate)) return closestCandidate;
+
+  const sourceScope = sourceElement?.closest<HTMLElement>(
+    ".track-line, .chapter-library-card, .album-feature, .child-chapter-row, article, section",
+  );
+  const scopedCandidate = sourceScope
+    ? Array.from(sourceScope.querySelectorAll<HTMLElement>("[data-shared-transition-id]"))
+      .find(matches)
+    : null;
+  if (scopedCandidate) return scopedCandidate;
+
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-shared-transition-id]"))
+    .find(matches) ?? null;
+}
+
+function markSharedTransitionElement(
+  sharedId?: string,
+  sourceElement?: HTMLElement,
+) {
+  clearSharedTransitionElements();
+  const candidate = findSharedTransitionCandidate(sharedId, sourceElement);
+  candidate?.classList.add("has-shared-transition");
+}
+
 function isModifiedClick(event: MouseEvent<HTMLAnchorElement>): boolean {
   return event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
 }
@@ -50,6 +92,7 @@ function cancelActiveTransition() {
   activeTransition?.skipTransition?.call(activeTransition);
   activeTransition = null;
   document.documentElement.classList.remove("has-native-transition");
+  clearSharedTransitionElements();
   if (fallbackTimer !== null) {
     window.clearTimeout(fallbackTimer);
     fallbackTimer = null;
@@ -61,10 +104,16 @@ function consumeTransitionRejections(transition: ViewTransitionHandle) {
   void transition.updateCallbackDone?.catch(() => undefined);
 }
 
+function canUseNativeTransition(transitionDocument: TransitionDocument) {
+  return Boolean(transitionDocument.startViewTransition)
+    && window.matchMedia("(max-width: 479px)").matches;
+}
+
 function focusDestination() {
-  const target = document.querySelector<HTMLElement>(
-    ".route-stage h1, .route-stage h2, #main-content",
-  );
+  const target = Array.from(document.querySelectorAll<HTMLElement>(
+    ".route-stage h1, .route-stage h2",
+  )).find((candidate) => !candidate.closest(".sr-only"))
+    ?? document.querySelector<HTMLElement>("#main-content");
   if (!target) return;
 
   const temporaryTabIndex = !target.hasAttribute("tabindex");
@@ -81,6 +130,7 @@ function clearTransitionState(root: HTMLElement, sequence: number): boolean {
   if (sequence !== navigationSequence) return false;
   root.classList.remove("is-navigating");
   root.classList.remove("has-native-transition");
+  clearSharedTransitionElements();
   activeTransition = null;
   fallbackTimer = null;
   return true;
@@ -137,6 +187,7 @@ function runNavigation(
   navigate: () => void,
   intent: MotionIntent,
   sharedId?: string,
+  sourceElement?: HTMLElement,
 ) {
   const root = document.documentElement;
   const reduced = root.dataset.reduceMotion === "true";
@@ -147,11 +198,13 @@ function runNavigation(
   setMotionIntent(intent, sharedId);
   root.classList.add("is-navigating");
 
-  if (!reduced && transitionDocument.startViewTransition) {
+  if (!reduced && canUseNativeTransition(transitionDocument)) {
     try {
       root.classList.add("has-native-transition");
+      markSharedTransitionElement(sharedId, sourceElement);
       const transition = transitionDocument.startViewTransition(async () => {
         await navigateAndWaitForRouteCommit(navigate);
+        markSharedTransitionElement(sharedId);
       });
       consumeTransitionRejections(transition);
       activeTransition = transition;
@@ -197,6 +250,7 @@ export function MotionProvider({ children }: { children: ReactNode }) {
 export function transitionEditorialUI(
   update: () => void,
   intent: MotionIntent = "modal",
+  sharedId?: string,
 ) {
   const root = document.documentElement;
   const transitionDocument = document as TransitionDocument;
@@ -207,10 +261,14 @@ export function transitionEditorialUI(
   setMotionIntent(intent);
   root.classList.add("is-navigating");
 
-  if (!reduced && transitionDocument.startViewTransition) {
+  if (!reduced && canUseNativeTransition(transitionDocument)) {
     try {
       root.classList.add("has-native-transition");
-      const transition = transitionDocument.startViewTransition(update);
+      markSharedTransitionElement(sharedId);
+      const transition = transitionDocument.startViewTransition(() => {
+        update();
+        markSharedTransitionElement(sharedId);
+      });
       consumeTransitionRejections(transition);
       activeTransition = transition;
       void transition.finished
@@ -287,7 +345,7 @@ export function MotionLink({
     ) return;
 
     event.preventDefault();
-    runNavigation(() => router.push(href), intent, sharedId);
+    runNavigation(() => router.push(href), intent, sharedId, event.currentTarget);
   }
 
   return (
@@ -320,7 +378,12 @@ export function RouteStage({
 }
 
 export function sharedArtworkStyle(id?: string | null) {
-  if (!id) return undefined;
-  const safeId = id.replace(/[^a-zA-Z0-9_-]/g, "-");
-  return { viewTransitionName: `art-${safeId}` } as React.CSSProperties;
+  const key = sharedArtworkKey(id);
+  return key
+    ? { "--shared-transition-name": `art-${key}` } as CSSProperties
+    : undefined;
+}
+
+export function sharedArtworkKey(id?: string | null) {
+  return id?.replace(/[^a-zA-Z0-9_-]/g, "-") || undefined;
 }

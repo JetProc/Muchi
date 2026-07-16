@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -46,7 +47,10 @@ import {
   Settings,
 } from "./editorial-views-discovery";
 import { TagManager } from "./editorial-views-tags";
-import { PlaylistBuilder } from "./editorial-views-playlist";
+import {
+  PlaylistBuilder,
+  type PlaylistStep,
+} from "./editorial-views-playlist";
 import type { AppView } from "./editorial-types";
 
 export type { AppView } from "./editorial-types";
@@ -64,6 +68,10 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const [online, setOnline] = useState(true);
   const [systemReduce, setSystemReduce] = useState(false);
   const [previewState, setPreviewState] = useState<PreviewState | null>(null);
+  const [playlistProgress, setPlaylistProgress] = useState<{
+    routeKey: string;
+    step: PlaylistStep;
+  }>({ routeKey: "", step: 1 });
   const welcomeDialogRef = useModalFocus<HTMLDivElement>(
     showWelcome,
     () => setShowWelcome(false),
@@ -81,6 +89,31 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     || (archive.data.preferences.motion === "system" && systemReduce);
   const queryId = searchParams.get("id");
   const pendingTrackId = searchParams.get("trackId") as TrackId | null;
+  const pendingRecordMode = searchParams.get("recordMode") === "quick" ? "quick" : "detail";
+  const recordMode = searchParams.get("mode") === "quick" ? "quick" : "detail";
+  const sharedUrl = searchParams.get("url") ?? searchParams.get("text");
+  const playlistRouteKey = `${queryId ?? ""}:${searchParams.get("service") ?? ""}`;
+  const playlistStep = playlistProgress.routeKey === playlistRouteKey
+    ? playlistProgress.step
+    : 1;
+
+  function handlePlaylistStepChange(step: PlaylistStep) {
+    setPlaylistProgress({ routeKey: playlistRouteKey, step });
+  }
+
+  function handleShellBack() {
+    if (view === "playlist" && typeof playlistStep === "number" && playlistStep > 1) {
+      handlePlaylistStepChange(playlistStep === 3 ? 2 : 1);
+      return;
+    }
+    router.back();
+  }
+
+  const notify = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 3200);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -94,9 +127,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       const parsed = parseArchive(event.newValue);
       if (parsed.status !== "ok") return;
       setArchive(parsed.archive);
-      setToast("다른 탭에서 바뀐 음악 기록을 불러왔어요.");
-      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = window.setTimeout(() => setToast(null), 3200);
+      notify("다른 탭에서 바뀐 음악 기록을 불러왔어요.");
     };
     window.addEventListener("storage", syncArchive);
     if ("serviceWorker" in navigator) {
@@ -148,7 +179,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       window.removeEventListener("offline", updateOnline);
       window.removeEventListener("storage", syncArchive);
     };
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = reduceMotion ? "true" : "false";
@@ -158,12 +189,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     audioRef.current?.pause();
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
   }, []);
-
-  function notify(message: string) {
-    setToast(message);
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 3200);
-  }
 
   function commit(
     next: ArchiveEnvelopeV1,
@@ -261,7 +286,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           preview={preview}
           toast={null}
           online={online}
-          onBack={router.back}
+          scrollReady={false}
+          onBack={handleShellBack}
         >
           <div className="page-content">
             <div className="archive-boot" role="status" aria-live="polite">
@@ -279,27 +305,35 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const content = (() => {
     switch (view) {
       case "capture":
-        return <Capture archive={archive} commit={commit} preview={preview} online={online} router={router} />;
+        return <Capture archive={archive} commit={commit} notify={notify} online={online} router={router} sharedUrl={sharedUrl} />;
       case "inbox":
-        return <Inbox archive={archive} commit={commit} notify={notify} preview={preview} router={router} />;
+        return <Inbox archive={archive} commit={commit} notify={notify} router={router} />;
       case "chapters":
-        return <Chapters archive={archive} commit={commit} notify={notify} router={router} pendingTrackId={pendingTrackId} />;
+        return <Chapters archive={archive} commit={commit} notify={notify} router={router} pendingTrackId={pendingTrackId} pendingRecordMode={pendingRecordMode} />;
       case "chapter":
-        return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} hydrated={hydrated} />;
+        return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} router={router} />;
       case "memory":
-        return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} preview={preview} router={router} hydrated={hydrated} />;
+        return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} preview={preview} recordMode={recordMode} router={router} />;
       case "playlist":
-        return <PlaylistBuilder archive={archive} chapterId={queryId} initialServiceId={searchParams.get("service")} preview={preview} hydrated={hydrated} />;
+        return (
+          <PlaylistBuilder
+            archive={archive}
+            chapterId={queryId}
+            initialServiceId={searchParams.get("service")}
+            step={playlistStep}
+            onStepChange={handlePlaylistStepChange}
+          />
+        );
       case "search":
-        return <Search archive={archive} preview={preview} />;
+        return <Search archive={archive} />;
       case "recap":
-        return <Recap archive={archive} preview={preview} />;
+        return <Recap archive={archive} />;
       case "settings":
         return <Settings archive={archive} commit={commit} notify={notify} storageBlocked={storageBlocked} setStorageBlocked={setStorageBlocked} />;
       case "tags":
         return <TagManager archive={archive} commit={commit} notify={notify} />;
       default:
-        return <Home archive={archive} preview={preview} />;
+        return <Home archive={archive} />;
     }
   })();
 
@@ -311,12 +345,13 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         preview={preview}
         toast={toast}
         online={online}
-        onBack={router.back}
+        scrollReady={hydrated}
+        onBack={handleShellBack}
       >
       {storageBlocked ? (
         <div
           className="notice notice-danger"
-          style={{ margin: "18px clamp(18px, 4vw, 64px) 0" }}
+          style={{ margin: "18px clamp(18px, 4cqw, 24px) 0" }}
           role="alert"
         >
           <div><strong>저장 데이터 보호 모드</strong><br />{storageBlocked}</div>
@@ -325,7 +360,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       {!online ? (
         <div
           className="notice notice-warning"
-          style={{ margin: "18px clamp(18px, 4vw, 64px) 0" }}
+          style={{ margin: "18px clamp(18px, 4cqw, 24px) 0" }}
           role="status"
         >
           <div>오프라인이에요. 기존 기록은 볼 수 있지만 새 음악 검색과 미리듣기는 잠시 쉬어갑니다.</div>
@@ -337,6 +372,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           <div ref={welcomeDialogRef} className="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
             <span className="section-label">WELCOME TO MUMU</span>
             <h2 id="welcome-title">좋아했던 음악을<br />한 권의 기록으로 남겨보세요.</h2>
+            <p className="welcome-storage-note">이 프로토타입의 기록은 현재 브라우저에만 저장돼요. 설정에서 언제든 JSON 파일로 백업할 수 있습니다.</p>
             <div className="dialog-actions">
               <button
                 className="button button-ghost"

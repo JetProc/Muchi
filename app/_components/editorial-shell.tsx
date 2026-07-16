@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import { flushSync } from "react-dom";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
   House,
@@ -39,6 +41,7 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
 };
 
 const MOBILE_NAV = ["home", "chapters", "capture", "search"] as const satisfies readonly AppView[];
+const PRIMARY_VIEWS: readonly AppView[] = ["home", "capture", "chapters", "search"];
 
 const MOBILE_NAV_LABEL: Partial<Record<AppView, string>> = {
   home: "홈",
@@ -53,6 +56,8 @@ const MOBILE_NAV_ICON = {
   capture: Plus,
   search: Search,
 } as const;
+
+const scrollPositions = new Map<string, number>();
 
 export function TextNavigation({ view }: { view: AppView }) {
   return (
@@ -122,7 +127,7 @@ export function MiniPlayer({
       <span
         className="mini-player-progress"
         style={{
-          "--player-progress": `${Math.min(100, preview.state.currentTime / 30 * 100)}%`,
+          "--player-progress": Math.min(1, preview.state.currentTime / 30),
         } as CSSProperties}
         aria-hidden="true"
       />
@@ -133,9 +138,11 @@ export function MiniPlayer({
 export function FullPlayer({
   preview,
   onClose,
+  onDismiss,
 }: {
   preview: PreviewControls;
   onClose: () => void;
+  onDismiss: () => void;
 }) {
   const playerDragStart = useRef<number | null>(null);
   const dialogRef = useModalFocus<HTMLElement>(true, onClose);
@@ -158,6 +165,7 @@ export function FullPlayer({
           playerDragStart.current = null;
         }}
       >
+        <button className="text-button player-dismiss-control" type="button" onClick={onDismiss}>플레이어 종료</button>
         <div className="sheet-handle" aria-hidden="true" />
         <div className="full-player-art">
           <AlbumArtwork
@@ -215,6 +223,7 @@ export function EditorialShell({
   preview,
   toast,
   online,
+  scrollReady,
   onBack,
 }: {
   view: AppView;
@@ -223,81 +232,119 @@ export function EditorialShell({
   preview: PreviewControls;
   toast: string | null;
   online: boolean;
+  scrollReady: boolean;
   onBack: () => void;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routeKey = `${pathname}?${searchParams.toString()}`;
+  const scrollViewportRef = useRef<HTMLElement>(null);
+  const restoredRouteKeyRef = useRef<string | null>(null);
   const playerOpen = Boolean(preview.state);
   const [fullPlayerOpen, setFullPlayerOpen] = useState(false);
-  const showBack = view !== "home";
+  const showBack = !PRIMARY_VIEWS.includes(view);
+
+  useLayoutEffect(() => {
+    const viewport = scrollViewportRef.current;
+    if (!viewport || !scrollReady || restoredRouteKeyRef.current === routeKey) return;
+
+    viewport.scrollTop = document.documentElement.dataset.motionIntent === "back"
+      ? scrollPositions.get(routeKey) ?? 0
+      : 0;
+    restoredRouteKeyRef.current = routeKey;
+  }, [routeKey, scrollReady]);
 
   function setPlayerVisibility(open: boolean) {
     transitionEditorialUI(() => {
       flushSync(() => setFullPlayerOpen(open));
-    }, "modal");
+    }, "modal", preview.state ? `player-${preview.state.track.id}` : undefined);
+  }
+
+  function dismissPlayer() {
+    transitionEditorialUI(() => {
+      flushSync(() => {
+        setFullPlayerOpen(false);
+        preview.close();
+      });
+      window.requestAnimationFrame(() => scrollViewportRef.current?.focus({ preventScroll: true }));
+    }, "modal", preview.state ? `player-${preview.state.track.id}` : undefined);
   }
 
   return (
-    <div className={`app-shell editorial-shell${playerOpen ? " has-player" : ""}`}>
-      <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
-      <header className="editorial-header">
-        <div className="header-leading">
-          {showBack ? (
-            <button className="header-back-button" type="button" onClick={onBack} aria-label="뒤로가기">
-              <ChevronLeft aria-hidden="true" size={20} strokeWidth={2} />
-              <span>뒤로</span>
-            </button>
-          ) : null}
-          <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
-            <strong>MUMU</strong>
-            <span>PERSONAL MUSIC ARCHIVE</span>
-          </Link>
-        </div>
-        <div className="header-index" aria-hidden="true">
-          <span>{VIEW_META[view].index}</span>
-          <i />
-          <span>{VIEW_META[view].label}</span>
-        </div>
-        <div className="header-links">
-          <Link
-            className="inbox-link"
-            href="/inbox"
-            intent="tab"
-            aria-label={inboxCount ? `정리할 곡 ${inboxCount}곡 남음` : "정리할 곡 없음"}
-          >
-            <span>정리할 곡</span>
-            {inboxCount ? (
-              <span className="inbox-count" aria-hidden="true">{inboxCount}</span>
+    <div className="device-stage">
+      <div className={`app-shell editorial-shell${playerOpen ? " has-player" : ""}`}>
+        <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
+        <header className="editorial-header">
+          <div className="header-leading">
+            {showBack ? (
+              <button className="header-back-button" type="button" onClick={onBack} aria-label="뒤로가기">
+                <ChevronLeft aria-hidden="true" size={20} strokeWidth={2} />
+                <span>뒤로</span>
+              </button>
             ) : null}
-          </Link>
-          <Link
-            className="settings-link"
-            href="/settings"
-            intent="tab"
-            aria-label="환경 설정"
-          >
-            <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
-          </Link>
-        </div>
-      </header>
+            <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
+              <strong>MUMU</strong>
+              <span>PERSONAL MUSIC ARCHIVE</span>
+            </Link>
+          </div>
+          <div className="header-index" aria-hidden="true">
+            <span>{VIEW_META[view].index}</span>
+            <i />
+            <span>{VIEW_META[view].label}</span>
+          </div>
+          <div className="header-links">
+            <Link
+              className="inbox-link"
+              href="/inbox"
+              intent="tab"
+              aria-label={inboxCount ? `정리할 곡 ${inboxCount}곡 남음` : "정리할 곡 없음"}
+            >
+              <span>보관함</span>
+              {inboxCount ? (
+                <span className="inbox-count" aria-hidden="true">{inboxCount}</span>
+              ) : null}
+            </Link>
+            <Link
+              className="settings-link"
+              href="/settings"
+              intent="tab"
+              aria-label="환경 설정"
+            >
+              <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
+            </Link>
+          </div>
+        </header>
 
-      <main className="shell-main" id="main-content" tabIndex={-1}>
-        <div className="page-status" aria-live="polite">
-          {!online ? "OFFLINE ARCHIVE" : null}
-        </div>
-        {children}
-      </main>
+        <main
+          ref={scrollViewportRef}
+          className="shell-main"
+          id="main-content"
+          tabIndex={-1}
+          onScroll={(event) => scrollPositions.set(routeKey, event.currentTarget.scrollTop)}
+        >
+          <div className="page-status" aria-live="polite">
+            {!online ? "OFFLINE ARCHIVE" : null}
+          </div>
+          {children}
+        </main>
 
-      <footer className="footer-band">
-        <TextNavigation view={view} />
-      </footer>
-      <MiniPlayer
-        preview={preview}
-        onOpen={() => setPlayerVisibility(true)}
-        shareArtwork={!fullPlayerOpen}
-      />
-      {fullPlayerOpen && preview.state ? (
-        <FullPlayer preview={preview} onClose={() => setPlayerVisibility(false)} />
-      ) : null}
-      <ToastRegion toast={toast} />
+        <footer className="footer-band">
+          <TextNavigation view={view} />
+        </footer>
+        <MiniPlayer
+          preview={preview}
+          onOpen={() => setPlayerVisibility(true)}
+          shareArtwork={!fullPlayerOpen}
+        />
+        {fullPlayerOpen && preview.state ? (
+          <FullPlayer
+            preview={preview}
+            onClose={() => setPlayerVisibility(false)}
+            onDismiss={dismissPlayer}
+          />
+        ) : null}
+        <ToastRegion toast={toast} />
+      </div>
     </div>
   );
 }

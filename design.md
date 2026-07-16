@@ -8,6 +8,26 @@ Density is unusually low even by contemporary SaaS standards. Each tile occupies
 
 Store and shop surfaces retain the same chassis but switch modes. The product configurator introduces a tight grid of white utility cards at `{rounded.lg}` (18px) radius with a thin border, paired with a persistent thin sub-nav strip. Across all surfaces the typographic system, spacing rhythm, and the single blue accent are consistent — this is one design language expressed at different volumes.
 
+## MUMU Mobile Product Contract
+
+MUMU is a mobile-only product. Every product view is designed and tested within a canvas no wider than 430px; there is no desktop-specific page composition. On a real phone the canvas fills `100vw × 100dvh`. At browser widths of 480px or more, the same mobile canvas is centered with a 16px outer inset, a 28px frame radius, and a neutral surrounding field. The wide viewport must never change content density, type scale, navigation, or component arrangement.
+
+- App canvas: `min(100vw, 430px)` with a maximum width of 430px.
+- Shell rows: 44px header, internally scrolling content, and 70px bottom navigation plus the safe-area inset.
+- Responsive logic: app-container queries only; 419px and below is the sole compact-phone correction range.
+- Primary layouts: one content column, two-column chapter index, one-column memory view, and the compact chapter detail.
+- Wide screens: presentation frame only. Do not introduce desktop navigation, extra columns, wider cards, or browser-viewport-scaled typography.
+- Overlays: players, sheets, dialogs, toasts, and backdrops remain clipped to the app canvas.
+
+### Chapter hierarchy
+
+- The main chapter index and Home preview show root chapters only.
+- A chapter may contain child chapters at any depth; its detail view shows direct children as compact hairline rows.
+- Breadcrumbs expose the full root-to-current path without widening the mobile canvas.
+- Tracks, tags, and memories belong to the exact chapter where they were recorded. Parent playlists do not silently merge child tracks.
+- Deleting a parent removes only its direct memories and promotes its direct children one level so nested archives are not lost.
+- The child-chapter creation sheet keeps its final actions visible above the 70px bottom navigation.
+
 **Key Characteristics:**
 - Photography-first presentation; UI recedes so the product can speak.
 - Alternating full-bleed tile sections: white/parchment ↔ near-black, with the color change itself acting as the section divider.
@@ -41,7 +61,7 @@ Store and shop surfaces retain the same chassis but switch modes. The product co
 - **Body On Dark** (`{colors.body-on-dark}` — #ffffff): Dark tiles and global nav.
 - **Body Muted** (`{colors.body-muted}` — #cccccc): Secondary copy on dark tiles.
 - **Ink Muted 80** (`{colors.ink-muted-80}` — #333333): Softer copy on pearl surfaces.
-- **Ink Muted 48** (`{colors.ink-muted-48}` — #7a7a7a): Disabled text and legal fine-print.
+- **Ink Muted 48** (`{colors.ink-muted-48}` — #6e6e73): Secondary copy, disabled text, and legal fine-print with readable contrast on white and parchment surfaces.
 
 ### Hairlines & Borders
 - **Divider Soft** (`{colors.divider-soft}` — #f0f0f0): Secondary-button soft ring, often `rgba(0, 0, 0, 0.04)`.
@@ -101,10 +121,11 @@ Use the system stack first so macOS/iOS resolve to SF Pro. On non-Apple platform
 - **Button padding:** 8–11px vertical, 15–22px horizontal.
 
 ### Grid & Container
-- Text-heavy max width: about 980px.
-- Product/store grids max width: 1440px.
-- Utility cards: 3–5 columns on desktop, one column on phone.
-- Card gutters: 20–24px.
+- Product canvas max width: 430px in every environment.
+- Content gutter: 16–22px, derived from the app container rather than the browser viewport.
+- Chapter index: two columns at every supported width.
+- Memory and editorial reading surfaces: one column.
+- No desktop grid, desktop breakpoint, or viewport-width type scaling.
 
 ### Whitespace Philosophy
 
@@ -151,7 +172,7 @@ Whitespace is the product's pedestal. Full tiles begin with at least 64px above 
 
 ### Top Navigation
 
-**`global-nav`** — Persistent ultra-thin black nav pinned to the top. Background `{colors.surface-black}`, height 44px, white 12px/400 text with `-0.12px` tracking. Desktop links are quiet; on mobile retain a compact leading/back action, centered or left-aligned product identity, and right utility icons.
+**`global-nav`** — Persistent ultra-thin black nav held in the first row of the mobile app frame. Background `{colors.surface-black}`, height 44px, white 12px/400 text with `-0.12px` tracking. Retain a compact leading/back action, left-aligned product identity, and right utility icons at every browser width.
 
 **`sub-nav-frosted`** — Surface-specific sticky strip below the global nav. Parchment at 80% opacity with `saturate(180%) blur(20px)`, height 52px, thin separator. Left: category name at 21px/600. Right: utility links ending in a persistent primary CTA.
 
@@ -231,33 +252,28 @@ Other form inputs use white fill, a single Hairline border, 12–18px radius acc
 
 ## Responsive Behavior
 
-### Breakpoints
+### Supported Canvas Ranges
 
-| Name | Width | Key Changes |
-|---|---:|---|
-| Small phone | ≤ 419px | Single-column tiles, compact sub-nav, hero type 28px |
-| Phone | 420–640px | Single-column stack, product art up to 80%, hero type 34px |
-| Large phone | 641–735px | Tighter 48px tile padding and wrapped fine-print |
-| Tablet portrait | 736–833px | Collapsed global nav; sub-nav keeps identity + CTA |
-| Tablet landscape | 834–1023px | Expanded nav; utility grid becomes two columns |
-| Small desktop | 1024–1068px | Guttered two-thirds-width product tiles |
-| Desktop | 1069–1440px | Full layout; 4–5 column utility grids |
-| Wide desktop | ≥ 1441px | Content locks at 1440px |
+| Range | Product behavior |
+|---|---|
+| ≤ 419px app canvas | Apply only compact-phone corrections for long text, controls, and spacing. |
+| 420–430px app canvas | Use the default mobile composition and type scale. |
+| ≥ 480px browser viewport | Center the unchanged 430px app canvas inside the neutral device stage. |
 
-Structural breakpoints: 1440px, 1068px, 833px, 734px, 640px, and 480px.
+The browser viewport is not a product breakpoint. Layout decisions use the app container, and content never expands beyond 430px.
 
 ### Touch Targets
 - Minimum 44 × 44px.
 - Primary pills naturally land at approximately 44px height.
 - Circular icon controls are exactly 44 × 44px.
-- Precision desktop nav may be tighter; mobile navigation must not be.
+- Navigation and utility actions retain the same target size at every browser width.
 
 ### Collapsing Strategy
-- Global nav: horizontal desktop row → compact brand/back + utility icons at 833px and below.
-- Sub-nav: identity + links + CTA → identity + CTA on mobile.
-- Product tiles: 2-column → 1-column at 834px; vertical padding 80px → 48px on phone.
-- Utility grids: 5 → 4 → 3 → 2 → 1 columns across 1440/1068/834/640 breakpoints.
-- Hero typography: 56px → 40px at 1068px → 34px at 640px → 28px at 419px.
+- Global navigation always uses the compact mobile brand/back and utility treatment.
+- Chapter indexes remain two columns; memory, search, settings, and editorial reading views remain one column.
+- Long titles, tag groups, and actions wrap or stack inside the canvas instead of triggering a wider composition.
+- Only the 419px-and-below container query may reduce type, gaps, or control density.
+- Overlays and fixed controls are positioned relative to the app frame, never the browser viewport.
 
 ### Image Behavior
 - Use responsive `srcset` and breakpoint-matched crops where source assets allow.

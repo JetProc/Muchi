@@ -328,8 +328,7 @@ html[data-reduce-motion="true"] .route-stage {
 }
 
 html[data-motion-intent="tab"] .route-stage {
-  animation-name: route-tab-enter;
-  animation-duration: 360ms;
+  animation: none;
 }
 
 html[data-motion-intent="modal"] .route-stage {
@@ -365,11 +364,6 @@ html.has-native-transition .has-shared-transition {
 
 @keyframes route-back-enter {
   from { opacity: 0; transform: translate3d(-10px, 0, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-
-@keyframes route-tab-enter {
-  from { opacity: 0; transform: translate3d(0, 8px, 0); }
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
@@ -1517,7 +1511,6 @@ button.tag {
 }
 
 .tag-library-head,
-.tag-category-head,
 .tag-manager-row,
 .tag-manager-stats {
   display: flex;
@@ -1595,15 +1588,6 @@ button.tag {
   width: min(100%, 240px);
 }
 
-.tag-category-section {
-  padding: 24px 0;
-}
-
-.tag-category-head h3 {
-  font-size: 17px;
-}
-
-.tag-category-head span,
 .tag-manager-copy small {
   color: var(--dust-text);
   font-size: 9px;

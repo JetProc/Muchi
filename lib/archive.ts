@@ -1,4 +1,4 @@
-export const ARCHIVE_SCHEMA_VERSION = 5 as const;
+export const ARCHIVE_SCHEMA_VERSION = 6 as const;
 export const ARCHIVE_SEED_VERSION = 1 as const;
 export const ARCHIVE_STORAGE_KEY = "music-world:archive:v1";
 
@@ -40,6 +40,8 @@ export type TrackId =
   | `melon:${string}`;
 export type EntitySource = "seed" | "user";
 export type CubeColor = (typeof CUBE_COLORS)[number];
+export type CubeKind = "manual" | "monthly" | "capture";
+export type CubeSystemKey = null | "capture" | `month:${string}`;
 export type MotionPreference = "system" | "reduce" | "full";
 export type Season = "spring" | "summer" | "autumn" | "winter";
 export const TAG_CATEGORIES = [
@@ -78,6 +80,8 @@ export interface Cube {
   name: string;
   description: string;
   color: CubeColor;
+  kind: CubeKind;
+  systemKey: CubeSystemKey;
   sortOrder: number;
   source: EntitySource;
   createdAt: string;
@@ -153,6 +157,44 @@ export type ArchiveDomainErrorCode =
   | "duplicate"
   | "limit-exceeded"
   | "invalid-order";
+
+export type ContextArchiveState =
+  | "monthly"
+  | "unassigned-archived"
+  | "unassigned-draft"
+  | "chapter-only"
+  | "chapter-archived";
+
+export interface TrackArchiveSummary {
+  trackId: TrackId;
+  hasInbox: boolean;
+  captureState: "unassigned-archived" | "unassigned-draft" | null;
+  captureContextId: string | null;
+  manualContextStates: Array<{
+    cubeTrackId: string;
+    cubeId: string;
+    state: "chapter-only" | "chapter-archived";
+  }>;
+  monthlyContextIds: string[];
+}
+
+export interface ContextualMemory {
+  cubeTrack: CubeTrack;
+  cube: Cube;
+  tags: TagDefinition[];
+}
+
+export interface TagGroup {
+  tag: TagDefinition;
+  trackCount: number;
+  memoryCount: number;
+  updatedAt: string | null;
+}
+
+export interface TagGroupResult {
+  track: TrackReference;
+  memories: ContextualMemory[];
+}
 
 export class ArchiveDomainError extends Error {
   constructor(
@@ -260,6 +302,35 @@ const DEFAULT_PREFERENCES: Preferences = {
 };
 
 const SEED_NOW = "2026-07-01T00:00:00.000Z";
+const SEED_MEMORY_FIXTURES: Record<string, ReadonlyArray<{
+  listenedOn: string;
+  body: string;
+}>> = {
+  "dawn-radio": [
+    { listenedOn: "2023-07-15", body: "새벽 두 시, 신호가 모두 초록색이었던 날." },
+    { listenedOn: "2026-07-02", body: "오랜만에 다시 들으니 기타보다 드럼이 먼저 달려왔다." },
+  ],
+  "dawn-summer": [
+    { listenedOn: "2022-07-23", body: "창문을 내리고 따라 부르던 후렴." },
+    { listenedOn: "2025-07-12", body: "혼자 달리는 길에서도 그날 친구들의 목소리가 겹쳐 들렸다." },
+  ],
+  "winter-radio": [
+    { listenedOn: "2018-12-14", body: "같은 Radio지만 이곳에서는 속도보다 온기가 먼저 떠오른다." },
+    { listenedOn: "2024-12-21", body: "그때의 불안보다 카페 창가의 노란 불빛이 더 선명해졌다." },
+  ],
+  "winter-violet": [
+    { listenedOn: "2018-12-28", body: "이어폰 한쪽이 자꾸 끊기던 겨울." },
+    { listenedOn: "2023-11-30", body: "첫눈을 기다리며 들으니 오래된 버스 창문이 생각났다." },
+  ],
+  "room-pinktop": [
+    { listenedOn: "2021-09-08", body: "이웃이 없을 때만 볼륨을 끝까지 올렸다." },
+    { listenedOn: "2025-09-03", body: "지금 들어도 좁은 방을 단숨에 넓혀주는 곡이다." },
+  ],
+  "room-l": [
+    { listenedOn: "2024-07-19", body: "불을 끄고 앨범 한 장을 처음부터 끝까지 듣던 밤." },
+    { listenedOn: "2026-06-25", body: "비가 오는 밤에는 목소리 뒤의 작은 소음까지 편안하게 들린다." },
+  ],
+};
 const SEED_ALBUM_ART =
   "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/f9/28/8c/f9288c73-c42a-11d1-a4aa-83a7ce6e3c46/TheVolunteers_3000.jpg/600x600bb.jpg";
 const SEED_L_ART =
@@ -287,6 +358,18 @@ function assertRecord<T>(
     throw new ArchiveDomainError("not-found", `${label}을(를) 찾을 수 없습니다.`);
   }
   return value;
+}
+
+function assertEditableCubeTrack(
+  archive: ArchiveEnvelopeV1,
+  cubeTrackId: string,
+): CubeTrack {
+  const cubeTrack = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const cube = assertRecord(archive.data.cubes, cubeTrack.cubeId, "챕터");
+  if (cube.kind === "monthly") {
+    throw new ArchiveDomainError("invalid-input", "월별 자동 기록은 편집할 수 없습니다.");
+  }
+  return cubeTrack;
 }
 
 function cleanText(
@@ -475,16 +558,38 @@ function canonicalTagCategory(category: TagCategory): TagCategory {
   return category === "energy" || category === "texture" ? "emotion" : category;
 }
 
-function normalizeArchiveTagCategories(
+const LEGACY_SEED_TAG_LABELS: Record<string, { legacy: string; current: string }> = {
+  "seed:tag:cold": { legacy: "차가운", current: "혼자 걷는 밤" },
+  "seed:tag:urban": { legacy: "도시적인", current: "새벽에 운전할 때" },
+  "seed:tag:rushing": { legacy: "질주하는", current: "운동할 때" },
+  "seed:tag:nostalgic": { legacy: "그리운", current: "과거에 좋아했던 음악" },
+  "seed:tag:warm": { legacy: "따뜻한", current: "첫 자취방에서" },
+  "seed:tag:uneasy-youth": { legacy: "불안했던 청춘", current: "불안했던 시절" },
+  "seed:tag:bright": { legacy: "눈부신", current: "여름이 시작될 때" },
+  "seed:tag:open-road": { legacy: "탁 트인", current: "멀리 떠날 때" },
+  "seed:tag:hazy": { legacy: "몽환적인", current: "잠들기 전" },
+  "seed:tag:solitary": { legacy: "혼자 듣는", current: "혼자 있고 싶을 때" },
+  "seed:tag:restless": { legacy: "들뜬", current: "기분을 바꾸고 싶을 때" },
+  "seed:tag:bedroom": { legacy: "방 안의", current: "방 안에서 듣던 음악" },
+};
+
+function normalizeArchiveTags(
   archive: ArchiveEnvelopeV1,
 ): ArchiveEnvelopeV1 {
   let changed = false;
   const tags = Object.fromEntries(
     Object.entries(archive.data.tags).map(([id, tag]) => {
       const category = canonicalTagCategory(tag.category);
-      if (category === tag.category) return [id, tag];
+      const seedLabel = tag.source === "seed" ? LEGACY_SEED_TAG_LABELS[id] : undefined;
+      const label = seedLabel?.legacy === tag.label ? seedLabel.current : tag.label;
+      if (category === tag.category && label === tag.label) return [id, tag];
       changed = true;
-      return [id, { ...tag, category }];
+      return [id, {
+        ...tag,
+        label,
+        normalizedLabel: normalizeTagLabel(label),
+        category: label === tag.label ? category : "custom",
+      }];
     }),
   );
   return changed
@@ -621,6 +726,8 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       name: "새벽 드라이브",
       description: "도시의 불빛이 길게 번지는 시간",
       color: "violet",
+      kind: "manual",
+      systemKey: null,
       sortOrder: 0,
       source: "seed",
       createdAt: "2025-07-10T02:10:00.000Z",
@@ -632,6 +739,8 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       name: "겨울의 기억",
       description: "차갑고 따뜻했던 오래된 장면들",
       color: "cyan",
+      kind: "manual",
+      systemKey: null,
       sortOrder: 1,
       source: "seed",
       createdAt: "2025-07-09T02:10:00.000Z",
@@ -643,6 +752,8 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       name: "첫 자취방",
       description: "작은 방에서 혼자 크게 틀어두던 노래",
       color: "coral",
+      kind: "manual",
+      systemKey: null,
       sortOrder: 2,
       source: "seed",
       createdAt: "2025-07-08T02:10:00.000Z",
@@ -650,22 +761,22 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
     },
   };
 
-  const tagSeeds: Array<[string, string, TagCategory]> = [
-    ["cold", "차가운", "emotion"],
-    ["urban", "도시적인", "situation"],
-    ["rushing", "질주하는", "emotion"],
-    ["nostalgic", "그리운", "emotion"],
-    ["warm", "따뜻한", "emotion"],
-    ["uneasy-youth", "불안했던 청춘", "custom"],
-    ["bright", "눈부신", "emotion"],
-    ["open-road", "탁 트인", "situation"],
-    ["hazy", "몽환적인", "emotion"],
-    ["solitary", "혼자 듣는", "situation"],
-    ["restless", "들뜬", "emotion"],
-    ["bedroom", "방 안의", "situation"],
+  const tagSeeds: Array<[string, string]> = [
+    ["cold", "혼자 걷는 밤"],
+    ["urban", "새벽에 운전할 때"],
+    ["rushing", "운동할 때"],
+    ["nostalgic", "과거에 좋아했던 음악"],
+    ["warm", "첫 자취방에서"],
+    ["uneasy-youth", "불안했던 시절"],
+    ["bright", "여름이 시작될 때"],
+    ["open-road", "멀리 떠날 때"],
+    ["hazy", "잠들기 전"],
+    ["solitary", "혼자 있고 싶을 때"],
+    ["restless", "기분을 바꾸고 싶을 때"],
+    ["bedroom", "방 안에서 듣던 음악"],
   ];
   const tags = Object.fromEntries(
-    tagSeeds.map(([slug, label, category]) => {
+    tagSeeds.map(([slug, label]) => {
       const id = `seed:tag:${slug}`;
       return [
         id,
@@ -673,7 +784,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
           id,
           label,
           normalizedLabel: normalizeTagLabel(label),
-          category,
+          category: "custom",
           source: "seed",
           createdAt: SEED_NOW,
         } satisfies TagDefinition,
@@ -692,7 +803,6 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       { kind: "month", year: 2023, month: 7 },
       "한강 북단",
       "",
-      "새벽 두 시, 신호가 모두 초록색이었던 날.",
     ),
     "seed:cube-track:dawn-summer": seedCubeTrack(
       "dawn-summer",
@@ -704,7 +814,6 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       { kind: "month", year: 2022, month: 7 },
       "동해안 국도",
       "친구들",
-      "창문을 내리고 따라 부르던 후렴.",
     ),
     "seed:cube-track:winter-radio": seedCubeTrack(
       "winter-radio",
@@ -716,7 +825,6 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       { kind: "season", year: 2018, season: "winter" },
       "학교 앞 카페",
       "",
-      "같은 Radio지만 이곳에서는 속도보다 온기가 먼저 떠오른다.",
     ),
     "seed:cube-track:winter-violet": seedCubeTrack(
       "winter-violet",
@@ -728,7 +836,6 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       { kind: "season", year: 2018, season: "winter" },
       "버스 맨 뒷자리",
       "",
-      "이어폰 한쪽이 자꾸 끊기던 겨울.",
     ),
     "seed:cube-track:room-pinktop": seedCubeTrack(
       "room-pinktop",
@@ -740,7 +847,6 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       { kind: "month", year: 2021, month: 9 },
       "첫 자취방",
       "",
-      "이웃이 없을 때만 볼륨을 끝까지 올렸다.",
     ),
     "seed:cube-track:room-l": seedCubeTrack(
       "room-l",
@@ -752,7 +858,6 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       { kind: "month", year: 2024, month: 7 },
       "첫 자취방",
       "",
-      "불을 끄고 앨범 한 장을 처음부터 끝까지 듣던 밤.",
     ),
   };
 
@@ -795,7 +900,6 @@ function seedCubeTrack(
   memoryPeriod: MemoryPeriod,
   place: string,
   people: string,
-  memo: string,
 ): CubeTrack {
   return {
     id: `seed:cube-track:${slug}`,
@@ -806,20 +910,54 @@ function seedCubeTrack(
     memoryPeriod,
     place,
     people,
-    notes: memo
-      ? [{
-          id: `seed:memory-note:${slug}`,
-          listenedOn: null,
-          body: memo,
-          createdAt: SEED_NOW,
-          updatedAt: SEED_NOW,
-        }]
-      : [],
+    notes: seedMemoryNotes(slug),
     sortOrder,
     source: "seed",
     createdAt: SEED_NOW,
     updatedAt: SEED_NOW,
   };
+}
+
+function seedMemoryNotes(slug: string): MemoryNote[] {
+  return (SEED_MEMORY_FIXTURES[slug] ?? []).map((fixture, index) => ({
+    id: index === 0 ? `seed:memory-note:${slug}` : `seed:memory-note:${slug}:${index + 1}`,
+    listenedOn: fixture.listenedOn,
+    body: fixture.body,
+    createdAt: SEED_NOW,
+    updatedAt: SEED_NOW,
+  }));
+}
+
+function refreshLegacySeedMemory(archive: ArchiveEnvelopeV1): ArchiveEnvelopeV1 {
+  let changed = false;
+  const cubeTracks = { ...archive.data.cubeTracks };
+
+  Object.entries(SEED_MEMORY_FIXTURES).forEach(([slug, fixtures]) => {
+    const cubeTrackId = `seed:cube-track:${slug}`;
+    const current = cubeTracks[cubeTrackId];
+    const primaryId = `seed:memory-note:${slug}`;
+    const legacyPrimary = current?.notes.find((note) => note.id === primaryId);
+    if (
+      !current
+      || current.source !== "seed"
+      || !legacyPrimary
+      || legacyPrimary.listenedOn !== null
+      || legacyPrimary.body !== fixtures[0]?.body
+    ) return;
+
+    const bundledNotes = seedMemoryNotes(slug);
+    const bundledIds = new Set(bundledNotes.map((note) => note.id));
+    const userNotes = current.notes.filter((note) => !bundledIds.has(note.id));
+    cubeTracks[cubeTrackId] = {
+      ...current,
+      notes: [...bundledNotes, ...userNotes],
+    };
+    changed = true;
+  });
+
+  return changed
+    ? { ...archive, data: { ...archive.data, cubeTracks } }
+    : archive;
 }
 
 function registrationMonth(value: string): { key: string; year: number; month: number } {
@@ -839,16 +977,38 @@ function ensureMonthlyChapter(
   now: string,
 ): ArchiveEnvelopeV1 {
   const { key, month } = registrationMonth(registeredAt);
-  const chapterId = `month:${key}`;
-  const withChapter = archive.data.cubes[chapterId]
-    ? archive
-    : createCube(archive, {
-        id: chapterId,
-        name: `${month}월`,
-        description: `${month}월에 등록한 곡들`,
-        color: CUBE_COLORS[(month - 1) % CUBE_COLORS.length],
-      }, now).archive;
-  return addTrackToCube(withChapter, trackId, chapterId, now).archive;
+  const systemKey: CubeSystemKey = `month:${key}`;
+  const existing = Object.values(archive.data.cubes).find(
+    (cube) => cube.kind === "monthly" && cube.systemKey === systemKey,
+  );
+  if (existing) return addTrackToCubeInternal(archive, trackId, existing.id, now).archive;
+
+  const canonicalId = `month:${key}`;
+  let chapterId = canonicalId;
+  let suffix = 1;
+  while (archive.data.cubes[chapterId]) {
+    chapterId = `${canonicalId}:system-${suffix}`;
+    suffix += 1;
+  }
+  const cube: Cube = {
+    id: chapterId,
+    parentId: null,
+    name: `${month}월`,
+    description: `${month}월에 등록한 곡들`,
+    color: CUBE_COLORS[(month - 1) % CUBE_COLORS.length],
+    kind: "monthly",
+    systemKey,
+    sortOrder: Object.values(archive.data.cubes).filter((item) => item.parentId === null).length,
+    source: "user",
+    createdAt: now,
+    updatedAt: now,
+  };
+  const withChapter = withData(
+    archive,
+    { ...archive.data, cubes: { ...archive.data.cubes, [chapterId]: cube } },
+    now,
+  );
+  return addTrackToCubeInternal(withChapter, trackId, chapterId, now).archive;
 }
 
 export function captureTrack(
@@ -874,6 +1034,8 @@ export function captureTrackToInbox(
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
   const captured = captureTrack(archive, track, now);
+  const summary = getTrackArchiveSummary(captured, track.id);
+  if (summary.captureState || summary.manualContextStates.length > 0) return captured;
   const existing = captured.data.inbox[track.id];
   if (existing) return captured;
 
@@ -931,7 +1093,10 @@ function assertValidCubeParent(
   if (parentId === cubeId) {
     throw new ArchiveDomainError("invalid-input", "챕터 계층에 순환이 생길 수 없습니다.");
   }
-  assertRecord(cubes, parentId, "상위 챕터");
+  const parent = assertRecord(cubes, parentId, "상위 챕터");
+  if (!isUserVisibleChapter(parent)) {
+    throw new ArchiveDomainError("invalid-input", "시스템 챕터는 상위 챕터가 될 수 없습니다.");
+  }
 
   const visited = new Set<string>();
   let currentId: string | null = parentId;
@@ -965,6 +1130,8 @@ export function createCube(
       ARCHIVE_LIMITS.cubeDescription,
     ),
     color: input.color ?? "violet",
+    kind: "manual",
+    systemKey: null,
     sortOrder: Object.values(archive.data.cubes).filter(
       (candidate) => candidate.parentId === parentId,
     ).length,
@@ -990,6 +1157,9 @@ export function updateCube(
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
   const current = assertRecord(archive.data.cubes, cubeId, "챕터");
+  if (!isUserVisibleChapter(current)) {
+    throw new ArchiveDomainError("invalid-input", "시스템 챕터는 수정할 수 없습니다.");
+  }
   if (input.color !== undefined && !CUBE_COLORS.includes(input.color)) {
     throw new ArchiveDomainError("invalid-input", "지원하지 않는 챕터 색상입니다.");
   }
@@ -1039,6 +1209,9 @@ export function deleteCube(
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
   const current = assertRecord(archive.data.cubes, cubeId, "챕터");
+  if (!isUserVisibleChapter(current)) {
+    throw new ArchiveDomainError("invalid-input", "시스템 챕터는 삭제할 수 없습니다.");
+  }
   const cubes = { ...archive.data.cubes };
   delete cubes[cubeId];
   const children = Object.values(cubes)
@@ -1084,6 +1257,19 @@ export function addTrackToCube(
   trackId: TrackId,
   cubeId: string,
   now = nowIso(),
+): { archive: ArchiveEnvelopeV1; cubeTrack: CubeTrack; added: boolean } {
+  const cube = assertRecord(archive.data.cubes, cubeId, "챕터");
+  if (!isUserVisibleChapter(cube)) {
+    throw new ArchiveDomainError("invalid-input", "시스템 챕터에는 직접 곡을 추가할 수 없습니다.");
+  }
+  return addTrackToCubeInternal(archive, trackId, cubeId, now);
+}
+
+function addTrackToCubeInternal(
+  archive: ArchiveEnvelopeV1,
+  trackId: TrackId,
+  cubeId: string,
+  now: string,
 ): { archive: ArchiveEnvelopeV1; cubeTrack: CubeTrack; added: boolean } {
   assertRecord(archive.data.tracks, trackId, "곡");
   assertRecord(archive.data.cubes, cubeId, "챕터");
@@ -1138,6 +1324,10 @@ export function moveInboxTrackToCube(
   if (!archive.data.inbox[trackId]) {
     throw new ArchiveDomainError("not-found", "임시 보관함에서 곡을 찾을 수 없습니다.");
   }
+  const destination = assertRecord(archive.data.cubes, cubeId, "챕터");
+  if (!isUserVisibleChapter(destination)) {
+    throw new ArchiveDomainError("invalid-input", "사용자 챕터로만 곡을 옮길 수 있습니다.");
+  }
   const added = addTrackToCube(archive, trackId, cubeId, now);
   const inbox = { ...added.archive.data.inbox };
   delete inbox[trackId];
@@ -1147,13 +1337,143 @@ export function moveInboxTrackToCube(
   };
 }
 
+function ensureCaptureCube(
+  archive: ArchiveEnvelopeV1,
+  now: string,
+): { archive: ArchiveEnvelopeV1; cube: Cube } {
+  const existing = getCaptureCube(archive);
+  if (existing) return { archive, cube: existing };
+
+  const canonicalId = "system:capture";
+  let id = canonicalId;
+  let suffix = 1;
+  while (archive.data.cubes[id]) {
+    id = `${canonicalId}:${suffix}`;
+    suffix += 1;
+  }
+  const cube: Cube = {
+    id,
+    parentId: null,
+    name: "키워드 기록",
+    description: "아직 챕터를 정하지 않은 음악 기록",
+    color: "violet",
+    kind: "capture",
+    systemKey: "capture",
+    sortOrder: Object.values(archive.data.cubes).filter((item) => item.parentId === null).length,
+    source: "user",
+    createdAt: now,
+    updatedAt: now,
+  };
+  return {
+    archive: withData(
+      archive,
+      { ...archive.data, cubes: { ...archive.data.cubes, [id]: cube } },
+      now,
+    ),
+    cube,
+  };
+}
+
+/** Atomically turns an Inbox capture into an unassigned, tagged memory. */
+export function archiveInboxTrackWithTags(
+  archive: ArchiveEnvelopeV1,
+  trackId: TrackId,
+  inputs: Array<string | TagInput>,
+  now = nowIso(),
+): { archive: ArchiveEnvelopeV1; cubeTrack: CubeTrack } {
+  if (!archive.data.inbox[trackId]) {
+    throw new ArchiveDomainError("not-found", "임시 보관함에서 곡을 찾을 수 없습니다.");
+  }
+  if (inputs.length === 0) {
+    throw new ArchiveDomainError("invalid-input", "아카이빙을 시작하려면 키워드가 하나 필요합니다.");
+  }
+  if (inputs.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
+    throw new ArchiveDomainError(
+      "limit-exceeded",
+      `곡마다 태그를 ${ARCHIVE_LIMITS.tagsPerCubeTrack}개까지 붙일 수 있습니다.`,
+    );
+  }
+
+  const created = createTags(archive, inputs, now);
+  const capture = ensureCaptureCube(created.archive, now);
+  const added = addTrackToCubeInternal(capture.archive, trackId, capture.cube.id, now);
+  const tagged = setCubeTrackTagIds(
+    added.archive,
+    added.cubeTrack.id,
+    created.tags.map((tag) => tag.id),
+    now,
+  );
+  const inbox = { ...tagged.data.inbox };
+  delete inbox[trackId];
+  const next = withData(tagged, { ...tagged.data, inbox }, now);
+  return { archive: next, cubeTrack: next.data.cubeTracks[added.cubeTrack.id] };
+}
+
+export type MoveCaptureTrackResult =
+  | { status: "moved"; archive: ArchiveEnvelopeV1; cubeTrack: CubeTrack }
+  | { status: "duplicate"; archive: ArchiveEnvelopeV1; existingCubeTrack: CubeTrack };
+
+/** Moves an unassigned memory without changing its stable identity or contents. */
+export function moveCaptureTrackToCube(
+  archive: ArchiveEnvelopeV1,
+  cubeTrackId: string,
+  destinationCubeId: string,
+  now = nowIso(),
+): MoveCaptureTrackResult {
+  const current = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const source = assertRecord(archive.data.cubes, current.cubeId, "챕터");
+  const destination = assertRecord(archive.data.cubes, destinationCubeId, "챕터");
+  if (source.kind !== "capture") {
+    throw new ArchiveDomainError("invalid-input", "미분류 기록만 챕터로 옮길 수 있습니다.");
+  }
+  if (!isUserVisibleChapter(destination)) {
+    throw new ArchiveDomainError("invalid-input", "사용자 챕터로만 곡을 옮길 수 있습니다.");
+  }
+  const duplicate = Object.values(archive.data.cubeTracks).find(
+    (item) => item.cubeId === destinationCubeId && item.trackId === current.trackId,
+  );
+  if (duplicate) {
+    return { status: "duplicate", archive, existingCubeTrack: duplicate };
+  }
+
+  const sortOrder = Object.values(archive.data.cubeTracks).filter(
+    (item) => item.cubeId === destinationCubeId,
+  ).length;
+  const cubeTrack = { ...current, cubeId: destinationCubeId, sortOrder, updatedAt: now };
+  const cubes = {
+    ...archive.data.cubes,
+    [source.id]: { ...source, updatedAt: now },
+    [destination.id]: { ...destination, updatedAt: now },
+  };
+  const next = withData(
+    archive,
+    {
+      ...archive.data,
+      cubes,
+      cubeTracks: { ...archive.data.cubeTracks, [cubeTrackId]: cubeTrack },
+    },
+    now,
+  );
+  return { status: "moved", archive: next, cubeTrack };
+}
+
+/** Adds an intentionally blank, independent memory to another manual chapter. */
+export function addIndependentTrackMemory(
+  archive: ArchiveEnvelopeV1,
+  trackId: TrackId,
+  cubeId: string,
+  now = nowIso(),
+): { archive: ArchiveEnvelopeV1; cubeTrack: CubeTrack; added: boolean } {
+  return addTrackToCube(archive, trackId, cubeId, now);
+}
+
 export function updateCubeTrack(
   archive: ArchiveEnvelopeV1,
   cubeTrackId: string,
   input: UpdateCubeTrackInput,
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
-  const current = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const current = assertEditableCubeTrack(archive, cubeTrackId);
   const next: CubeTrack = {
     ...current,
     ...(input.character === undefined
@@ -1232,7 +1552,7 @@ export function addCubeTrackNote(
   input: MemoryNoteInput,
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
-  const current = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const current = assertEditableCubeTrack(archive, cubeTrackId);
   if (current.notes.length >= ARCHIVE_LIMITS.notesPerCubeTrack) {
     throw new ArchiveDomainError(
       "limit-exceeded",
@@ -1260,7 +1580,7 @@ export function updateCubeTrackNote(
   input: MemoryNoteInput,
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
-  const current = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const current = assertEditableCubeTrack(archive, cubeTrackId);
   const noteIndex = current.notes.findIndex((note) => note.id === noteId);
   if (noteIndex < 0) {
     throw new ArchiveDomainError("not-found", "메모를 찾을 수 없습니다.");
@@ -1277,7 +1597,7 @@ export function removeCubeTrackNote(
   noteId: string,
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
-  const current = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const current = assertEditableCubeTrack(archive, cubeTrackId);
   if (!current.notes.some((note) => note.id === noteId)) {
     throw new ArchiveDomainError("not-found", "메모를 찾을 수 없습니다.");
   }
@@ -1304,7 +1624,7 @@ export function removeCubeTrack(
   cubeTrackId: string,
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
-  const current = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const current = assertEditableCubeTrack(archive, cubeTrackId);
   const cubeTracks = { ...archive.data.cubeTracks };
   delete cubeTracks[cubeTrackId];
   const siblings = Object.values(cubeTracks)
@@ -1313,8 +1633,67 @@ export function removeCubeTrack(
   siblings.forEach((item, index) => {
     cubeTracks[item.id] = { ...item, sortOrder: index };
   });
+  const cube = archive.data.cubes[current.cubeId];
+  if (cube?.kind === "capture") {
+    const removed = withData(archive, { ...archive.data, cubeTracks }, now);
+    const restored = restoreInboxWhenUnarchived(removed, current.trackId, now);
+    return withData(restored, pruneUnreferencedTracks(restored.data), now);
+  }
   const data = pruneUnreferencedTracks({ ...archive.data, cubeTracks });
   return withData(archive, data, now);
+}
+
+function hasPersonalContent(cubeTrack: CubeTrack): boolean {
+  return Boolean(
+    cubeTrack.character.trim()
+    || cubeTrack.memoryPeriod
+    || cubeTrack.place.trim()
+    || cubeTrack.people.trim()
+    || cubeTrack.notes.length,
+  );
+}
+
+function hasPersonalContext(archive: ArchiveEnvelopeV1, trackId: TrackId): boolean {
+  return Object.values(archive.data.cubeTracks).some((cubeTrack) => {
+    if (cubeTrack.trackId !== trackId) return false;
+    const cube = archive.data.cubes[cubeTrack.cubeId];
+    return cube?.kind === "manual" || cube?.kind === "capture";
+  });
+}
+
+function restoreInboxWhenUnarchived(
+  archive: ArchiveEnvelopeV1,
+  trackId: TrackId,
+  now: string,
+): ArchiveEnvelopeV1 {
+  if (hasPersonalContext(archive, trackId) || archive.data.inbox[trackId]) return archive;
+  return withData(
+    archive,
+    {
+      ...archive.data,
+      inbox: {
+        ...archive.data.inbox,
+        [trackId]: { trackId, capturedAt: now, source: "user" },
+      },
+    },
+    now,
+  );
+}
+
+function normalizeCaptureAfterTagChange(
+  archive: ArchiveEnvelopeV1,
+  cubeTrackId: string,
+  now: string,
+): ArchiveEnvelopeV1 {
+  const cubeTrack = archive.data.cubeTracks[cubeTrackId];
+  if (!cubeTrack || cubeTrack.tagIds.length > 0) return archive;
+  const cube = archive.data.cubes[cubeTrack.cubeId];
+  if (cube?.kind !== "capture" || hasPersonalContent(cubeTrack)) return archive;
+
+  const cubeTracks = { ...archive.data.cubeTracks };
+  delete cubeTracks[cubeTrackId];
+  const withoutCapture = withData(archive, { ...archive.data, cubeTracks }, now);
+  return restoreInboxWhenUnarchived(withoutCapture, cubeTrack.trackId, now);
 }
 
 export function setCubeTrackTags(
@@ -1450,7 +1829,16 @@ export function deleteTag(
       changedCubeIds.has(id) ? { ...cube, updatedAt: now } : cube,
     ]),
   );
-  return withData(archive, { ...archive.data, tags, cubeTracks, cubes }, now);
+  const removed = withData(archive, { ...archive.data, tags, cubeTracks, cubes }, now);
+  return [...changedCubeIds].reduce((currentArchive, cubeId) => {
+    const affectedIds = Object.values(currentArchive.data.cubeTracks)
+      .filter((item) => item.cubeId === cubeId)
+      .map((item) => item.id);
+    return affectedIds.reduce(
+      (nextArchive, cubeTrackId) => normalizeCaptureAfterTagChange(nextArchive, cubeTrackId, now),
+      currentArchive,
+    );
+  }, removed);
 }
 
 export function setCubeTrackTagIds(
@@ -1459,7 +1847,7 @@ export function setCubeTrackTagIds(
   inputTagIds: string[],
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
-  const cubeTrack = assertRecord(archive.data.cubeTracks, cubeTrackId, "곡 기록");
+  const cubeTrack = assertEditableCubeTrack(archive, cubeTrackId);
   const tagIds = [...new Set(inputTagIds)];
   tagIds.forEach((tagId) => assertRecord(archive.data.tags, tagId, "태그"));
   if (tagIds.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
@@ -1469,7 +1857,7 @@ export function setCubeTrackTagIds(
     );
   }
   const nextCubeTrack = { ...cubeTrack, tagIds, updatedAt: now };
-  return withData(
+  const updated = withData(
     archive,
     {
       ...archive.data,
@@ -1484,6 +1872,7 @@ export function setCubeTrackTagIds(
     },
     now,
   );
+  return normalizeCaptureAfterTagChange(updated, cubeTrackId, now);
 }
 
 export function reorderCubeTracks(
@@ -1492,7 +1881,10 @@ export function reorderCubeTracks(
   orderedIds: string[],
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
-  assertRecord(archive.data.cubes, cubeId, "챕터");
+  const cube = assertRecord(archive.data.cubes, cubeId, "챕터");
+  if (cube.kind === "monthly") {
+    throw new ArchiveDomainError("invalid-input", "월별 자동 기록은 편집할 수 없습니다.");
+  }
   const currentIds = Object.values(archive.data.cubeTracks)
     .filter((item) => item.cubeId === cubeId)
     .map((item) => item.id);
@@ -1526,9 +1918,170 @@ function assertSameIds(currentIds: string[], orderedIds: string[], label: string
   }
 }
 
+export function isUserVisibleChapter(cube: Cube | undefined | null): cube is Cube {
+  return cube?.kind === "manual" && cube.systemKey === null;
+}
+
+export function getCaptureCube(archive: ArchiveEnvelopeV1): Cube | null {
+  return Object.values(archive.data.cubes).find(
+    (cube) => cube.kind === "capture" && cube.systemKey === "capture",
+  ) ?? null;
+}
+
+export function getUserVisibleChapters(archive: ArchiveEnvelopeV1): Cube[] {
+  return Object.values(archive.data.cubes)
+    .filter(isUserVisibleChapter)
+    .sort(compareCubeOrder);
+}
+
+export function getContextArchiveState(
+  archive: ArchiveEnvelopeV1,
+  cubeTrackOrId: CubeTrack | string,
+): ContextArchiveState {
+  const cubeTrack = typeof cubeTrackOrId === "string"
+    ? assertRecord(archive.data.cubeTracks, cubeTrackOrId, "곡 기록")
+    : cubeTrackOrId;
+  const cube = assertRecord(archive.data.cubes, cubeTrack.cubeId, "챕터");
+  if (cube.kind === "monthly") return "monthly";
+  if (cube.kind === "capture") {
+    return cubeTrack.tagIds.length > 0 ? "unassigned-archived" : "unassigned-draft";
+  }
+  return cubeTrack.tagIds.length > 0 ? "chapter-archived" : "chapter-only";
+}
+
+export function getTrackArchiveSummary(
+  archive: ArchiveEnvelopeV1,
+  trackId: TrackId,
+): TrackArchiveSummary {
+  const summary: TrackArchiveSummary = {
+    trackId,
+    hasInbox: Boolean(archive.data.inbox[trackId]),
+    captureState: null,
+    captureContextId: null,
+    manualContextStates: [],
+    monthlyContextIds: [],
+  };
+  Object.values(archive.data.cubeTracks)
+    .filter((cubeTrack) => cubeTrack.trackId === trackId)
+    .forEach((cubeTrack) => {
+      const cube = archive.data.cubes[cubeTrack.cubeId];
+      if (!cube) return;
+      if (cube.kind === "monthly") {
+        summary.monthlyContextIds.push(cubeTrack.id);
+      } else if (cube.kind === "capture") {
+        summary.captureContextId = cubeTrack.id;
+        summary.captureState = getContextArchiveState(archive, cubeTrack) as TrackArchiveSummary["captureState"];
+      } else {
+        summary.manualContextStates.push({
+          cubeTrackId: cubeTrack.id,
+          cubeId: cube.id,
+          state: getContextArchiveState(archive, cubeTrack) as "chapter-only" | "chapter-archived",
+        });
+      }
+    });
+  summary.manualContextStates.sort((left, right) => left.cubeTrackId.localeCompare(right.cubeTrackId));
+  summary.monthlyContextIds.sort();
+  return summary;
+}
+
+export function getContextualMemoriesForTrack(
+  archive: ArchiveEnvelopeV1,
+  trackId: TrackId,
+  tagIds: string[] = [],
+): ContextualMemory[] {
+  const requiredTags = new Set(tagIds);
+  return Object.values(archive.data.cubeTracks)
+    .filter((cubeTrack) => cubeTrack.trackId === trackId)
+    .map((cubeTrack) => ({ cubeTrack, cube: archive.data.cubes[cubeTrack.cubeId] }))
+    .filter((item): item is { cubeTrack: CubeTrack; cube: Cube } => Boolean(item.cube))
+    .filter(({ cube }) => cube.kind !== "monthly")
+    .filter(({ cubeTrack }) => (
+      requiredTags.size === 0 || [...requiredTags].every((tagId) => cubeTrack.tagIds.includes(tagId))
+    ))
+    .map(({ cubeTrack, cube }) => ({
+      cubeTrack,
+      cube,
+      tags: cubeTrack.tagIds
+        .map((tagId) => archive.data.tags[tagId])
+        .filter((tag): tag is TagDefinition => Boolean(tag)),
+    }))
+    .sort((left, right) => (
+      right.cubeTrack.updatedAt.localeCompare(left.cubeTrack.updatedAt)
+      || left.cubeTrack.id.localeCompare(right.cubeTrack.id)
+    ));
+}
+
+export function getTagGroupResults(
+  archive: ArchiveEnvelopeV1,
+  tagIds: string[],
+): TagGroupResult[] {
+  const uniqueTagIds = [...new Set(tagIds)];
+  uniqueTagIds.forEach((tagId) => assertRecord(archive.data.tags, tagId, "태그"));
+  if (uniqueTagIds.length === 0) return [];
+
+  const byTrack = new Map<TrackId, ContextualMemory[]>();
+  Object.keys(archive.data.tracks).forEach((trackId) => {
+    const memories = getContextualMemoriesForTrack(archive, trackId as TrackId, uniqueTagIds);
+    if (memories.length) byTrack.set(trackId as TrackId, memories);
+  });
+  return [...byTrack.entries()]
+    .map(([trackId, memories]) => ({ track: archive.data.tracks[trackId], memories }))
+    .filter((item): item is TagGroupResult => Boolean(item.track))
+    .sort((left, right) => (
+      right.memories[0].cubeTrack.updatedAt.localeCompare(left.memories[0].cubeTrack.updatedAt)
+      || left.track.title.localeCompare(right.track.title, "ko-KR")
+      || left.track.id.localeCompare(right.track.id)
+    ));
+}
+
+/** Returns the user's reusable vocabulary in deterministic recommendation order. */
+export function getTagGroups(
+  archive: ArchiveEnvelopeV1,
+  contextCubeTrackId?: string,
+): TagGroup[] {
+  const context = contextCubeTrackId
+    ? archive.data.cubeTracks[contextCubeTrackId]
+    : undefined;
+  const selected = new Set(context?.tagIds ?? []);
+  const contextCubeId = context?.cubeId;
+
+  const groups = Object.values(archive.data.tags).map((tag) => {
+    const memories = Object.values(archive.data.cubeTracks).filter((cubeTrack) => {
+      const cube = archive.data.cubes[cubeTrack.cubeId];
+      return cube?.kind !== "monthly" && cubeTrack.tagIds.includes(tag.id);
+    });
+    return {
+      tag,
+      trackCount: new Set(memories.map((memory) => memory.trackId)).size,
+      memoryCount: memories.length,
+      updatedAt: memories.reduce<string | null>(
+        (latest, memory) => !latest || memory.updatedAt > latest ? memory.updatedAt : latest,
+        null,
+      ),
+      contextCount: contextCubeId
+        ? memories.filter((memory) => memory.cubeId === contextCubeId).length
+        : 0,
+    };
+  });
+
+  return groups.sort((left, right) => (
+    Number(selected.has(right.tag.id)) - Number(selected.has(left.tag.id))
+    || right.contextCount - left.contextCount
+    || right.memoryCount - left.memoryCount
+    || (right.updatedAt ?? "").localeCompare(left.updatedAt ?? "")
+    || left.tag.label.localeCompare(right.tag.label, "ko-KR")
+    || left.tag.id.localeCompare(right.tag.id)
+  )).map((group) => ({
+    tag: group.tag,
+    trackCount: group.trackCount,
+    memoryCount: group.memoryCount,
+    updatedAt: group.updatedAt,
+  }));
+}
+
 export function getRootCubes(archive: ArchiveEnvelopeV1): Cube[] {
   return Object.values(archive.data.cubes)
-    .filter((cube) => cube.parentId === null)
+    .filter((cube) => cube.parentId === null && isUserVisibleChapter(cube))
     .sort(compareCubeOrder);
 }
 
@@ -1538,7 +2091,7 @@ export function getChildCubes(
 ): Cube[] {
   assertRecord(archive.data.cubes, parentId, "상위 챕터");
   return Object.values(archive.data.cubes)
-    .filter((cube) => cube.parentId === parentId)
+    .filter((cube) => cube.parentId === parentId && isUserVisibleChapter(cube))
     .sort(compareCubeOrder);
 }
 
@@ -1566,7 +2119,7 @@ export function getCubeAncestors(
 
 export function getCubesInTreeOrder(archive: ArchiveEnvelopeV1): Cube[] {
   const childrenByParent = new Map<string | null, Cube[]>();
-  Object.values(archive.data.cubes).forEach((cube) => {
+  getUserVisibleChapters(archive).forEach((cube) => {
     const siblings = childrenByParent.get(cube.parentId) ?? [];
     siblings.push(cube);
     childrenByParent.set(cube.parentId, siblings);
@@ -1615,7 +2168,7 @@ export function searchArchive(
   for (const cubeTrack of Object.values(archive.data.cubeTracks)) {
     const track = archive.data.tracks[cubeTrack.trackId];
     const cube = archive.data.cubes[cubeTrack.cubeId];
-    if (!track || !cube) continue;
+    if (!track || !cube || cube.kind === "monthly") continue;
     if (cubeIds.size && !cubeIds.has(cube.id)) continue;
     const matchesTagIds = [...requiredTagIds].filter((tagId) => cubeTrack.tagIds.includes(tagId));
     if (
@@ -1950,6 +2503,24 @@ export function validateArchiveEnvelope(value: unknown): value is ArchiveEnvelop
     return false;
   }
   if (!hasValidCubeHierarchy(cubes as Record<string, Cube>)) return false;
+  if (!hasValidSystemCubes(cubes as Record<string, Cube>)) return false;
+
+  const seenCubeTracks = new Set<string>();
+  for (const item of Object.values(cubeTracks)) {
+    if (!isCubeTrack(item)) return false;
+    const identity = `${item.cubeId}\u0000${item.trackId}`;
+    if (seenCubeTracks.has(identity)) return false;
+    seenCubeTracks.add(identity);
+  }
+
+  for (const trackId of Object.keys(inbox)) {
+    const hasPersonalMemory = Object.values(cubeTracks).some((item) => {
+      if (!isCubeTrack(item) || item.trackId !== trackId) return false;
+      const cube = cubes[item.cubeId];
+      return isCube(cube) && (cube.kind === "manual" || cube.kind === "capture");
+    });
+    if (hasPersonalMemory) return false;
+  }
 
   return Object.entries(cubeTracks).every(([id, item]) => {
     if (!isCubeTrack(item) || item.id !== id) return false;
@@ -1959,6 +2530,36 @@ export function validateArchiveEnvelope(value: unknown): value is ArchiveEnvelop
       item.tagIds.every((tagId) => Boolean(tags[tagId]))
     );
   });
+}
+
+function hasValidSystemCubes(cubes: Record<string, Cube>): boolean {
+  const captureCubes = Object.values(cubes).filter((cube) => cube.kind === "capture");
+  if (captureCubes.length > 1) return false;
+  const capture = captureCubes[0];
+  if (
+    capture
+    && (
+      capture.systemKey !== "capture"
+      || capture.parentId !== null
+      || Object.values(cubes).some((cube) => cube.parentId === capture.id)
+    )
+  ) return false;
+
+  const monthKeys = new Set<string>();
+  for (const cube of Object.values(cubes)) {
+    if (cube.kind === "manual" && cube.systemKey !== null) return false;
+    if (cube.kind === "capture" && cube.systemKey !== "capture") return false;
+    if (cube.kind === "monthly") {
+      if (
+        typeof cube.systemKey !== "string"
+        || !/^month:\d{4}-(?:0[1-9]|1[0-2])$/.test(cube.systemKey)
+        || cube.parentId !== null
+        || monthKeys.has(cube.systemKey)
+      ) return false;
+      monthKeys.add(cube.systemKey);
+    }
+  }
+  return true;
 }
 
 function hasValidCubeHierarchy(cubes: Record<string, Cube>): boolean {
@@ -2020,6 +2621,8 @@ function isCube(value: unknown): value is Cube {
     typeof value.description === "string" &&
     value.description.length <= ARCHIVE_LIMITS.cubeDescription &&
     CUBE_COLORS.includes(value.color as CubeColor) &&
+    ["manual", "monthly", "capture"].includes(value.kind as CubeKind) &&
+    (value.systemKey === null || typeof value.systemKey === "string") &&
     Number.isInteger(value.sortOrder) &&
     (value.source === "seed" || value.source === "user") &&
     validIsoDate(value.createdAt) &&
@@ -2231,6 +2834,96 @@ function addLegacyMemoryNotes(value: Record<string, unknown>): Record<string, un
   return { ...value, data: { ...value.data, cubeTracks } };
 }
 
+function hasLegacyMonthlySignature(
+  cubeId: string,
+  cube: Record<string, unknown>,
+  data: Record<string, unknown>,
+): string | null {
+  const match = /^month:(\d{4})-(\d{2})$/.exec(cubeId);
+  if (!match || cube.parentId !== null) return null;
+  const [, year, rawMonth] = match;
+  const month = Number(rawMonth);
+  if (month < 1 || month > 12) return null;
+  const validNames = new Set([`${month}월`, `${year}년 ${month}월`]);
+  const validDescriptions = new Set([
+    `${month}월에 등록한 곡들`,
+    `${year}년 ${month}월에 등록한 곡들`,
+  ]);
+  if (!validNames.has(String(cube.name)) || !validDescriptions.has(String(cube.description))) {
+    return null;
+  }
+  if (!isRecord(data.cubeTracks) || !isRecord(data.tracks)) return null;
+  const cubeTracks = data.cubeTracks;
+  const tracks = data.tracks;
+  const entries = Object.values(cubeTracks).filter(
+    (item) => isRecord(item) && item.cubeId === cubeId,
+  );
+  if (entries.length === 0) return null;
+  const expectedKey = `${year}-${rawMonth}`;
+  const allInMonth = entries.every((item) => {
+    if (!isRecord(item) || typeof item.trackId !== "string") return false;
+    const track = tracks[item.trackId];
+    if (!isRecord(track) || !validIsoDate(track.registeredAt)) return false;
+    return registrationMonth(track.registeredAt).key === expectedKey;
+  });
+  return allInMonth ? `month:${expectedKey}` : null;
+}
+
+function addLegacyCubeKinds(value: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(value.data) || !isRecord(value.data.cubes)) return value;
+  const data = value.data;
+  const sourceCubes = data.cubes as Record<string, unknown>;
+  const cubes = Object.fromEntries(
+    Object.entries(sourceCubes).map(([id, cube]) => {
+      if (!isRecord(cube)) return [id, cube];
+      const alreadyTyped = (
+        cube.kind === "manual" && cube.systemKey === null
+      ) || (
+        cube.kind === "capture" && cube.systemKey === "capture"
+      ) || (
+        cube.kind === "monthly"
+        && typeof cube.systemKey === "string"
+        && /^month:\d{4}-(?:0[1-9]|1[0-2])$/.test(cube.systemKey)
+      );
+      if (alreadyTyped) return [id, cube];
+      const monthlyKey = hasLegacyMonthlySignature(id, cube, data);
+      return [id, monthlyKey
+        ? { ...cube, kind: "monthly", systemKey: monthlyKey }
+        : { ...cube, kind: "manual", systemKey: null }];
+    }),
+  );
+  return { ...value, data: { ...data, cubes } };
+}
+
+function removeLegacyInboxConflicts(value: Record<string, unknown>): Record<string, unknown> {
+  if (
+    !isRecord(value.data)
+    || !isRecord(value.data.inbox)
+    || !isRecord(value.data.cubes)
+    || !isRecord(value.data.cubeTracks)
+  ) return value;
+  const personalTrackIds = new Set(
+    Object.values(value.data.cubeTracks)
+      .filter((item) => {
+        if (!isRecord(item) || typeof item.cubeId !== "string") return false;
+        const cube = value.data && isRecord(value.data) && isRecord(value.data.cubes)
+          ? value.data.cubes[item.cubeId]
+          : undefined;
+        return isRecord(cube) && (cube.kind === "manual" || cube.kind === "capture");
+      })
+      .map((item) => (item as Record<string, unknown>).trackId)
+      .filter((trackId): trackId is string => typeof trackId === "string"),
+  );
+  const inbox = Object.fromEntries(
+    Object.entries(value.data.inbox).filter(([trackId]) => !personalTrackIds.has(trackId)),
+  );
+  return { ...value, data: { ...value.data, inbox } };
+}
+
+function prepareLegacyEnvelope(value: Record<string, unknown>): Record<string, unknown> {
+  return removeLegacyInboxConflicts(addLegacyCubeKinds(value));
+}
+
 function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
   if (!isRecord(value.data) || !isRecord(value.data.tracks) || !validIsoDate(value.updatedAt)) {
     return null;
@@ -2254,7 +2947,7 @@ function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | 
     data: { ...value.data, tracks },
   }));
   if (!isRecord(structural)) return null;
-  const candidate = addLegacyMemoryNotes(structural);
+  const candidate = prepareLegacyEnvelope(addLegacyMemoryNotes(structural));
   if (!validateArchiveEnvelope(candidate)) return null;
 
   const userTrackIds = new Set<TrackId>();
@@ -2272,7 +2965,7 @@ function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | 
       migrated = ensureMonthlyChapter(migrated, trackId, registeredAt, migrated.updatedAt);
     }
   });
-  return normalizeArchiveTagCategories(migrated);
+  return normalizeArchiveTags(migrated);
 }
 
 function migrateVersionTwo(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
@@ -2281,29 +2974,39 @@ function migrateVersionTwo(value: Record<string, unknown>): ArchiveEnvelopeV1 | 
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
   }));
   if (!isRecord(structural)) return null;
-  const candidate = addLegacyMemoryNotes(structural);
+  const candidate = prepareLegacyEnvelope(addLegacyMemoryNotes(structural));
   return validateArchiveEnvelope(candidate)
-    ? normalizeArchiveTagCategories(candidate)
+    ? normalizeArchiveTags(candidate)
     : null;
 }
 
 function migrateVersionThree(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
-  const candidate = addLegacyMemoryNotes(addLegacyRootParents({
+  const candidate = prepareLegacyEnvelope(addLegacyMemoryNotes(addLegacyRootParents({
     ...value,
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
-  }));
+  })));
   return validateArchiveEnvelope(candidate)
-    ? normalizeArchiveTagCategories(candidate)
+    ? normalizeArchiveTags(candidate)
     : null;
 }
 
 function migrateVersionFour(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
-  const candidate = addLegacyMemoryNotes({
+  const candidate = prepareLegacyEnvelope(addLegacyMemoryNotes({
+    ...value,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  }));
+  return validateArchiveEnvelope(candidate)
+    ? normalizeArchiveTags(candidate)
+    : null;
+}
+
+function migrateVersionFive(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
+  const candidate = prepareLegacyEnvelope({
     ...value,
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
   });
   return validateArchiveEnvelope(candidate)
-    ? normalizeArchiveTagCategories(candidate)
+    ? normalizeArchiveTags(candidate)
     : null;
 }
 
@@ -2336,10 +3039,16 @@ export function migrateArchive(value: unknown): MigrationResult {
       ? { status: "ok", archive: migrated, migrated: true }
       : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
+  if (value.schemaVersion === 5) {
+    const migrated = migrateVersionFive(value);
+    return migrated
+      ? { status: "ok", archive: migrated, migrated: true }
+      : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+  }
   if (!validateArchiveEnvelope(value)) {
     return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
-  const archive = normalizeArchiveTagCategories(value);
+  const archive = refreshLegacySeedMemory(normalizeArchiveTags(value));
   return { status: "ok", archive, migrated: archive !== value };
 }
 

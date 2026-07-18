@@ -2,11 +2,11 @@ import type { CSSProperties } from "react";
 import {
   getCubeAncestors,
   getCubeTracks,
+  isUserVisibleChapter,
   type ArchiveEnvelopeV1,
   type Cube,
   type CubeColor,
   type MemoryPeriod,
-  type TagCategory,
 } from "@/lib/archive";
 
 export const COLOR_HEX: Record<CubeColor, string> = {
@@ -25,15 +25,6 @@ export const COLOR_LABEL: Record<CubeColor, string> = {
   amber: "오래된 종이",
   mint: "바랜 초록",
   blue: "깊은 밤",
-};
-
-export const TAG_CATEGORY_LABEL: Record<TagCategory, string> = {
-  genre: "장르",
-  emotion: "감정·상황",
-  energy: "감정",
-  texture: "감정",
-  situation: "감정·상황",
-  custom: "커스텀",
 };
 
 export const SEASON_LABEL = {
@@ -64,18 +55,20 @@ export function formatMemory(period: MemoryPeriod): string {
     : `${year}${SEASON_LABEL[period.season]}`;
 }
 
-const MONTHLY_CHAPTER_ID = /^month:(\d{4})-(\d{2})$/;
+const MONTHLY_SYSTEM_KEY = /^month:(\d{4})-(\d{2})$/;
 
 export function isMonthlyChapter(chapter: Cube): boolean {
-  return MONTHLY_CHAPTER_ID.test(chapter.id);
+  return chapter.kind === "monthly";
 }
 
 export function isAssignableChapter(chapter: Cube): boolean {
-  return !isMonthlyChapter(chapter);
+  return isUserVisibleChapter(chapter);
 }
 
 export function formatChapterTitle(chapter: Cube): string {
-  const match = MONTHLY_CHAPTER_ID.exec(chapter.id);
+  const match = chapter.kind === "monthly" && chapter.systemKey
+    ? MONTHLY_SYSTEM_KEY.exec(chapter.systemKey)
+    : null;
   if (!match) return chapter.name;
   return `${match[1]}년 ${Number(match[2])}월`;
 }
@@ -93,7 +86,10 @@ export function isVisibleChapter(
   archive: ArchiveEnvelopeV1,
   chapter: Cube,
 ): boolean {
-  return !isMonthlyChapter(chapter) || getCubeTracks(archive, chapter.id).length > 0;
+  const userVisible = isUserVisibleChapter(chapter);
+  const monthlyVisible = isMonthlyChapter(chapter)
+    && getCubeTracks(archive, chapter.id).length > 0;
+  return userVisible || monthlyVisible;
 }
 
 export function chapterColorStyle(

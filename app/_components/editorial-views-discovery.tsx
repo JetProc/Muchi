@@ -11,17 +11,21 @@ import { X } from "lucide-react";
 import {
   removeSeedData,
   resetArchive,
+  getCubeTrackNotes,
+  getTagGroupResults,
   parseArchive,
   searchArchive,
   selectRecap,
   serializeArchive,
   type ArchiveEnvelopeV1,
   type ArchiveSearchResult,
+  type ContextualMemory,
   type MotionPreference,
   type RecapEntry,
   type RecapMode,
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
+import type { MotionRouter } from "./editorial-motion";
 import { useModalFocus } from "./editorial-accessibility";
 import { EmptyState, PageHeader, TrackLine } from "./editorial-ui";
 import {
@@ -32,6 +36,7 @@ import {
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { TagPicker } from "./editorial-tag-picker";
+import { TagLink, tagGroupHref } from "./editorial-tag-link";
 
 const LAST_BACKUP_AT_KEY = "music-world:last-backup-at:v1";
 
@@ -57,6 +62,7 @@ function SearchResultLine({
   const noteContext = result.matchedNote
     ? `${result.matchedNote.listenedOn ? formatCalendarDate(result.matchedNote.listenedOn) : "날짜 미지정"} · ${result.matchedNote.body}`
     : result.cubeTrack.character || formatMemory(result.cubeTrack.memoryPeriod);
+  const isUnassigned = result.cube.kind === "capture";
   return (
     <TrackLine
       track={result.track}
@@ -65,18 +71,52 @@ function SearchResultLine({
       tags={result.tags}
       maxTags={2}
       onTagClick={(tag) => onTagClick(tag.id)}
-      context={`${formatChapterTitle(result.cube)} · ${noteContext}`}
+      context={`${isUnassigned ? "챕터로 옮기기 전 기억" : formatChapterTitle(result.cube)} · ${noteContext}`}
       actions={<Link className="button" href={`/memory?id=${encodeURIComponent(result.cubeTrack.id)}`} intent="shared" sharedId={result.cubeTrack.id}>기억 열기</Link>}
     />
   );
 }
 
-export function Search({ archive }: {
+function memorySummary(memory: ContextualMemory): string {
+  const note = getCubeTrackNotes(memory.cubeTrack)[0];
+  if (note) {
+    const date = note.listenedOn ? formatCalendarDate(note.listenedOn) : "날짜 미지정";
+    return `${date} · ${note.body}`;
+  }
+  return memory.cubeTrack.character || formatMemory(memory.cubeTrack.memoryPeriod);
+}
+
+function rawSearchHref(query: string, tagIds: string[]): string {
+  const params = new URLSearchParams();
+  if (query.trim()) params.set("q", query.trim());
+  [...new Set(tagIds)].forEach((tagId) => params.append("tag", tagId));
+  const serialized = params.toString();
+  return serialized ? `/search?${serialized}` : "/search";
+}
+
+export function Search({
+  archive,
+  initialQuery,
+  requestedTagIds,
+  requestedView,
+  router,
+}: {
   archive: ArchiveEnvelopeV1;
+  initialQuery: string;
+  requestedTagIds: string[];
+  requestedView: string | null;
+  router: MotionRouter;
 }) {
-  const [query, setQuery] = useState("");
-  const [tagIds, setTagIds] = useState<string[]>([]);
+  const validRequestedTagIds = useMemo(
+    () => [...new Set(requestedTagIds)].filter((tagId) => Boolean(archive.data.tags[tagId])),
+    [archive.data.tags, requestedTagIds],
+  );
+  const requestedKey = requestedTagIds.join("\u0000");
+  const validRequestedKey = validRequestedTagIds.join("\u0000");
+  const [query, setQuery] = useState(initialQuery);
+  const [tagIds, setTagIds] = useState<string[]>(validRequestedTagIds);
   const [tagMatch, setTagMatch] = useState<"all" | "any">("all");
+  const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const tags = useMemo(() => Object.values(archive.data.tags), [archive.data.tags]);
   const tagUsageCounts = useMemo(() => Object.values(archive.data.cubeTracks)
     .reduce<Record<string, number>>((counts, item) => {
@@ -85,20 +125,114 @@ export function Search({ archive }: {
       });
       return counts;
     }, {}), [archive.data.cubeTracks]);
+  const groupView = requestedView === "group" && validRequestedTagIds.length > 0;
+  const groupResults = useMemo(
+    () => groupView ? getTagGroupResults(archive, validRequestedTagIds) : [],
+    [archive, groupView, validRequestedTagIds],
+  );
+  const groupTags = validRequestedTagIds.map((tagId) => archive.data.tags[tagId]);
   const hasSearch = Boolean(query.trim() || tagIds.length);
   const results = hasSearch
     ? searchArchive(archive, { query, tagIds, tagMatch, includeInbox: true })
     : [];
+
+  useEffect(() => {
+    const containsInvalidOrDuplicate = requestedKey !== validRequestedKey;
+    const emptyGroup = requestedView === "group" && validRequestedTagIds.length === 0;
+    if (!containsInvalidOrDuplicate && !emptyGroup) return;
+    router.replace(
+      requestedView === "group"
+        ? tagGroupHref(validRequestedTagIds)
+        : rawSearchHref(initialQuery, validRequestedTagIds),
+    );
+  }, [initialQuery, requestedKey, requestedView, router, validRequestedKey, validRequestedTagIds]);
+
   function toggle(id: string) {
-    setTagIds((current) => current.includes(id)
-      ? current.filter((item) => item !== id)
-      : [...current, id]);
+    setTagIds((current) => {
+      const next = current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id];
+      router.replace(rawSearchHref(query, next));
+      return next;
+    });
   }
   function resetSearch() {
     setQuery("");
     setTagIds([]);
     setTagMatch("all");
+    router.replace("/search");
   }
+
+  if (groupView) {
+    return (
+      <div className="page-content search-view tag-group-view">
+        <PageHeader
+          eyebrow="내 키워드"
+          title={groupTags.map((tag) => tag.label).join(" + ")}
+          action={<Link className="button" href="/search" intent="back">전체 검색</Link>}
+        />
+        <div className="tag-row" aria-label="선택한 키워드">
+          {groupTags.map((tag) => <TagLink tag={tag} key={tag.id} />)}
+        </div>
+        <section className="search-results-section" aria-labelledby="tag-group-results-title">
+          <div className="search-results-head">
+            <h2 id="tag-group-results-title">{groupResults.length}곡을 다시 찾았어요</h2>
+          </div>
+          {groupResults.length ? (
+            <div className="track-list track-list-unified">
+              {groupResults.map((result, index) => {
+                const expanded = expandedTrackId === result.track.id;
+                return (
+                  <div key={result.track.id}>
+                    <TrackLine
+                      track={result.track}
+                      index={index}
+                      tags={groupTags}
+                      context={`${result.memories.length}개의 독립된 기억`}
+                      actions={(
+                        <button
+                          className="button"
+                          type="button"
+                          aria-expanded={expanded}
+                          onClick={() => setExpandedTrackId(expanded ? null : result.track.id)}
+                        >
+                          {expanded ? "접기" : `${result.memories.length}개 기억`}
+                        </button>
+                      )}
+                    />
+                    {expanded ? (
+                      <div className="tag-manager-list" aria-label={`${result.track.title}의 기억`}>
+                        {result.memories.map((memory) => {
+                          const unassigned = memory.cube.kind === "capture";
+                          return (
+                            <article className="tag-manager-row" key={memory.cubeTrack.id}>
+                              <div className="tag-manager-copy">
+                                <strong>{unassigned ? "챕터로 옮기기 전 기억" : formatChapterTitle(memory.cube)}</strong>
+                                <small>{memorySummary(memory)}</small>
+                              </div>
+                              <div className="tag-manager-actions">
+                                {!unassigned ? (
+                                  <Link className="text-link" href={`/chapter?id=${encodeURIComponent(memory.cube.id)}`}>챕터</Link>
+                                ) : null}
+                                <Link className="button" href={`/memory?id=${encodeURIComponent(memory.cubeTrack.id)}`} intent="shared" sharedId={memory.cubeTrack.id}>기억 열기</Link>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState title="이 키워드에 담긴 음악이 아직 없어요" action={<Link className="button button-primary" href="/capture">곡 기록하기</Link>} />
+          )}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="page-content search-view">
       <header className="search-workspace-header">
@@ -164,7 +298,7 @@ export function Search({ archive }: {
                 key={result.kind === "inbox" ? `inbox:${result.track.id}` : result.cubeTrack.id}
                 index={index}
                 onTagClick={(tagId) => {
-                  setTagIds((current) => current.includes(tagId) ? current : [...current, tagId]);
+                  router.push(tagGroupHref([tagId]));
                 }}
               />
             ))}
@@ -197,7 +331,7 @@ function RecapLine({
     ? `감상 날짜 · ${formatCalendarDate(entry.note.listenedOn)}`
     : entry.cubeTrack.memoryPeriod
       ? `기억 시기 · ${formatMemory(entry.cubeTrack.memoryPeriod)}`
-      : `MUMU 저장일 · ${formatDate(entry.note.createdAt)}`;
+      : `MUMU 기록일 · ${formatDate(entry.note.createdAt)}`;
   return (
     <TrackLine
       track={entry.track}

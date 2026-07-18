@@ -16,6 +16,7 @@ export function ChapterFields({
   nameLabel = "챕터 이름 *",
   descriptionLabel = "짧은 설명",
   colorLabel = "분위기 색상",
+  showDescription = true,
   namePlaceholder,
   descriptionPlaceholder,
   onNameChange,
@@ -29,6 +30,7 @@ export function ChapterFields({
   nameLabel?: string;
   descriptionLabel?: string;
   colorLabel?: string;
+  showDescription?: boolean;
   namePlaceholder?: string;
   descriptionPlaceholder?: string;
   onNameChange: (value: string) => void;
@@ -51,17 +53,19 @@ export function ChapterFields({
           value={name}
         />
       </div>
-      <div className="field">
-        <label htmlFor={descriptionId}>{descriptionLabel}</label>
-        <textarea
-          className="textarea"
-          id={descriptionId}
-          maxLength={ARCHIVE_LIMITS.cubeDescription}
-          onChange={(event) => onDescriptionChange(event.target.value)}
-          placeholder={descriptionPlaceholder}
-          value={description}
-        />
-      </div>
+      {showDescription ? (
+        <div className="field">
+          <label htmlFor={descriptionId}>{descriptionLabel}</label>
+          <textarea
+            className="textarea"
+            id={descriptionId}
+            maxLength={ARCHIVE_LIMITS.cubeDescription}
+            onChange={(event) => onDescriptionChange(event.target.value)}
+            placeholder={descriptionPlaceholder}
+            value={description}
+          />
+        </div>
+      ) : null}
       <div className="field">
         <span className="field-label">{colorLabel}</span>
         <div className="filter-row">

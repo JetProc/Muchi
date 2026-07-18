@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import {
   type ArchiveEnvelopeV1,
   type Cube,
@@ -34,17 +34,20 @@ export function EmptyState({
 export function PageHeader({
   eyebrow,
   title,
+  description,
   action,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
+  description?: ReactNode;
   action?: ReactNode;
 }) {
   return (
     <div className="page-header">
       <div className="page-header-copy">
-        <span className="section-label">{eyebrow}</span>
+        {eyebrow ? <span className="section-label">{eyebrow}</span> : null}
         <h1>{title}</h1>
+        {description ? <p className="page-header-description">{description}</p> : null}
       </div>
       {action}
     </div>
@@ -90,6 +93,9 @@ export function TrackLine({
   sharedId,
   maxTags = 2,
   onTagClick,
+  selected = false,
+  selectable = false,
+  onRowClick,
 }: {
   track: TrackReference;
   index: number;
@@ -99,10 +105,15 @@ export function TrackLine({
   sharedId?: string;
   maxTags?: number;
   onTagClick?: (tag: TagDefinition) => void;
+  selected?: boolean;
+  selectable?: boolean;
+  onRowClick?: (event: MouseEvent<HTMLElement>) => void;
 }) {
   return (
     <article
-      className="track-line"
+      className={`track-line${selectable ? " is-selectable" : ""}${selected ? " is-selected" : ""}`}
+      onClick={onRowClick}
+      data-selected={selectable ? selected : undefined}
       style={{ "--track-delay": `${Math.min(index, 6) * 24}ms` } as CSSProperties}
     >
       <span className="track-number">{String(index + 1).padStart(2, "0")}</span>

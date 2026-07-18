@@ -23,7 +23,7 @@ export function ChapterDeleteDialog({
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="dialog"
+        className="dialog chapter-removal-dialog"
         onClick={(event) => event.stopPropagation()}
         ref={dialogRef}
         role="alertdialog"

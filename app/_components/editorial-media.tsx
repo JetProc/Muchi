@@ -6,6 +6,7 @@ import {
   getCubeTracks,
   type ArchiveEnvelopeV1,
   type Cube,
+  type CubeColor,
   type TrackReference,
 } from "@/lib/archive";
 import { sharedArtworkKey, sharedArtworkStyle } from "./editorial-motion";
@@ -70,34 +71,48 @@ export function AlbumArtwork({
 export function ChapterCover({
   archive,
   chapter,
+  tracks,
+  sharedId,
+  title,
+  color,
+  className = "",
 }: {
-  archive: ArchiveEnvelopeV1;
-  chapter: Cube;
+  archive?: ArchiveEnvelopeV1;
+  chapter?: Cube;
+  tracks?: TrackReference[];
+  sharedId?: string;
+  title?: string;
+  color?: CubeColor;
+  className?: string;
 }) {
   const artworkKeys = new Set<string>();
-  const entries = getCubeTracks(archive, chapter.id)
-    .filter(({ track }) => {
+  const coverTracks = tracks ?? (archive && chapter ? getCubeTracks(archive, chapter.id).map(({ track }) => track) : []);
+  const entries = coverTracks
+    .filter((track) => {
       const artworkKey = track.artworkUrl ?? "__default-artwork__";
       if (artworkKeys.has(artworkKey)) return false;
       artworkKeys.add(artworkKey);
       return true;
     })
     .slice(0, 4);
+  const coverId = sharedId ?? chapter?.id;
+  const coverTitle = title ?? (chapter ? formatChapterTitle(chapter) : "챕터");
+  const coverColor = color ?? chapter?.color;
   return (
     <div
-      className={`chapter-artwork chapter-artwork-${Math.max(1, entries.length)}`}
-      data-shared-transition-id={sharedArtworkKey(chapter.id)}
+      className={`chapter-artwork chapter-artwork-${Math.max(1, entries.length)} ${className}`.trim()}
+      data-shared-transition-id={sharedArtworkKey(coverId)}
       style={{
-        ...chapterColorStyle(chapter.color),
-        ...sharedArtworkStyle(chapter.id),
+        ...(coverColor ? chapterColorStyle(coverColor) : {}),
+        ...sharedArtworkStyle(coverId),
       }}
       role="img"
-      aria-label={`${formatChapterTitle(chapter)} 대표 앨범 아트 모음`}
+      aria-label={`${coverTitle} 대표 앨범 아트 모음`}
     >
-      {entries.length ? entries.map((entry) => (
+      {entries.length ? entries.map((track) => (
         <AlbumArtwork
-          key={entry.cubeTrack.id}
-          track={entry.track}
+          key={track.id}
+          track={track}
           className="chapter-artwork-tile"
           decorative
         />

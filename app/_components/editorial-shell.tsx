@@ -25,7 +25,7 @@ import {
   transitionEditorialUI,
 } from "./editorial-motion";
 import { AlbumArtwork, type PreviewControls } from "./editorial-media";
-import type { AppView } from "./editorial-types";
+import type { AppView, ToastMessage } from "./editorial-types";
 
 const VIEW_META: Record<AppView, { label: string; path: string; index: string }> = {
   home: { label: "HOME", path: "/", index: "00" },
@@ -45,7 +45,6 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
 };
 
 const MOBILE_NAV = ["home", "chapters", "capture", "discover", "search"] as const satisfies readonly AppView[];
-const PRIMARY_VIEWS: readonly AppView[] = ["home", "capture", "chapters", "discover", "search"];
 
 const MOBILE_NAV_LABEL: Partial<Record<AppView, string>> = {
   home: "홈",
@@ -64,6 +63,46 @@ const MOBILE_NAV_ICON = {
 } as const;
 
 const scrollPositions = new Map<string, number>();
+
+export type ContextBackAction =
+  | { label: string; href: string; sharedId?: string; onActivate?: never }
+  | { label: string; onActivate: () => void; href?: never; sharedId?: never };
+
+function ContextBackControl({ action }: { action: ContextBackAction }) {
+  const content = (
+    <>
+      <ChevronLeft aria-hidden="true" size={16} strokeWidth={2} />
+      <span>{action.label}</span>
+    </>
+  );
+  return (
+    <div className="content-back-row">
+      {action.href ? (
+        <Link className="content-back-button" href={action.href} intent="back" sharedId={action.sharedId} aria-label={action.label}>
+          {content}
+        </Link>
+      ) : (
+        <button className="content-back-button" type="button" onClick={action.onActivate} aria-label={action.label}>
+          {content}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function safeExternalHref(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeInternalHref(value: string): string | null {
+  return value.startsWith("/") && !value.startsWith("//") ? value : null;
+}
 
 export function TextNavigation({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
@@ -156,6 +195,7 @@ export function FullPlayer({
   const playerDragStart = useRef<number | null>(null);
   const dialogRef = useModalFocus<HTMLElement>(true, onClose);
   if (!preview.state) return null;
+  const externalHref = safeExternalHref(preview.state.track.externalUrl);
   return (
     <div className="player-backdrop" role="presentation" onClick={onClose}>
       <section
@@ -201,10 +241,10 @@ export function FullPlayer({
           >
             {preview.state.playing ? "미리듣기 정지" : "30초 미리듣기"}
           </button>
-          {preview.state.track.externalUrl ? (
+          {externalHref ? (
             <a
               className="button"
-              href={preview.state.track.externalUrl}
+              href={externalHref}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -219,10 +259,39 @@ export function FullPlayer({
   );
 }
 
-export function ToastRegion({ toast }: { toast: string | null }) {
-  return toast ? (
-    <div className="toast" role="status" aria-live="polite">{toast}</div>
-  ) : null;
+export function ToastRegion({ toast }: { toast: ToastMessage | null }) {
+  if (!toast) return null;
+  if (typeof toast === "string") {
+    return (
+      <div className="toast" role="status" aria-live="polite">{toast}</div>
+    );
+  }
+  const actionHref = toast.action
+    ? toast.action.external
+      ? safeExternalHref(toast.action.href)
+      : safeInternalHref(toast.action.href)
+    : null;
+  return (
+    <div className="toast toast-with-action" role="status" aria-live="polite">
+      <span className="toast-copy">{toast.text}</span>
+      {toast.action && actionHref ? (
+        toast.action.external ? (
+          <a
+            className="toast-action"
+            href={actionHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {toast.action.label}
+          </a>
+        ) : (
+          <Link className="toast-action" href={actionHref} intent="forward">
+            {toast.action.label}
+          </Link>
+        )
+      ) : null}
+    </div>
+  );
 }
 
 export function EditorialShell({
@@ -233,16 +302,16 @@ export function EditorialShell({
   toast,
   online,
   scrollReady,
-  onBack,
+  backAction,
 }: {
   view: AppView;
   inboxCount: number;
   children: ReactNode;
   preview: PreviewControls;
-  toast: string | null;
+  toast: ToastMessage | null;
   online: boolean;
   scrollReady: boolean;
-  onBack: () => void;
+  backAction: ContextBackAction | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -251,7 +320,6 @@ export function EditorialShell({
   const restoredRouteKeyRef = useRef<string | null>(null);
   const playerOpen = Boolean(preview.state);
   const [fullPlayerOpen, setFullPlayerOpen] = useState(false);
-  const showBack = !PRIMARY_VIEWS.includes(view);
 
   useLayoutEffect(() => {
     const viewport = scrollViewportRef.current;
@@ -285,12 +353,6 @@ export function EditorialShell({
         <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
         <header className="editorial-header">
           <div className="header-leading">
-            {showBack ? (
-              <button className="header-back-button" type="button" onClick={onBack} aria-label="뒤로가기">
-                <ChevronLeft aria-hidden="true" size={20} strokeWidth={2} />
-                <span>뒤로</span>
-              </button>
-            ) : null}
             <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
               <strong>MUMU</strong>
               <span>PERSONAL MUSIC ARCHIVE</span>
@@ -334,6 +396,7 @@ export function EditorialShell({
           <div className="page-status" aria-live="polite">
             {!online ? "OFFLINE ARCHIVE" : null}
           </div>
+          {backAction ? <ContextBackControl action={backAction} /> : null}
           {children}
         </main>
 

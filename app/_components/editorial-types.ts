@@ -18,8 +18,21 @@ export type AppView =
 
 export type ArchiveCommit = (
   next: ArchiveEnvelopeV1,
-  message?: string,
+  message?: ToastMessage,
   force?: boolean,
 ) => boolean;
 
-export type Notify = (message: string) => void;
+export type ToastAction = {
+  label: string;
+  href: string;
+  external?: boolean;
+};
+
+export type ToastMessage =
+  | string
+  | {
+    text: string;
+    action?: ToastAction;
+  };
+
+export type Notify = (message: ToastMessage) => void;

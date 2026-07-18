@@ -1,5 +1,5 @@
 export const ARCHIVE_SCHEMA_VERSION = 6 as const;
-export const ARCHIVE_SEED_VERSION = 1 as const;
+export const ARCHIVE_SEED_VERSION = 2 as const;
 export const ARCHIVE_STORAGE_KEY = "music-world:archive:v1";
 
 export const ARCHIVE_LIMITS = {
@@ -307,12 +307,28 @@ const SEED_MEMORY_FIXTURES: Record<string, ReadonlyArray<{
   body: string;
 }>> = {
   "dawn-radio": [
-    { listenedOn: "2023-07-15", body: "새벽 두 시, 신호가 모두 초록색이었던 날." },
-    { listenedOn: "2026-07-02", body: "오랜만에 다시 들으니 기타보다 드럼이 먼저 달려왔다." },
+    { listenedOn: "2023-07-15", body: "새벽 두 시, 신호가 모두 초록색이었던 날. 이 곡의 속도와 도로가 정확히 맞았다." },
+    { listenedOn: "2026-07-02", body: "오랜만에 운전하며 들으니 기타보다 드럼이 먼저 앞으로 끌고 갔다." },
   ],
   "dawn-summer": [
     { listenedOn: "2022-07-23", body: "창문을 내리고 따라 부르던 후렴." },
     { listenedOn: "2025-07-12", body: "혼자 달리는 길에서도 그날 친구들의 목소리가 겹쳐 들렸다." },
+  ],
+  "dawn-psycho": [
+    { listenedOn: "2024-08-04", body: "터널에 들어가는 순간 베이스가 더 크게 들렸다." },
+    { listenedOn: "2026-06-14", body: "집에 바로 가기 싫어 강변을 한 바퀴 더 돌게 만든 곡." },
+  ],
+  "past-pinktop": [
+    { listenedOn: "2021-06-03", body: "이 밴드를 처음 좋아하게 된 시기의 가장 선명한 곡." },
+    { listenedOn: "2026-03-09", body: "한동안 잊고 있었는데 첫 소절만으로 예전 취향이 그대로 돌아왔다." },
+  ],
+  "past-radio": [
+    { listenedOn: "2021-06-18", body: "플레이리스트 맨 위에 두고 거의 매일 들었다." },
+    { listenedOn: "2025-11-02", body: "지금은 질주감보다 오래 좋아한 기타 톤이 먼저 들린다." },
+  ],
+  "past-l": [
+    { listenedOn: "2024-07-19", body: "새 앨범을 기다렸다가 이어폰으로 처음부터 끝까지 들은 밤." },
+    { listenedOn: "2026-01-24", body: "예전 곡들과는 다른 결인데도 같은 이유로 좋아하고 있다는 걸 알았다." },
   ],
   "winter-radio": [
     { listenedOn: "2018-12-14", body: "같은 Radio지만 이곳에서는 속도보다 온기가 먼저 떠오른다." },
@@ -322,6 +338,34 @@ const SEED_MEMORY_FIXTURES: Record<string, ReadonlyArray<{
     { listenedOn: "2018-12-28", body: "이어폰 한쪽이 자꾸 끊기던 겨울." },
     { listenedOn: "2023-11-30", body: "첫눈을 기다리며 들으니 오래된 버스 창문이 생각났다." },
   ],
+  "winter-summer": [
+    { listenedOn: "2018-12-31", body: "한겨울에 들은 Summer라서 오히려 그해 여름이 더 멀게 느껴졌다." },
+    { listenedOn: "2025-12-07", body: "계절과 반대되는 제목 때문에 당시의 공기가 더 또렷하게 남아 있다." },
+  ],
+  "workout-tell": [
+    { listenedOn: "2024-09-02", body: "러닝머신 속도를 한 단계 올리는 지점이 항상 같은 후렴이었다." },
+    { listenedOn: "2026-07-04", body: "운동을 다시 시작한 첫날, 생각보다 몸이 가볍게 움직였다." },
+  ],
+  "workout-psycho": [
+    { listenedOn: "2025-02-11", body: "준비 운동이 끝나고 집중이 붙는 순간에 잘 맞는다." },
+    { listenedOn: "2026-06-22", body: "힘이 빠질 때 리듬만 따라가도 마지막 세트를 끝낼 수 있었다." },
+  ],
+  "workout-pinktop": [
+    { listenedOn: "2023-05-16", body: "짧게 뛰는 날에는 첫 곡으로 가장 자주 골랐다." },
+    { listenedOn: "2026-05-08", body: "기분까지 바꾸고 싶을 때 선택하는 운동용 곡." },
+  ],
+  "rain-l": [
+    { listenedOn: "2024-07-22", body: "퇴근길 버스 창문에 빗물이 번지던 날 처음 저장했다." },
+    { listenedOn: "2026-06-25", body: "비가 오는 날에는 목소리 뒤의 작은 소음까지 편안하게 들린다." },
+  ],
+  "rain-violet": [
+    { listenedOn: "2022-10-03", body: "우산에 떨어지는 소리와 곡의 빈 공간이 잘 맞았다." },
+    { listenedOn: "2025-09-18", body: "지친 날에도 서두르지 않고 집까지 걷게 해주는 곡." },
+  ],
+  "rain-radio": [
+    { listenedOn: "2023-11-09", body: "막힌 도로에서는 빠른 곡보다 오히려 차분하게 느껴졌다." },
+    { listenedOn: "2026-04-13", body: "같은 곡을 새벽 드라이브와 전혀 다른 이유로 다시 찾았다." },
+  ],
   "room-pinktop": [
     { listenedOn: "2021-09-08", body: "이웃이 없을 때만 볼륨을 끝까지 올렸다." },
     { listenedOn: "2025-09-03", body: "지금 들어도 좁은 방을 단숨에 넓혀주는 곡이다." },
@@ -329,6 +373,22 @@ const SEED_MEMORY_FIXTURES: Record<string, ReadonlyArray<{
   "room-l": [
     { listenedOn: "2024-07-19", body: "불을 끄고 앨범 한 장을 처음부터 끝까지 듣던 밤." },
     { listenedOn: "2026-06-25", body: "비가 오는 밤에는 목소리 뒤의 작은 소음까지 편안하게 들린다." },
+  ],
+  "room-summer": [
+    { listenedOn: "2021-09-12", body: "아직 가구가 없던 방에서 바닥에 앉아 크게 틀었다." },
+    { listenedOn: "2025-07-30", body: "이 곡을 들으면 작은 창문으로 들어오던 늦여름 빛이 생각난다." },
+  ],
+  "sunday-violet": [
+    { listenedOn: "2023-03-19", body: "알람을 끄고 다시 누운 일요일 오전에 우연히 끝까지 들었다." },
+    { listenedOn: "2026-05-31", body: "아무 일정이 없을 때 곡의 느슨한 부분까지 잘 들린다." },
+  ],
+  "sunday-summer": [
+    { listenedOn: "2022-05-08", body: "창문을 열고 밀린 빨래를 하며 계속 반복했다." },
+    { listenedOn: "2025-06-01", body: "계획 없는 날을 아깝지 않게 만들어주는 밝은 곡." },
+  ],
+  "sunday-l": [
+    { listenedOn: "2024-08-11", body: "카페에 갈지 고민하다 집에 남아 앨범을 다시 들었다." },
+    { listenedOn: "2026-02-15", body: "아무것도 하지 않는 시간에 가장 집중해서 듣게 되는 곡." },
   ],
 };
 const SEED_ALBUM_ART =
@@ -554,6 +614,21 @@ export function normalizeTagLabel(label: string): string {
   return label.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
 }
 
+export function reconcileTagSelection(
+  latestTagIds: string[],
+  baselineTagIds: string[],
+  selectedTagIds: string[],
+): string[] {
+  const removedLocally = new Set(
+    baselineTagIds.filter((tagId) => !selectedTagIds.includes(tagId)),
+  );
+  const addedLocally = selectedTagIds.filter((tagId) => !baselineTagIds.includes(tagId));
+  return [...new Set([
+    ...latestTagIds.filter((tagId) => !removedLocally.has(tagId)),
+    ...addedLocally,
+  ])];
+}
+
 function canonicalTagCategory(category: TagCategory): TagCategory {
   return category === "energy" || category === "texture" ? "emotion" : category;
 }
@@ -720,44 +795,96 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
   >;
 
   const cubes: Record<string, Cube> = {
-    "seed:cube:dawn-drive": {
-      id: "seed:cube:dawn-drive",
+    "seed:cube:past-favorites": {
+      id: "seed:cube:past-favorites",
       parentId: null,
-      name: "새벽 드라이브",
-      description: "도시의 불빛이 길게 번지는 시간",
-      color: "violet",
+      name: "예전에 좋아했던 기타 음악",
+      description: "한때 매일 들었지만 잠시 잊고 있던 곡들",
+      color: "amber",
       kind: "manual",
       systemKey: null,
       sortOrder: 0,
       source: "seed",
-      createdAt: "2025-07-10T02:10:00.000Z",
-      updatedAt: "2026-06-28T23:40:00.000Z",
+      createdAt: "2021-06-03T02:10:00.000Z",
+      updatedAt: "2026-07-10T20:10:00.000Z",
     },
-    "seed:cube:winter-2018": {
-      id: "seed:cube:winter-2018",
+    "seed:cube:dawn-drive": {
+      id: "seed:cube:dawn-drive",
       parentId: null,
-      name: "겨울의 기억",
-      description: "차갑고 따뜻했던 오래된 장면들",
-      color: "cyan",
+      name: "새벽에 혼자 운전할 때",
+      description: "집에 바로 들어가기 싫어 강변을 한 바퀴 더 돌던 밤",
+      color: "violet",
       kind: "manual",
       systemKey: null,
       sortOrder: 1,
       source: "seed",
+      createdAt: "2025-07-10T02:10:00.000Z",
+      updatedAt: "2026-07-04T23:40:00.000Z",
+    },
+    "seed:cube:winter-2018": {
+      id: "seed:cube:winter-2018",
+      parentId: "seed:cube:past-favorites",
+      name: "2018년 겨울",
+      description: "불안했던 시절과 학교 앞 카페의 노란 불빛",
+      color: "cyan",
+      kind: "manual",
+      systemKey: null,
+      sortOrder: 0,
+      source: "seed",
       createdAt: "2025-07-09T02:10:00.000Z",
       updatedAt: "2026-05-18T20:20:00.000Z",
     },
-    "seed:cube:first-room": {
-      id: "seed:cube:first-room",
+    "seed:cube:workout": {
+      id: "seed:cube:workout",
       parentId: null,
-      name: "첫 자취방",
-      description: "작은 방에서 혼자 크게 틀어두던 노래",
-      color: "coral",
+      name: "운동 시작 20분",
+      description: "몸보다 기분을 먼저 움직이게 하는 곡",
+      color: "blue",
       kind: "manual",
       systemKey: null,
       sortOrder: 2,
       source: "seed",
+      createdAt: "2024-09-02T09:00:00.000Z",
+      updatedAt: "2026-07-04T10:30:00.000Z",
+    },
+    "seed:cube:rainy-commute": {
+      id: "seed:cube:rainy-commute",
+      parentId: null,
+      name: "비 오는 퇴근길",
+      description: "서두르지 않고 집까지 걷고 싶던 날",
+      color: "cyan",
+      kind: "manual",
+      systemKey: null,
+      sortOrder: 3,
+      source: "seed",
+      createdAt: "2024-07-22T10:00:00.000Z",
+      updatedAt: "2026-06-25T12:20:00.000Z",
+    },
+    "seed:cube:first-room": {
+      id: "seed:cube:first-room",
+      parentId: null,
+      name: "첫 자취방에서",
+      description: "가구가 없던 작은 방에서 혼자 크게 틀어두던 노래",
+      color: "coral",
+      kind: "manual",
+      systemKey: null,
+      sortOrder: 4,
+      source: "seed",
       createdAt: "2025-07-08T02:10:00.000Z",
       updatedAt: "2026-04-03T18:30:00.000Z",
+    },
+    "seed:cube:slow-sunday": {
+      id: "seed:cube:slow-sunday",
+      parentId: null,
+      name: "아무 계획 없는 일요일",
+      description: "알람을 끄고 앨범 한 장을 천천히 듣는 오전",
+      color: "mint",
+      kind: "manual",
+      systemKey: null,
+      sortOrder: 5,
+      source: "seed",
+      createdAt: "2023-03-19T01:00:00.000Z",
+      updatedAt: "2026-05-31T05:00:00.000Z",
     },
   };
 
@@ -774,6 +901,14 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
     ["solitary", "혼자 있고 싶을 때"],
     ["restless", "기분을 바꾸고 싶을 때"],
     ["bedroom", "방 안에서 듣던 음악"],
+    ["rainy-commute", "비 오는 퇴근길"],
+    ["old-guitar", "예전에 좋아했던 기타 음악"],
+    ["restart-workout", "운동을 다시 시작할 때"],
+    ["no-plan", "아무 계획 없는 일요일"],
+    ["focus-reset", "집중이 풀릴 때"],
+    ["late-bus", "막차에서"],
+    ["headphones", "이어폰으로 크게 듣고 싶을 때"],
+    ["after-work", "퇴근 직후"],
   ];
   const tags = Object.fromEntries(
     tagSeeds.map(([slug, label]) => {
@@ -797,11 +932,11 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       "dawn-radio",
       "seed:cube:dawn-drive",
       makeTrackId(1569294423),
-      ["cold", "urban", "rushing"],
+      ["urban", "cold", "late-bus"],
       0,
-      "차가운 도시를 빠르게 가르는 기타",
-      { kind: "month", year: 2023, month: 7 },
-      "한강 북단",
+      "도로의 속도와 정확히 맞물리는 기타",
+      null,
+      "",
       "",
     ),
     "seed:cube-track:dawn-summer": seedCubeTrack(
@@ -810,10 +945,54 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       makeTrackId(1569294608),
       ["bright", "open-road"],
       1,
-      "끝없이 이어지는 여름밤",
-      { kind: "month", year: 2022, month: 7 },
-      "동해안 국도",
+      "창문을 내리고 따라 부르고 싶은 여름밤",
+      null,
+      "",
       "친구들",
+    ),
+    "seed:cube-track:dawn-psycho": seedCubeTrack(
+      "dawn-psycho",
+      "seed:cube:dawn-drive",
+      makeTrackId(1752456349),
+      ["urban", "headphones", "focus-reset"],
+      2,
+      "터널을 지날 때 저음이 더 크게 느껴지는 곡",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:past-pinktop": seedCubeTrack(
+      "past-pinktop",
+      "seed:cube:past-favorites",
+      makeTrackId(1569294420),
+      ["old-guitar", "nostalgic", "headphones"],
+      0,
+      "이 밴드를 처음 좋아하게 만든 선명한 기타",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:past-radio": seedCubeTrack(
+      "past-radio",
+      "seed:cube:past-favorites",
+      makeTrackId(1569294423),
+      ["old-guitar", "nostalgic"],
+      1,
+      "매일 들어도 질리지 않았던 기타 톤",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:past-l": seedCubeTrack(
+      "past-l",
+      "seed:cube:past-favorites",
+      makeTrackId(1752456374),
+      ["old-guitar", "solitary", "headphones"],
+      2,
+      "취향이 조금 달라진 뒤에도 계속 좋아한 곡",
+      null,
+      "",
+      "",
     ),
     "seed:cube-track:winter-radio": seedCubeTrack(
       "winter-radio",
@@ -822,8 +1001,8 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       ["nostalgic", "warm", "uneasy-youth"],
       0,
       "불안했지만 이상하게 따뜻한 청춘",
-      { kind: "season", year: 2018, season: "winter" },
-      "학교 앞 카페",
+      null,
+      "",
       "",
     ),
     "seed:cube-track:winter-violet": seedCubeTrack(
@@ -833,8 +1012,85 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       ["nostalgic", "hazy"],
       1,
       "보랏빛으로 번지는 오래된 장면",
-      { kind: "season", year: 2018, season: "winter" },
-      "버스 맨 뒷자리",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:winter-summer": seedCubeTrack(
+      "winter-summer",
+      "seed:cube:winter-2018",
+      makeTrackId(1569294608),
+      ["nostalgic", "uneasy-youth", "late-bus"],
+      2,
+      "겨울에 들어서 더 멀게 느껴진 여름",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:workout-tell": seedCubeTrack(
+      "workout-tell",
+      "seed:cube:workout",
+      makeTrackId(1752456355),
+      ["rushing", "restart-workout", "focus-reset"],
+      0,
+      "러닝머신 속도를 한 단계 올리게 하는 후렴",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:workout-psycho": seedCubeTrack(
+      "workout-psycho",
+      "seed:cube:workout",
+      makeTrackId(1752456349),
+      ["rushing", "restart-workout", "headphones"],
+      1,
+      "준비 운동이 끝난 뒤 집중을 붙잡는 리듬",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:workout-pinktop": seedCubeTrack(
+      "workout-pinktop",
+      "seed:cube:workout",
+      makeTrackId(1569294420),
+      ["rushing", "restless", "restart-workout"],
+      2,
+      "몸보다 기분을 먼저 움직이는 첫 곡",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:rain-l": seedCubeTrack(
+      "rain-l",
+      "seed:cube:rainy-commute",
+      makeTrackId(1752456374),
+      ["rainy-commute", "after-work", "hazy"],
+      0,
+      "빗물 번지는 창문과 함께 천천히 듣는 곡",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:rain-violet": seedCubeTrack(
+      "rain-violet",
+      "seed:cube:rainy-commute",
+      makeTrackId(1569294419),
+      ["rainy-commute", "after-work", "solitary"],
+      1,
+      "지친 날에도 집까지 조금 더 걷게 하는 곡",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:rain-radio": seedCubeTrack(
+      "rain-radio",
+      "seed:cube:rainy-commute",
+      makeTrackId(1569294423),
+      ["rainy-commute", "after-work", "late-bus"],
+      2,
+      "빠른 곡인데 막힌 퇴근길에서는 차분하게 들린다",
+      null,
+      "",
       "",
     ),
     "seed:cube-track:room-pinktop": seedCubeTrack(
@@ -844,8 +1100,8 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       ["restless", "bedroom"],
       0,
       "작은 방을 가득 채우는 반항심",
-      { kind: "month", year: 2021, month: 9 },
-      "첫 자취방",
+      null,
+      "",
       "",
     ),
     "seed:cube-track:room-l": seedCubeTrack(
@@ -855,24 +1111,57 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       ["solitary", "hazy", "bedroom"],
       1,
       "혼자 있는 밤의 부드러운 소음",
-      { kind: "month", year: 2024, month: 7 },
-      "첫 자취방",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:room-summer": seedCubeTrack(
+      "room-summer",
+      "seed:cube:first-room",
+      makeTrackId(1569294608),
+      ["bedroom", "bright", "warm"],
+      2,
+      "가구가 없던 방을 넓게 채워준 후렴",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:sunday-violet": seedCubeTrack(
+      "sunday-violet",
+      "seed:cube:slow-sunday",
+      makeTrackId(1569294419),
+      ["no-plan", "hazy", "solitary"],
+      0,
+      "알람을 끄고 다시 누운 오전의 느슨함",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:sunday-summer": seedCubeTrack(
+      "sunday-summer",
+      "seed:cube:slow-sunday",
+      makeTrackId(1569294608),
+      ["no-plan", "bright", "warm"],
+      1,
+      "밀린 빨래를 하면서도 따라 부르게 되는 곡",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:sunday-l": seedCubeTrack(
+      "sunday-l",
+      "seed:cube:slow-sunday",
+      makeTrackId(1752456374),
+      ["no-plan", "headphones", "solitary"],
+      2,
+      "아무것도 하지 않을 때 가장 집중해서 듣는 곡",
+      null,
+      "",
       "",
     ),
   };
 
-  const inbox: Partial<Record<TrackId, InboxEntry>> = {
-    [makeTrackId(1752456355)]: {
-      trackId: makeTrackId(1752456355),
-      capturedAt: "2026-06-30T21:10:00.000Z",
-      source: "seed",
-    },
-    [makeTrackId(1752456349)]: {
-      trackId: makeTrackId(1752456349),
-      capturedAt: "2026-06-29T17:20:00.000Z",
-      source: "seed",
-    },
-  };
+  const inbox: Partial<Record<TrackId, InboxEntry>> = {};
 
   const archive: ArchiveEnvelopeV1 = {
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
@@ -1354,7 +1643,7 @@ function ensureCaptureCube(
   const cube: Cube = {
     id,
     parentId: null,
-    name: "키워드 기록",
+    name: "태그 기록",
     description: "아직 챕터를 정하지 않은 음악 기록",
     color: "violet",
     kind: "capture",
@@ -1385,7 +1674,7 @@ export function archiveInboxTrackWithTags(
     throw new ArchiveDomainError("not-found", "임시 보관함에서 곡을 찾을 수 없습니다.");
   }
   if (inputs.length === 0) {
-    throw new ArchiveDomainError("invalid-input", "아카이빙을 시작하려면 키워드가 하나 필요합니다.");
+    throw new ArchiveDomainError("invalid-input", "아카이빙을 시작하려면 태그가 하나 필요합니다.");
   }
   if (inputs.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
     throw new ArchiveDomainError(
@@ -1588,6 +1877,27 @@ export function updateCubeTrackNote(
   const normalized = normalizeMemoryNoteInput(input);
   const notes = [...current.notes];
   notes[noteIndex] = { ...notes[noteIndex], ...normalized, updatedAt: now };
+  return withUpdatedCubeTrack(archive, { ...current, notes }, now);
+}
+
+export function updateCubeTrackNoteBody(
+  archive: ArchiveEnvelopeV1,
+  cubeTrackId: string,
+  noteId: string,
+  body: string,
+  now = nowIso(),
+): ArchiveEnvelopeV1 {
+  const current = assertEditableCubeTrack(archive, cubeTrackId);
+  const noteIndex = current.notes.findIndex((note) => note.id === noteId);
+  if (noteIndex < 0) {
+    throw new ArchiveDomainError("not-found", "메모를 찾을 수 없습니다.");
+  }
+  const notes = [...current.notes];
+  notes[noteIndex] = {
+    ...notes[noteIndex],
+    body: cleanText(body, "메모", ARCHIVE_LIMITS.memo, true),
+    updatedAt: now,
+  };
   return withUpdatedCubeTrack(archive, { ...current, notes }, now);
 }
 
@@ -2460,6 +2770,54 @@ export function removeSeedData(
   return withData(archive, data, now);
 }
 
+export function restoreSeedData(
+  archive: ArchiveEnvelopeV1,
+  now = nowIso(),
+  force = false,
+): ArchiveEnvelopeV1 {
+  if (archive.data.preferences.seedDismissed && !force) return archive;
+  const seed = createSeedArchive();
+  const cubes = {
+    ...seed.data.cubes,
+    ...Object.fromEntries(
+      Object.entries(archive.data.cubes).filter(([, cube]) => cube.source !== "seed"),
+    ),
+  };
+  const cubeTracks: Record<string, CubeTrack> = { ...seed.data.cubeTracks };
+  Object.entries(archive.data.cubeTracks).forEach(([id, cubeTrack]) => {
+    if (cubeTrack.source !== "seed") {
+      cubeTracks[id] = cubeTrack;
+      return;
+    }
+    const bundled = cubeTracks[id];
+    if (!bundled) return;
+    const userNotes = cubeTrack.notes.filter((note) => !note.id.startsWith("seed:memory-note:"));
+    cubeTracks[id] = { ...bundled, notes: [...bundled.notes, ...userNotes] };
+  });
+  const tags = {
+    ...seed.data.tags,
+    ...Object.fromEntries(
+      Object.entries(archive.data.tags).filter(([, tag]) => tag.source !== "seed"),
+    ),
+  };
+  const inbox = {
+    ...seed.data.inbox,
+    ...Object.fromEntries(
+      Object.entries(archive.data.inbox).filter(([, entry]) => entry?.source !== "seed"),
+    ),
+  };
+  const data = pruneUnreferencedTracks({
+    ...archive.data,
+    tracks: { ...seed.data.tracks, ...archive.data.tracks },
+    cubes,
+    cubeTracks,
+    tags,
+    inbox,
+    preferences: { ...archive.data.preferences, seedDismissed: false },
+  });
+  return withData(archive, data, now);
+}
+
 export function resetArchive(
   mode: "seed" | "empty",
   now = nowIso(),
@@ -2921,7 +3279,10 @@ function removeLegacyInboxConflicts(value: Record<string, unknown>): Record<stri
 }
 
 function prepareLegacyEnvelope(value: Record<string, unknown>): Record<string, unknown> {
-  return removeLegacyInboxConflicts(addLegacyCubeKinds(value));
+  return {
+    ...removeLegacyInboxConflicts(addLegacyCubeKinds(value)),
+    seedVersion: ARCHIVE_SEED_VERSION,
+  };
 }
 
 function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
@@ -3044,6 +3405,17 @@ export function migrateArchive(value: unknown): MigrationResult {
     return migrated
       ? { status: "ok", archive: migrated, migrated: true }
       : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+  }
+  if (value.schemaVersion === ARCHIVE_SCHEMA_VERSION && value.seedVersion === 1) {
+    const candidate = { ...value, seedVersion: ARCHIVE_SEED_VERSION };
+    if (!validateArchiveEnvelope(candidate)) {
+      return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+    }
+    return {
+      status: "ok",
+      archive: restoreSeedData(candidate, candidate.updatedAt, true),
+      migrated: true,
+    };
   }
   if (!validateArchiveEnvelope(value)) {
     return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };

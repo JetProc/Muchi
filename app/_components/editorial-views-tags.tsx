@@ -115,12 +115,12 @@ export function TagManager({
   return (
     <div className="page-content tag-manager-view">
       <PageHeader
-        title="키워드"
+        title="태그"
         action={<div className="page-header-actions"><button className="button button-primary" type="button" onClick={() => setCreateOpen(true)}>새 태그</button><Link className="button" href="/settings" intent="back">설정</Link></div>}
       />
 
       <section className="tag-library" aria-labelledby="tag-library-title">
-        <div className="tag-library-head"><div><h2 id="tag-library-title">키워드</h2></div><label className="field tag-library-search" htmlFor="tag-search"><span className="sr-only">키워드 검색</span><input id="tag-search" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="키워드 검색" /></label></div>
+        <div className="tag-library-head"><div><h2 id="tag-library-title">태그</h2></div><label className="field tag-library-search" htmlFor="tag-search"><span className="sr-only">태그 검색</span><input id="tag-search" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="태그 검색" /></label></div>
         {visibleTags.length ? (
           <div className="tag-manager-list">
             {visibleTags.map((tag) => editingId === tag.id ? (

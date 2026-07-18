@@ -2397,42 +2397,51 @@ button.tag {
 
 .chapter-detail-compact .chapter-actions .button,
 .chapter-detail-compact .chapter-actions .text-button {
+  position: relative;
   width: auto;
-  min-height: 44px;
-  padding: 8px 11px;
-  font-size: 12px;
+  min-height: 34px;
+  padding: 5px 11px;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.chapter-detail-compact .chapter-actions .button::after,
+.chapter-detail-compact .chapter-actions .text-button::after {
+  position: absolute;
+  inset: -5px 0;
+  content: "";
 }
 
 .chapter-detail-compact .chapter-service-actions {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 8px 10px;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding: 6px 8px;
   box-shadow: none !important;
-}
-
-.chapter-detail-compact .chapter-service-actions h2 {
-  font-size: 11px;
-  white-space: nowrap;
 }
 
 .chapter-detail-compact .chapter-service-grid {
   display: flex;
   min-width: 0;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 4px;
 }
 
 .chapter-detail-compact .chapter-service-link {
+  position: relative;
   display: inline-flex;
-  width: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
   justify-content: center;
   padding: 0;
   border-radius: 999px !important;
+}
+
+.chapter-detail-compact .chapter-service-link::after {
+  position: absolute;
+  inset: -3px;
+  content: "";
 }
 
 .chapter-detail-compact .chapter-service-link > span:last-child {
@@ -2447,14 +2456,14 @@ button.tag {
 }
 
 .chapter-detail-compact .chapter-service-icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px !important;
 }
 
-.chapter-detail-compact .chapter-service-icon svg {
-  width: 16px;
-  height: 16px;
+.chapter-detail-compact .chapter-service-icon .music-service-mark {
+  width: 15px;
+  height: 15px;
 }
 
 .chapter-track-section {
@@ -2577,8 +2586,7 @@ button.tag {
 .chapter-memory-link:hover,
 .chapter-memory-link:focus-visible {
   border-color: var(--apple-primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  background: color-mix(in srgb, var(--apple-primary) 8%, transparent);
 }
 
 .chapter-compact-track-detail {
@@ -2611,8 +2619,8 @@ button.tag {
 
 .chapter-compact-track-tags {
   display: flex;
-  gap: 4px;
-  padding: 7px 8px 9px 52px;
+  gap: 5px;
+  padding: 6px 8px 10px 52px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -2621,16 +2629,29 @@ button.tag {
   display: none;
 }
 
+.chapter-compact-track-tags a,
 .chapter-compact-track-tags span {
+  min-height: 28px;
+  display: inline-flex;
   flex: 0 0 auto;
-  padding: 2px 6px;
-  border: 1px solid var(--apple-hairline);
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--apple-divider-soft);
   border-radius: 999px;
   color: var(--apple-ink-muted-48);
   background: var(--apple-canvas);
   font-family: var(--apple-font-text);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 650;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.chapter-compact-track-tags a:focus-visible,
+.chapter-compact-track-tags a:hover {
+  border-color: var(--apple-primary);
+  color: var(--apple-primary);
 }
 
 .chapter-compact-track-manage {
@@ -2681,9 +2702,9 @@ button.tag {
 
   .chapter-detail-compact .chapter-actions .button,
   .chapter-detail-compact .chapter-actions .text-button {
-    min-height: 44px;
-    padding: 7px 9px;
-    font-size: 12px;
+    min-height: 34px;
+    padding: 5px 9px;
+    font-size: 11px;
   }
 
   .chapter-track-section {

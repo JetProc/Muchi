@@ -5,14 +5,13 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import {
-  Apple,
-  AudioLines,
   ChevronDown,
   ChevronRight,
-  CirclePlay,
   MoreHorizontal,
   Plus,
 } from "lucide-react";
@@ -25,7 +24,6 @@ import {
   createTags,
   deleteCube,
   getChildCubes,
-  getCubeAncestors,
   getCubesInTreeOrder,
   getCubeTracks,
   getCubeTrackNotes,
@@ -37,18 +35,17 @@ import {
   normalizeTagLabel,
   removeCubeTrack,
   removeCubeTrackNote,
+  reconcileTagSelection,
   reorderCubeTracks,
   setCubeTrackTagIds,
   updateCube,
-  updateCubeTrack,
   updateCubeTrackNote,
+  updateCubeTrackNoteBody,
   type ArchiveEnvelopeV1,
   type Cube,
   type CubeColor,
   type CubeTrack,
-  type MemoryPeriod,
   type MemoryNote,
-  type Season,
   type TagDefinition,
   type TrackId,
   type TrackReference,
@@ -60,8 +57,6 @@ import {
 import {
   AlbumArtwork,
   ChapterCover,
-  PreviewButton,
-  type PreviewControls,
 } from "./editorial-media";
 import {
   ChapterChoice,
@@ -73,18 +68,19 @@ import {
   formatChapterTitle,
   formatCalendarDate,
   formatDate,
-  formatMemory,
   isAssignableChapter,
   isMonthlyChapter,
   isVisibleChapter,
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
+import { tagGroupHref } from "./editorial-tag-link";
 import { useModalFocus } from "./editorial-accessibility";
 import {
   TagPicker,
 } from "./editorial-tag-picker";
 import { ChapterFields } from "./editorial-chapter-fields";
 import { ChapterDeleteDialog } from "./editorial-chapter-delete-dialog";
+import { MusicServiceIcon } from "./editorial-service-icon";
 
 function todayInSeoul(): string {
   const parts = new Intl.DateTimeFormat("en", {
@@ -95,6 +91,147 @@ function todayInSeoul(): string {
   }).formatToParts(new Date());
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
   return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+export type ChapterTrackDetailItem = {
+  id: string;
+  track: TrackReference;
+  summary: ReactNode;
+  tags?: Array<Pick<TagDefinition, "id" | "label">>;
+  action?: ReactNode;
+  detailActions?: ReactNode;
+  privateRecord?: boolean;
+  sharedId?: string;
+};
+
+export function ChapterDetailHero({
+  cover,
+  eyebrow,
+  leading,
+  menu,
+  title,
+  description,
+  meta,
+  actions,
+  style,
+}: {
+  cover: ReactNode;
+  eyebrow: ReactNode;
+  leading?: ReactNode;
+  menu?: ReactNode;
+  title: string;
+  description?: string;
+  meta: ReactNode;
+  actions?: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <section className="chapter-hero chapter-detail-hero" style={style}>
+      {cover}
+      {menu ? <div className="chapter-hero-menu">{menu}</div> : null}
+      <div className="chapter-hero-copy">
+        <span className="section-label">{eyebrow}</span>
+        {leading}
+        <h1>{title}</h1>
+        {description ? <p>{description}</p> : null}
+        <p className="chapter-detail-meta">{meta}</p>
+        {actions ? <div className="chapter-actions">{actions}</div> : null}
+      </div>
+    </section>
+  );
+}
+
+export function ChapterTrackSection({
+  items,
+  title = "수록곡",
+  label = `${items.length}곡`,
+  action,
+  tagHref,
+}: {
+  items: ChapterTrackDetailItem[];
+  title?: string;
+  label?: ReactNode;
+  action?: ReactNode;
+  tagHref?: (tag: Pick<TagDefinition, "id" | "label">) => string;
+}) {
+  const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
+  return (
+    <section className="section chapter-track-section">
+      <div className="section-head"><div className="chapter-section-heading"><h2>{title}</h2><span className="section-label">{label}</span></div>{action}</div>
+      <div className="chapter-compact-track-list">
+        {items.map((item) => {
+          const expanded = expandedTrackId === item.id;
+          return (
+            <article className={`chapter-compact-track${expanded ? " is-expanded" : ""}`} key={item.id}>
+              <div className="chapter-compact-track-main">
+                <button
+                  className="chapter-compact-track-toggle"
+                  type="button"
+                  onClick={() => setExpandedTrackId((current) => current === item.id ? null : item.id)}
+                  aria-expanded={expanded}
+                  aria-controls={`chapter-track-detail-${item.id}`}
+                >
+                  <AlbumArtwork track={item.track} sharedId={item.sharedId ?? item.id} decorative />
+                  <span className="chapter-compact-track-copy">
+                    <strong>{item.track.title}</strong>
+                    <span>{item.track.artist}</span>
+                  </span>
+                  <ChevronDown size={15} aria-hidden="true" />
+                </button>
+                {item.action}
+              </div>
+              <div className="chapter-compact-track-detail" id={`chapter-track-detail-${item.id}`} aria-hidden={!expanded}>
+                <div>
+                  <p className={item.privateRecord ? "chapter-compact-track-private" : undefined}>{item.summary}</p>
+                  {item.tags?.length ? (
+                    <div className="chapter-compact-track-tags" aria-label="곡 태그">
+                      {item.tags.slice(0, 6).map((tag) => tagHref ? (
+                        <Link href={tagHref(tag)} intent="forward" key={tag.id}>#{tag.label}</Link>
+                      ) : <span key={tag.id}>#{tag.label}</span>)}
+                      {item.tags.length > 6 ? <span>+{item.tags.length - 6}</span> : null}
+                    </div>
+                  ) : null}
+                  {item.detailActions ? <div className="chapter-compact-track-detail-actions">{item.detailActions}</div> : null}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function ChapterPlaylistActions({
+  chapterId,
+  source,
+}: {
+  chapterId: string;
+  source?: "discover";
+}) {
+  const playlistHref = (service: "apple" | "spotify" | "youtube") => {
+    const params = new URLSearchParams({ id: chapterId, service });
+    if (source) params.set("source", source);
+    return `/playlist?${params.toString()}`;
+  };
+  return (
+    <section className="chapter-service-actions" aria-label="내 플레이리스트로 가져오기">
+      <div className="chapter-service-grid">
+        <Link className="chapter-service-link is-apple" href={playlistHref("apple")} intent="modal" aria-label="Apple Music으로 내 플레이리스트 가져오기">
+          <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="apple" /></span>
+          <span>Apple Music</span>
+        </Link>
+        <Link className="chapter-service-link is-spotify" href={playlistHref("spotify")} intent="modal" aria-label="Spotify로 내 플레이리스트 가져오기">
+          <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="spotify" /></span>
+          <span>Spotify</span>
+        </Link>
+        <Link className="chapter-service-link is-youtube" href={playlistHref("youtube")} intent="modal" aria-label="YouTube Music으로 내 플레이리스트 가져오기">
+          <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="youtube" /></span>
+          <span>YouTube Music</span>
+        </Link>
+      </div>
+    </section>
+  );
 }
 
 export function Chapters({
@@ -134,7 +271,6 @@ export function Chapters({
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [color, setColor] = useState<CubeColor>("violet");
   const [deleteTarget, setDeleteTarget] = useState<Cube | null>(null);
   const createDialogRef = useModalFocus<HTMLFormElement>(
     showForm || Boolean(pendingTrack),
@@ -151,7 +287,7 @@ export function Chapters({
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      const result = createCube(archive, { name, description, color });
+      const result = createCube(archive, { name, description });
       const linked = pendingTrack
         ? (result.archive.data.inbox[pendingTrack.id]
           ? moveInboxTrackToCube(result.archive, pendingTrack.id, result.cube.id)
@@ -166,7 +302,6 @@ export function Chapters({
       )) {
         setName("");
         setDescription("");
-        setColor("violet");
         setShowForm(false);
         if (linked) {
           router.push(
@@ -206,7 +341,7 @@ export function Chapters({
       </nav>
 
       <div className="chapter-library-toolbar">
-        <span className="chapter-library-count" aria-live="polite">{visibleChapters.length}개 챕터</span>
+        <div className="chapter-library-heading" aria-live="polite"><span>챕터</span><small>{visibleChapters.length}개</small></div>
         <div className="chapter-library-tools">
           <label className="chapter-library-sort">
             <span className="sr-only">챕터 정렬</span>
@@ -216,7 +351,11 @@ export function Chapters({
               <option value="tracks">곡 많은 순</option>
             </select>
           </label>
-          {activeTab === "manual" ? <button className="button button-primary chapter-library-create" type="button" onClick={() => setShowForm(true)}><Plus aria-hidden="true" size={16} />새 챕터</button> : null}
+          {activeTab === "manual" ? (
+            <button className="button button-primary chapter-library-create" type="button" onClick={() => setShowForm(true)} aria-label="새 챕터">
+              <Plus aria-hidden="true" size={16} />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -224,7 +363,6 @@ export function Chapters({
         <section className="chapter-library-grid" aria-label={activeTab === "manual" ? "내가 만든 챕터" : "월별 챕터"}>
           {visibleChapters.map((chapter) => {
             const entries = getCubeTracks(archive, chapter.id);
-            const childCount = getChildCubes(archive, chapter.id).length;
             const chapterTitle = formatChapterTitle(chapter);
             return (
               <article className="chapter-library-card" key={chapter.id}>
@@ -240,10 +378,7 @@ export function Chapters({
                 </div>
                 <Link className="chapter-library-copy" href={`/chapter?id=${encodeURIComponent(chapter.id)}`} intent="shared" sharedId={chapter.id}>
                   <strong>{chapterTitle}</strong>
-                  <span>
-                    {activeTab === "manual" ? "내 챕터" : "월별 챕터"} · {entries.length}곡
-                    {childCount ? ` · 하위 ${childCount}개` : ""}
-                  </span>
+                  <span>{entries.length}곡</span>
                   {chapter.description ? <small>{chapter.description}</small> : null}
                 </Link>
               </article>
@@ -261,13 +396,11 @@ export function Chapters({
           <form ref={createDialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="create-chapter-title" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
             <h2 id="create-chapter-title">새 챕터</h2>
             <ChapterFields
-              color={color}
               description={description}
               idPrefix="chapter"
               name={name}
               nameLabel="이름"
               namePlaceholder="예: 비 오는 날의 버스"
-              onColorChange={setColor}
               onDescriptionChange={setDescription}
               onNameChange={setName}
               showDescription={false}
@@ -315,12 +448,11 @@ export function ChapterDetail({
   const [description, setDescription] = useState("");
   const [color, setColor] = useState<CubeColor>("violet");
   const [managing, setManaging] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [deletingCurrent, setDeletingCurrent] = useState(false);
-  const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [creatingChild, setCreatingChild] = useState(false);
   const [childName, setChildName] = useState("");
   const [childDescription, setChildDescription] = useState("");
-  const [childColor, setChildColor] = useState<CubeColor>("violet");
   const editDialogRef = useModalFocus<HTMLFormElement>(
     editing,
     () => setEditing(false),
@@ -339,7 +471,6 @@ export function ChapterDetail({
 
   const allTags = entries.flatMap((entry) => entry.tags);
   const childChapters = getChildCubes(archive, activeChapter.id);
-  const ancestors = getCubeAncestors(archive, activeChapter.id);
   const monthlyChapter = isMonthlyChapter(activeChapter);
   const canCreateChild = !monthlyChapter;
 
@@ -358,12 +489,12 @@ export function ChapterDetail({
     setDescription(activeChapter.description);
     setColor(activeChapter.color);
     setEditing(true);
+    setMenuOpen(false);
   }
 
   function openChildCreator() {
     setChildName("");
     setChildDescription("");
-    setChildColor(activeChapter.color);
     setCreatingChild(true);
   }
 
@@ -373,7 +504,7 @@ export function ChapterDetail({
       const result = createCube(archive, {
         name: childName,
         description: childDescription,
-        color: childColor,
+        color: activeChapter.color,
         parentId: activeChapter.id,
       });
       if (commit(result.archive, `‘${result.cube.name}’ 하위 챕터를 만들었어요.`)) {
@@ -414,109 +545,80 @@ export function ChapterDetail({
     );
   }
 
+  const trackItems: ChapterTrackDetailItem[] = entries.map((entry, index) => ({
+    id: entry.cubeTrack.id,
+    track: entry.track,
+    sharedId: entry.cubeTrack.id,
+    summary: getLatestCubeTrackNote(entry.cubeTrack)?.body
+      || entry.tags.slice(0, 2).map((tag) => `#${tag.label}`).join(" · ")
+      || `${entry.track.artist}${entry.track.album ? ` · ${entry.track.album}` : ""}`,
+    tags: entry.tags,
+    action: managing ? (
+      <div className="chapter-compact-track-manage">
+        <button type="button" disabled={index === 0} onClick={() => move(entry.cubeTrack, -1)} aria-label={`${entry.track.title} 위로 이동`}>위</button>
+        <button type="button" disabled={index === entries.length - 1} onClick={() => move(entry.cubeTrack, 1)} aria-label={`${entry.track.title} 아래로 이동`}>아래</button>
+        <button type="button" onClick={() => removeEntry(entry.cubeTrack, entry.track.title)} aria-label={`${entry.track.title} 삭제`}>삭제</button>
+      </div>
+    ) : (
+      <Link className="chapter-memory-link" href={`/memory?id=${encodeURIComponent(entry.cubeTrack.id)}`} intent="shared" sharedId={entry.cubeTrack.id}>기억 열기</Link>
+    ),
+  }));
+
   return (
     <div className="page-content chapter-view chapter-detail-compact">
-      <nav className="chapter-breadcrumbs" aria-label="챕터 위치">
-        <Link href="/chapters" intent="back">챕터</Link>
-        {ancestors.map((ancestor) => (
-          <span className="chapter-breadcrumb-item" key={ancestor.id}>
-            <ChevronRight size={13} aria-hidden="true" />
-            <Link href={`/chapter?id=${encodeURIComponent(ancestor.id)}`} intent="back" sharedId={ancestor.id}>{formatChapterTitle(ancestor)}</Link>
-          </span>
-        ))}
-        <span className="chapter-breadcrumb-item" aria-current="page">
-          <ChevronRight size={13} aria-hidden="true" />
-          <strong>{formatChapterTitle(activeChapter)}</strong>
-        </span>
-      </nav>
-      <section className="chapter-hero chapter-detail-hero" style={chapterColorStyle(chapter.color)}>
-        <ChapterCover archive={archive} chapter={chapter} />
-        <div className="chapter-hero-copy">
-          <span className="section-label">챕터 · {formatDate(chapter.updatedAt)}</span>
-          <h1>{formatChapterTitle(chapter)}</h1>
-          {chapter.description ? <p>{chapter.description}</p> : null}
-          <p className="chapter-detail-meta">{entries.length}곡 · {new Set(allTags.map((tag) => tag.id)).size}개 태그 · {entries.reduce((count, entry) => count + entry.cubeTrack.notes.length, 0)}개 메모{childChapters.length ? ` · 하위 ${childChapters.length}개` : ""}</p>
-          <div className="chapter-actions">
-            {!monthlyChapter ? (
-              <>
-                <Link className="button button-primary" href="/capture" intent="modal">곡 기록</Link>
-                <button className="text-button" type="button" onClick={() => setManaging((value) => !value)}>{managing ? "관리 완료" : "곡 관리"}</button>
-                {managing ? <button className="text-button" type="button" onClick={openEditor}>챕터 정보 수정</button> : null}
-                {managing ? <button className="text-button" type="button" onClick={() => setDeletingCurrent(true)}>챕터 삭제</button> : null}
-              </>
-            ) : <span className="section-label">등록일 기준 자동 분류</span>}
+      <ChapterDetailHero
+        cover={<ChapterCover archive={archive} chapter={chapter} />}
+        eyebrow={<>챕터 · {formatDate(chapter.updatedAt)}</>}
+        title={formatChapterTitle(chapter)}
+        description={chapter.description}
+        meta={`${entries.length}곡 · ${new Set(allTags.map((tag) => tag.id)).size}개 태그 · ${entries.reduce((count, entry) => count + entry.cubeTrack.notes.length, 0)}개 메모`}
+        menu={!monthlyChapter ? (
+          <div className="chapter-menu">
+            <button
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              aria-label="챕터 관리"
+              className="chapter-menu-trigger"
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MoreHorizontal size={18} aria-hidden="true" />
+            </button>
+            {menuOpen ? (
+              <div className="chapter-menu-popover" role="menu">
+                <button type="button" role="menuitem" onClick={() => { setManaging((value) => !value); setMenuOpen(false); }}>
+                  {managing ? "곡 순서 변경 완료" : "곡 순서 변경"}
+                </button>
+                <button type="button" role="menuitem" onClick={openEditor}>챕터 정보 수정</button>
+                <button type="button" role="menuitem" className="is-danger" onClick={() => { setDeletingCurrent(true); setMenuOpen(false); }}>챕터 삭제</button>
+              </div>
+            ) : null}
           </div>
-        </div>
-      </section>
-      <section className="section chapter-track-section">
-        <div className="section-head"><div><span className="section-label">{entries.length}곡</span><h2>{managing ? "순서와 곡 관리" : "수록곡"}</h2></div></div>
-        {entries.length ? (
-          <div className="chapter-compact-track-list">
-            {entries.map((entry, index) => {
-              const expanded = expandedTrackId === entry.cubeTrack.id;
-              const summary = getLatestCubeTrackNote(entry.cubeTrack)?.body
-                || entry.cubeTrack.character.trim()
-                || `${entry.track.artist}${entry.track.album ? ` · ${entry.track.album}` : ""}`;
-              return (
-                <article className={`chapter-compact-track${expanded ? " is-expanded" : ""}`} key={entry.cubeTrack.id}>
-                  <div className="chapter-compact-track-main">
-                    <button
-                      className="chapter-compact-track-toggle"
-                      type="button"
-                      onClick={() => setExpandedTrackId((current) => current === entry.cubeTrack.id ? null : entry.cubeTrack.id)}
-                      aria-expanded={expanded}
-                      aria-controls={`chapter-track-detail-${entry.cubeTrack.id}`}
-                    >
-                      <AlbumArtwork track={entry.track} sharedId={entry.cubeTrack.id} decorative />
-                      <span className="chapter-compact-track-copy">
-                        <strong>{entry.track.title}</strong>
-                        <span>{entry.track.artist}</span>
-                      </span>
-                      <ChevronDown size={15} aria-hidden="true" />
-                    </button>
-                    {managing ? (
-                      <div className="chapter-compact-track-manage">
-                        <button type="button" disabled={index === 0} onClick={() => move(entry.cubeTrack, -1)} aria-label={`${entry.track.title} 위로 이동`}>위</button>
-                        <button type="button" disabled={index === entries.length - 1} onClick={() => move(entry.cubeTrack, 1)} aria-label={`${entry.track.title} 아래로 이동`}>아래</button>
-                        <button type="button" onClick={() => removeEntry(entry.cubeTrack, entry.track.title)} aria-label={`${entry.track.title} 삭제`}>삭제</button>
-                      </div>
-                    ) : (
-                      <Link className="chapter-memory-link" href={`/memory?id=${encodeURIComponent(entry.cubeTrack.id)}`} intent="shared" sharedId={entry.cubeTrack.id}>기억 열기</Link>
-                    )}
-                  </div>
-                  <div className="chapter-compact-track-detail" id={`chapter-track-detail-${entry.cubeTrack.id}`} aria-hidden={!expanded}>
-                    <div>
-                      <p>{summary}</p>
-                      {entry.tags.length ? (
-                        <div className="chapter-compact-track-tags" aria-label="곡 태그">
-                          {entry.tags.slice(0, 6).map((tag) => (
-                            <Link
-                              href={`/search?tag=${encodeURIComponent(tag.id)}&view=group`}
-                              intent="forward"
-                              key={tag.id}
-                            >#{tag.label}</Link>
-                          ))}
-                          {entry.tags.length > 6 ? <span>+{entry.tags.length - 6}</span> : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : <EmptyState title="이 순간의 첫 곡을 담아보세요" action={<Link className="button button-primary" href="/capture">곡 찾기</Link>} />}
-      </section>
+        ) : undefined}
+        style={chapterColorStyle(chapter.color)}
+      />
+      {entries.length ? <ChapterPlaylistActions chapterId={chapter.id} /> : null}
+      {entries.length ? (
+        <ChapterTrackSection
+          items={trackItems}
+          label={`${entries.length}곡`}
+          title="수록곡"
+          action={!monthlyChapter ? (
+            <Link className="text-button compact-section-action" href="/capture" intent="modal">
+              <Plus size={15} aria-hidden="true" />
+              추가
+            </Link>
+          ) : undefined}
+          tagHref={(tag) => `/search?tag=${encodeURIComponent(tag.id)}&view=group`}
+        />
+      ) : <section className="section chapter-track-section"><div className="section-head"><div className="chapter-section-heading"><h2>수록곡</h2><span className="section-label">0곡</span></div>{!monthlyChapter ? <Link className="text-button compact-section-action" href="/capture" intent="modal"><Plus size={15} aria-hidden="true" />추가</Link> : null}</div><EmptyState title="이 순간의 첫 곡을 담아보세요" /></section>}
       <section className="child-chapter-section" aria-labelledby="child-chapters-title">
         <div className="child-chapter-head">
-          <div>
-            <span className="section-label">하위 챕터 · {childChapters.length}</span>
-            <h2 id="child-chapters-title">하위 챕터</h2>
-          </div>
+          <h2 id="child-chapters-title">하위 챕터</h2>
           {canCreateChild && childChapters.length ? (
-            <button className="text-button child-chapter-create" type="button" onClick={openChildCreator}>
+            <button className="text-button compact-section-action" type="button" onClick={openChildCreator}>
               <Plus size={15} aria-hidden="true" />
-              만들기
+              추가
             </button>
           ) : null}
         </div>
@@ -524,7 +626,6 @@ export function ChapterDetail({
           <div className="child-chapter-list">
             {childChapters.map((child) => {
               const childEntries = getCubeTracks(archive, child.id);
-              const grandchildCount = getChildCubes(archive, child.id).length;
               return (
                 <Link
                   className="child-chapter-row"
@@ -536,7 +637,7 @@ export function ChapterDetail({
                   <ChapterCover archive={archive} chapter={child} />
                   <span className="child-chapter-copy">
                     <strong>{child.name}</strong>
-                    <small>{childEntries.length}곡{grandchildCount ? ` · 하위 ${grandchildCount}개` : ""}</small>
+                    <small>{childEntries.length}곡</small>
                     {child.description ? <span>{child.description}</span> : null}
                   </span>
                   <ChevronRight size={17} aria-hidden="true" />
@@ -546,30 +647,10 @@ export function ChapterDetail({
           </div>
         ) : (
           <div className="child-chapter-empty">
-            <p>{canCreateChild ? "하위 챕터 없음" : "자동 분류"}</p>
-            {canCreateChild ? <button className="button button-primary" type="button" onClick={openChildCreator}>하위 챕터</button> : null}
+            {canCreateChild ? <button className="text-button compact-section-action" type="button" onClick={openChildCreator}><Plus size={15} aria-hidden="true" />추가</button> : null}
           </div>
         )}
       </section>
-      {entries.length ? (
-        <section className="chapter-service-actions" aria-labelledby="chapter-service-title">
-          <h2 id="chapter-service-title">플레이리스트로 내보내기</h2>
-          <div className="chapter-service-grid">
-            <Link className="chapter-service-link is-apple" href={`/playlist?id=${encodeURIComponent(chapter.id)}&service=apple`} intent="modal" aria-label="Apple Music으로 플레이리스트 만들기">
-              <span className="chapter-service-icon" aria-hidden="true"><Apple size={20} strokeWidth={1.9} /></span>
-              <span>Apple Music</span>
-            </Link>
-            <Link className="chapter-service-link is-spotify" href={`/playlist?id=${encodeURIComponent(chapter.id)}&service=spotify`} intent="modal" aria-label="Spotify로 플레이리스트 만들기">
-              <span className="chapter-service-icon" aria-hidden="true"><AudioLines size={20} strokeWidth={1.9} /></span>
-              <span>Spotify</span>
-            </Link>
-            <Link className="chapter-service-link is-youtube" href={`/playlist?id=${encodeURIComponent(chapter.id)}&service=youtube`} intent="modal" aria-label="YouTube Music으로 플레이리스트 만들기">
-              <span className="chapter-service-icon" aria-hidden="true"><CirclePlay size={20} strokeWidth={1.9} /></span>
-              <span>YouTube Music</span>
-            </Link>
-          </div>
-        </section>
-      ) : null}
 
       {editing ? (
         <div className="dialog-backdrop" role="presentation" onClick={() => setEditing(false)}>
@@ -598,13 +679,11 @@ export function ChapterDetail({
           <form ref={childDialogRef} className="dialog child-chapter-dialog" role="dialog" aria-modal="true" aria-labelledby="create-child-chapter-title" onSubmit={submitChildChapter} onClick={(event) => event.stopPropagation()}>
             <h2 id="create-child-chapter-title">하위 챕터</h2>
             <ChapterFields
-              color={childColor}
               description={childDescription}
               idPrefix="child-chapter"
               name={childName}
               nameLabel="이름"
               namePlaceholder="예: 비가 내리기 시작할 때"
-              onColorChange={setChildColor}
               onDescriptionChange={setChildDescription}
               onNameChange={setChildName}
               showDescription={false}
@@ -632,33 +711,18 @@ export function ChapterDetail({
 export function MemoryPanel({
   cubeTrack,
   track,
-  preview,
-  onSharePrototype,
 }: {
   cubeTrack: CubeTrack;
   track: TrackReference;
-  preview: PreviewControls;
-  onSharePrototype: () => void;
 }) {
   const latestNote = getLatestCubeTrackNote(cubeTrack);
-  const providerName = {
-    itunes: "Apple Music",
-    spotify: "Spotify",
-    youtube: "YouTube Music",
-    melon: "Melon",
-  }[track.provider];
   return (
     <aside className="memory-art-panel">
       <AlbumArtwork track={track} sharedId={cubeTrack.id} priority />
       <div className="memory-art-copy">
-        <span className="section-label">{latestNote?.listenedOn ? formatCalendarDate(latestNote.listenedOn) : formatMemory(cubeTrack.memoryPeriod)}</span>
+        <span className="section-label">{latestNote?.listenedOn ? formatCalendarDate(latestNote.listenedOn) : `최초 기록 · ${formatDate(cubeTrack.createdAt)}`}</span>
         <h2>{track.title}</h2>
         <p>{track.artist}{track.album ? ` · ${track.album}` : ""}</p>
-        <div className="memory-preview-actions">
-          <PreviewButton track={track} preview={preview} />
-          {track.externalUrl ? <a className="text-link" href={track.externalUrl} target="_blank" rel="noopener noreferrer">{providerName}에서 열기</a> : null}
-          <button className="text-link" type="button" onClick={onSharePrototype}>기록 이미지 만들기 · 실험</button>
-        </div>
       </div>
     </aside>
   );
@@ -672,6 +736,7 @@ interface TagEditorProps {
   toggleTag: (tagId: string) => void;
   addTag: (label: string) => boolean;
   searchableTagIds?: string[];
+  memoryReturnId?: string;
 }
 
 export function TagEditor({
@@ -682,6 +747,7 @@ export function TagEditor({
   toggleTag,
   addTag,
   searchableTagIds = [],
+  memoryReturnId,
 }: TagEditorProps) {
   const searchableTags = selectedTagIds
     .filter((tagId) => searchableTagIds.includes(tagId))
@@ -698,10 +764,10 @@ export function TagEditor({
         onCreate={addTag}
       />
       {searchableTags.length ? (
-        <nav className="memory-tag-links" aria-label="선택한 키워드로 음악 찾기">
+        <nav className="memory-tag-links" aria-label="선택한 태그로 음악 찾기">
           {searchableTags.map((tag) => (
             <Link
-              href={`/search?tag=${encodeURIComponent(tag.id)}&view=group`}
+              href={tagGroupHref([tag.id], { fromMemoryId: memoryReturnId })}
               intent="forward"
               key={tag.id}
             >#{tag.label} 모아보기</Link>
@@ -717,7 +783,6 @@ export function Memory({
   cubeTrackId,
   commit,
   notify,
-  preview,
   recordMode,
   openChapterMove = false,
   router,
@@ -726,7 +791,6 @@ export function Memory({
   cubeTrackId: string | null;
   commit: ArchiveCommit;
   notify: Notify;
-  preview: PreviewControls;
   recordMode: "quick" | "detail";
   openChapterMove?: boolean;
   router: MotionRouter;
@@ -735,22 +799,14 @@ export function Memory({
   const track = cubeTrack ? archive.data.tracks[cubeTrack.trackId] : null;
   const cube = cubeTrack ? archive.data.cubes[cubeTrack.cubeId] : null;
   const today = todayInSeoul();
-  const [currentYear, currentMonth] = today.split("-");
-  const currentMonthValue = String(Number(currentMonth));
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [character, setCharacter] = useState("");
-  const [periodKind, setPeriodKind] = useState<"none" | NonNullable<MemoryPeriod>["kind"]>("month");
-  const [periodYear, setPeriodYear] = useState(currentYear);
-  const [periodMonth, setPeriodMonth] = useState(currentMonthValue);
-  const [periodSeason, setPeriodSeason] = useState<Season>("spring");
-  const [periodTouched, setPeriodTouched] = useState(false);
   const [noteDate, setNoteDate] = useState(today);
   const [noteBody, setNoteBody] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [pendingTags, setPendingTags] = useState<TagDefinition[]>([]);
-  const [detailsOpen, setDetailsOpen] = useState(recordMode === "detail");
   const [assigning, setAssigning] = useState(openChapterMove);
   const draftReady = useRef(false);
+  const baselineTagIdsRef = useRef<string[]>([]);
   const availableTags = [...Object.values(archive.data.tags), ...pendingTags]
     .sort((left, right) => left.label.localeCompare(right.label, "ko"));
   const tagGroups = useMemo(
@@ -769,45 +825,29 @@ export function Memory({
     () => setAssigning(false),
   );
   useEffect(() => {
+    const syncTimer = window.setTimeout(() => setAssigning(openChapterMove), 0);
+    return () => window.clearTimeout(syncTimer);
+  }, [cubeTrackId, openChapterMove]);
+
+  useEffect(() => {
     if (!cubeTrack) return;
     draftReady.current = false;
     const hydrationTimer = window.setTimeout(() => {
-      const defaultPeriodKind = cubeTrack.memoryPeriod?.kind ?? "month";
-      const defaultPeriodYear = cubeTrack.memoryPeriod
-        ? cubeTrack.memoryPeriod.year?.toString() ?? ""
-        : currentYear;
-      const defaultPeriodMonth = cubeTrack.memoryPeriod?.kind === "month"
-        ? String(cubeTrack.memoryPeriod.month)
-        : currentMonthValue;
+      baselineTagIdsRef.current = cubeTrack.tagIds;
       setSelectedTagIds(cubeTrack.tagIds.filter((tagId) => Boolean(archive.data.tags[tagId])));
-      setCharacter(cubeTrack.character);
-      setPeriodKind(defaultPeriodKind);
-      setPeriodYear(defaultPeriodYear);
-      setPeriodMonth(defaultPeriodMonth);
-      setPeriodTouched(false);
-      if (cubeTrack.memoryPeriod?.kind === "season") setPeriodSeason(cubeTrack.memoryPeriod.season);
       setNoteDate(today);
       setNoteBody("");
       setEditingNoteId(null);
       setPendingTags([]);
-      let shouldOpenDetails = recordMode === "detail"
-        || Boolean(cubeTrack.character || cubeTrack.memoryPeriod || cubeTrack.notes.length);
       try {
         const raw = window.sessionStorage.getItem(`music-world:memory-draft:v1:${cubeTrack.id}`);
         if (raw) {
           const draft = JSON.parse(raw) as Partial<{
             selectedTagIds: string[];
-            character: string;
-            periodKind: "none" | NonNullable<MemoryPeriod>["kind"];
-            periodYear: string;
-            periodMonth: string;
-            periodSeason: Season;
-            periodTouched: boolean;
             noteDate: string;
             noteBody: string;
             editingNoteId: string | null;
             pendingTags: TagDefinition[];
-            detailsOpen: boolean;
           }>;
           const restoredPendingTags = Array.isArray(draft.pendingTags)
             ? draft.pendingTags.filter((tag) => (
@@ -822,19 +862,9 @@ export function Memory({
             ...Object.keys(archive.data.tags),
             ...restoredPendingTags.map((tag) => tag.id),
           ]);
-          const draftKeepsPeriod = draft.periodTouched
-            ?? (draft.periodKind !== undefined && draft.periodKind !== "none");
           setSelectedTagIds((draft.selectedTagIds ?? cubeTrack.tagIds)
             .filter((tagId) => knownTagIds.has(tagId)));
           setPendingTags(restoredPendingTags);
-          setCharacter(draft.character ?? cubeTrack.character);
-          setPeriodKind(draftKeepsPeriod ? draft.periodKind ?? defaultPeriodKind : defaultPeriodKind);
-          setPeriodYear(draftKeepsPeriod ? draft.periodYear ?? defaultPeriodYear : defaultPeriodYear);
-          setPeriodMonth(draftKeepsPeriod ? draft.periodMonth ?? defaultPeriodMonth : defaultPeriodMonth);
-          setPeriodSeason(draftKeepsPeriod
-            ? draft.periodSeason ?? (cubeTrack.memoryPeriod?.kind === "season" ? cubeTrack.memoryPeriod.season : "spring")
-            : cubeTrack.memoryPeriod?.kind === "season" ? cubeTrack.memoryPeriod.season : "spring");
-          setPeriodTouched(draftKeepsPeriod);
           const restoredEditingNote = draft.editingNoteId
             ? cubeTrack.notes.find((note) => note.id === draft.editingNoteId)
             : null;
@@ -844,13 +874,10 @@ export function Memory({
           setEditingNoteId(restoredEditingNote?.id ?? null);
           setNoteDate(draft.noteDate ?? restoredEditingNote?.listenedOn ?? today);
           setNoteBody(draft.noteBody ?? restoredEditingNote?.body ?? "");
-          shouldOpenDetails = draft.detailsOpen
-            ?? (shouldOpenDetails || Boolean(draft.noteBody || restoredEditingNote));
         }
       } catch {
         // Session-only drafts are best effort and never block the archive.
       }
-      setDetailsOpen(shouldOpenDetails);
       draftReady.current = true;
     }, 0);
     return () => window.clearTimeout(hydrationTimer);
@@ -859,31 +886,32 @@ export function Memory({
 
   useEffect(() => {
     if (!cubeTrackId || !draftReady.current) return;
-    try {
-      window.sessionStorage.setItem(`music-world:memory-draft:v1:${cubeTrackId}`, JSON.stringify({
-        selectedTagIds,
-        character,
-        periodKind,
-        periodYear,
-        periodMonth,
-        periodSeason,
-        periodTouched,
-        noteDate,
-        noteBody,
-        editingNoteId,
-        pendingTags,
-        detailsOpen,
-      }));
-    } catch {
-      // Session-only drafts are best effort.
-    }
-  }, [character, cubeTrackId, detailsOpen, editingNoteId, noteBody, noteDate, pendingTags, periodKind, periodMonth, periodSeason, periodTouched, periodYear, selectedTagIds]);
+    const saveTimer = window.setTimeout(() => {
+      try {
+        window.sessionStorage.setItem(`music-world:memory-draft:v1:${cubeTrackId}`, JSON.stringify({
+          selectedTagIds,
+          noteDate,
+          noteBody,
+          editingNoteId,
+          pendingTags,
+        }));
+      } catch {
+        // Session-only drafts are best effort.
+      }
+    }, 160);
+    return () => {
+      window.clearTimeout(saveTimer);
+    };
+  }, [cubeTrackId, editingNoteId, noteBody, noteDate, pendingTags, selectedTagIds]);
 
   if (!cubeTrackId || !cubeTrack || !track || !cube) return <div className="page-content"><EmptyState title="곡의 기억을 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
   const activeCubeTrack = cubeTrack;
   const activeTrack = track;
   const activeCube = cube;
   const notes = getCubeTrackNotes(activeCubeTrack);
+  const editingNote = editingNoteId
+    ? activeCubeTrack.notes.find((note) => note.id === editingNoteId) ?? null
+    : null;
   const providerName = {
     itunes: "Apple Music",
     spotify: "Spotify",
@@ -932,9 +960,13 @@ export function Memory({
     }
   }
 
-  function persist(returnToSource = false) {
+  function persist() {
     try {
-      const selectedExistingTagIds = selectedTagIds.filter((tagId) => Boolean(archive.data.tags[tagId]));
+      const selectedExistingTagIds = reconcileTagSelection(
+        activeCubeTrack.tagIds.filter((tagId) => Boolean(archive.data.tags[tagId])),
+        baselineTagIdsRef.current,
+        selectedTagIds.filter((tagId) => Boolean(archive.data.tags[tagId])),
+      );
       const selectedPendingLabels = pendingTags
         .filter((tag) => selectedTagIds.includes(tag.id))
         .map((tag) => tag.label);
@@ -944,30 +976,40 @@ export function Memory({
         ...created.tags.map((tag) => tag.id),
       ])];
       if (!resolvedTagIds.length) {
-        notify("나중에 이 곡을 찾을 키워드를 하나 남겨 주세요.");
+        notify("나중에 이 곡을 찾을 태그를 하나 남겨 주세요.");
         return;
       }
-      const year = periodYear.trim() ? Number(periodYear) : null;
-      const memoryPeriod: MemoryPeriod = periodKind === "none"
-        ? null
-        : periodKind === "month"
-          ? { kind: "month", year, month: Number(periodMonth) }
-          : { kind: "season", year, season: periodSeason };
-      const withDetails = updateCubeTrack(created.archive, activeCubeTrack.id, {
-        character,
-        memoryPeriod,
-      });
-      let next = setCubeTrackTagIds(withDetails, activeCubeTrack.id, resolvedTagIds);
-      if (noteBody.trim()) {
-        next = editingNoteId
-          ? updateCubeTrackNote(next, activeCubeTrack.id, editingNoteId, { listenedOn: noteDate, body: noteBody })
-          : addCubeTrackNote(next, activeCubeTrack.id, { listenedOn: noteDate, body: noteBody });
+      if (editingNoteId && !noteBody.trim()) {
+        notify("수정할 메모 내용을 입력해 주세요.");
+        return;
       }
-      if (commit(next, editingNoteId ? "날짜별 감상을 수정했어요." : "이 곡의 새로운 감상을 기록했어요.")) {
-        clearDraft();
-        if (returnToSource && activeTrack.externalUrl) {
-          window.open(activeTrack.externalUrl, "_blank", "noopener,noreferrer");
+      let next = setCubeTrackTagIds(created.archive, activeCubeTrack.id, resolvedTagIds);
+      if (noteBody.trim()) {
+        if (editingNoteId) {
+          next = editingNote?.listenedOn === null
+            ? updateCubeTrackNoteBody(next, activeCubeTrack.id, editingNoteId, noteBody)
+            : updateCubeTrackNote(next, activeCubeTrack.id, editingNoteId, { listenedOn: noteDate, body: noteBody });
+        } else {
+          next = addCubeTrackNote(next, activeCubeTrack.id, { listenedOn: noteDate, body: noteBody });
         }
+      }
+      const message = editingNoteId
+        ? "날짜별 감상을 수정했어요."
+        : noteBody.trim()
+          ? "이 곡의 새로운 감상을 기록했어요."
+          : "이 곡의 태그를 기록했어요.";
+      const toast = activeTrack.externalUrl
+        ? {
+          text: message,
+          action: {
+            label: `${providerName} 열기`,
+            href: activeTrack.externalUrl,
+            external: true,
+          },
+        }
+        : message;
+      if (commit(next, toast)) {
+        clearDraft();
         if (activeCube.kind === "capture") router.push("/tags", "back");
         else router.push(`/chapter?id=${encodeURIComponent(activeCube.id)}`, "back", activeCube.id);
       }
@@ -978,7 +1020,7 @@ export function Memory({
 
   function save(event: FormEvent) {
     event.preventDefault();
-    persist(false);
+    persist();
   }
 
   function editNote(note: MemoryNote) {
@@ -1012,7 +1054,7 @@ export function Memory({
         const moved = moveCaptureTrackToCube(archive, activeCubeTrack.id, targetChapterId);
         const target = moved.status === "moved" ? moved.cubeTrack : moved.existingCubeTrack;
         const message = moved.status === "moved"
-          ? "키워드 기록을 챕터로 옮겼어요."
+          ? "태그 기록을 챕터로 옮겼어요."
           : "이 챕터에 같은 곡의 기록이 있어 기존 기억을 열었어요.";
         if (commit(moved.archive, message)) {
           setAssigning(false);
@@ -1033,12 +1075,11 @@ export function Memory({
   return (
     <div className="page-content memory-view">
       <PageHeader
-        eyebrow={cube.kind === "capture" ? "챕터 미분류 · 키워드 기록" : `개인 기록 · ${formatChapterTitle(cube)}`}
-        title="키워드 기록"
-        description={<>나중에 어떤 말로 <strong>‘{track.title}’</strong>을 찾고 싶은가요?</>}
+        eyebrow={cube.kind === "capture" ? "챕터 미분류" : `개인 기록 · ${formatChapterTitle(cube)}`}
+        title="곡 기록"
       />
       <div className="memory-layout">
-        <MemoryPanel cubeTrack={cubeTrack} track={track} preview={preview} onSharePrototype={() => notify("공유 이미지 기능을 확인 중이에요. 프로토타입에서는 버튼만 제공됩니다.")} />
+        <MemoryPanel cubeTrack={cubeTrack} track={track} />
         <form className="memory-form form-stack" onSubmit={save}>
           <TagEditor
             tags={availableTags}
@@ -1048,90 +1089,29 @@ export function Memory({
             toggleTag={toggleTag}
             addTag={addTag}
             searchableTagIds={Object.keys(archive.data.tags)}
+            memoryReturnId={activeCubeTrack.id}
           />
-          <details
-            className="memory-details-disclosure"
-            open={detailsOpen}
-            onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
-          >
-            <summary>더 남기기</summary>
-            <div className="memory-details-content form-stack">
-          <div className="field">
-            <label htmlFor="character">성격</label>
-            <input
-              id="character"
-              className="input"
-              value={character}
-              onChange={(event) => setCharacter(event.target.value)}
-              maxLength={ARCHIVE_LIMITS.character}
-              placeholder="예: 건조하고 빠르게 달리는 밤의 록"
-            />
-            <span className="field-hint">{character.length} / {ARCHIVE_LIMITS.character}</span>
-          </div>
-          <fieldset className="field memory-period-field">
-            <legend>기억한 시기 · 선택</legend>
-            <div className="memory-period-controls">
-              <label className="memory-period-kind">
-                <span className="sr-only">시기 단위</span>
-                <select id="memory-period-kind" className="input" value={periodKind} onChange={(event) => {
-                  setPeriodKind(event.target.value as "none" | NonNullable<MemoryPeriod>["kind"]);
-                  setPeriodTouched(true);
-                }}>
-                  <option value="none">시기 기록 안 함</option>
-                  <option value="month">월로 기록</option>
-                  <option value="season">계절로 기록</option>
-                </select>
-              </label>
-              {periodKind !== "none" ? (
-                <label>
-                  <span className="sr-only">연도</span>
-                  <input id="memory-period-year" className="input" type="number" inputMode="numeric" min="1900" max="2200" value={periodYear} onChange={(event) => {
-                    setPeriodYear(event.target.value);
-                    setPeriodTouched(true);
-                  }} placeholder="연도 · 선택" />
-                </label>
-              ) : null}
-              {periodKind === "month" ? (
-                <label>
-                  <span className="sr-only">월</span>
-                  <select id="memory-period-value" className="input" value={periodMonth} onChange={(event) => {
-                    setPeriodMonth(event.target.value);
-                    setPeriodTouched(true);
-                  }}>
-                    {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => <option value={month} key={month}>{month}월</option>)}
-                  </select>
-                </label>
-              ) : null}
-              {periodKind === "season" ? (
-                <label>
-                  <span className="sr-only">계절</span>
-                  <select id="memory-period-value" className="input" value={periodSeason} onChange={(event) => {
-                    setPeriodSeason(event.target.value as Season);
-                    setPeriodTouched(true);
-                  }}>
-                    <option value="spring">봄</option>
-                    <option value="summer">여름</option>
-                    <option value="autumn">가을</option>
-                    <option value="winter">겨울</option>
-                  </select>
-                </label>
-              ) : null}
-            </div>
-          </fieldset>
-          <section className="memory-note-composer" aria-labelledby="memory-note-title">
+          <section className="memory-note-composer memory-note-composer-compact" aria-labelledby="memory-note-title">
             <div className="memory-note-heading">
-              <div><span className="section-label">날짜별 감상</span><h2 id="memory-note-title">{editingNoteId ? "메모 수정" : "새 메모 추가"}</h2></div>
+              <h2 id="memory-note-title">메모</h2>
               {editingNoteId ? <button className="text-button" type="button" onClick={cancelNoteEdit}>수정 취소</button> : null}
             </div>
             <div className="field">
-              <label htmlFor="memory-note-date">감상 날짜</label>
-              <input id="memory-note-date" className="input" type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} required />
-            </div>
-            <div className="field">
-              <label htmlFor="memory-note-body">메모 · 선택</label>
+              <label className="sr-only" htmlFor="memory-note-body">메모</label>
               <textarea id="memory-note-body" className="textarea" value={noteBody} onChange={(event) => setNoteBody(event.target.value)} maxLength={ARCHIVE_LIMITS.memo} placeholder="오늘 이 곡에서 새롭게 들린 것" />
               <span className="field-hint">{noteBody.length} / {ARCHIVE_LIMITS.memo}</span>
             </div>
+            {editingNote?.listenedOn === null ? (
+              <div className="memory-note-date-row">
+                <span>감상 날짜</span>
+                <span className="memory-note-undated">날짜 미지정 · 기존 기록</span>
+              </div>
+            ) : (
+              <label className="memory-note-date-row" htmlFor="memory-note-date">
+                <span>감상 날짜</span>
+                <input id="memory-note-date" className="memory-note-date-input" type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} required />
+              </label>
+            )}
           </section>
           {notes.length ? (
             <section className="memory-note-history" aria-labelledby="memory-note-history-title">
@@ -1139,7 +1119,7 @@ export function Memory({
               <ol className="memory-note-list">
                 {notes.map((note) => (
                   <li className="memory-note-item" key={note.id}>
-                    <time dateTime={note.listenedOn ?? note.createdAt}>{note.listenedOn ? formatCalendarDate(note.listenedOn) : `날짜 미지정 · ${formatMemory(activeCubeTrack.memoryPeriod)}`}</time>
+                    <time dateTime={note.listenedOn ?? note.createdAt}>{note.listenedOn ? formatCalendarDate(note.listenedOn) : `날짜 미지정 · 최초 기록 ${formatDate(activeCubeTrack.createdAt)}`}</time>
                     <p>{note.body}</p>
                     <div className="memory-note-actions"><button type="button" onClick={() => editNote(note)}>수정</button><button type="button" onClick={() => deleteNote(note)}>삭제</button></div>
                   </li>
@@ -1147,19 +1127,8 @@ export function Memory({
               </ol>
             </section>
           ) : null}
-            </div>
-          </details>
-          <div className="memory-form-actions">
-            <div className="dialog-actions">
-              <button className="button" type="button" onClick={() => {
-                notify("작성 중인 내용은 이 기기에 임시 저장했어요.");
-                if (cube.kind === "capture") router.push("/tags", "back");
-                else router.push(`/chapter?id=${encodeURIComponent(cube.id)}`, "back", cube.id);
-              }}>나중에 이어서</button>
-              {activeCube.kind === "capture" || recordMode === "detail" ? <button className="button" type="button" onClick={() => setAssigning(true)}>{activeCube.kind === "capture" ? "챕터로 옮기기" : "다른 챕터에도 기록"}</button> : null}
-              <button className="button button-primary" type="submit">{editingNoteId ? "수정 완료" : "키워드 기록"}</button>
-            </div>
-            {activeTrack.externalUrl ? <button className="text-button memory-return-action" type="button" onClick={() => persist(true)}>기록하고 {providerName}으로 돌아가기</button> : null}
+          <div className="memory-record-footer">
+            <button className="button button-primary memory-record-submit" type="submit">{editingNoteId ? "수정 완료" : "기록하기"}</button>
           </div>
         </form>
       </div>

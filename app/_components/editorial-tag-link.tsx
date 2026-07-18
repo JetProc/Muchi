@@ -4,10 +4,14 @@ import type { AnchorHTMLAttributes, ReactNode } from "react";
 import type { TagDefinition } from "@/lib/archive";
 import { MotionLink } from "./editorial-motion";
 
-export function tagGroupHref(tagIds: string[]): string {
+export function tagGroupHref(
+  tagIds: string[],
+  options: { fromMemoryId?: string } = {},
+): string {
   const params = new URLSearchParams();
   [...new Set(tagIds)].forEach((tagId) => params.append("tag", tagId));
   if (tagIds.length) params.set("view", "group");
+  if (options.fromMemoryId) params.set("fromMemory", options.fromMemoryId);
   const query = params.toString();
   return query ? `/search?${query}` : "/search";
 }
@@ -15,21 +19,23 @@ export function tagGroupHref(tagIds: string[]): string {
 type TagLinkProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
   tag: TagDefinition;
   children?: ReactNode;
+  fromMemoryId?: string;
 };
 
-/** A single, reusable route contract for every clickable archive keyword. */
+/** A single, reusable route contract for every clickable archive tag. */
 export function TagLink({
   tag,
   children,
   className = "tag",
+  fromMemoryId,
   ...props
 }: TagLinkProps) {
   return (
     <MotionLink
       {...props}
       className={className}
-      href={tagGroupHref([tag.id])}
-      aria-label={props["aria-label"] ?? `${tag.label} 키워드로 음악 찾기`}
+      href={tagGroupHref([tag.id], { fromMemoryId })}
+      aria-label={props["aria-label"] ?? `${tag.label} 태그로 음악 찾기`}
     >
       {children ?? `#${tag.label}`}
     </MotionLink>

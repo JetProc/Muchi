@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, MouseEvent, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import {
   type ArchiveEnvelopeV1,
   type Cube,
@@ -60,12 +60,14 @@ export function ChapterChoice({
   index,
   detail,
   onSelect,
+  showSelectionLabel = true,
 }: {
   archive: ArchiveEnvelopeV1;
   chapter: Cube;
   index: number;
   detail: ReactNode;
   onSelect: (chapterId: string) => void;
+  showSelectionLabel?: boolean;
 }) {
   return (
     <button
@@ -79,7 +81,7 @@ export function ChapterChoice({
         <strong>{formatChapterPath(archive, chapter)}</strong>
         <small>{detail}</small>
       </span>
-      <em>선택</em>
+      {showSelectionLabel ? <em>선택</em> : null}
     </button>
   );
 }
@@ -95,6 +97,8 @@ export function TrackLine({
   onTagClick,
   selected = false,
   selectable = false,
+  showAlbum = true,
+  showIndex = true,
   onRowClick,
 }: {
   track: TrackReference;
@@ -107,20 +111,32 @@ export function TrackLine({
   onTagClick?: (tag: TagDefinition) => void;
   selected?: boolean;
   selectable?: boolean;
-  onRowClick?: (event: MouseEvent<HTMLElement>) => void;
+  showAlbum?: boolean;
+  showIndex?: boolean;
+  onRowClick?: () => void;
 }) {
+  function onRowKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (!selectable || !onRowClick || (event.key !== "Enter" && event.key !== " ")) return;
+    event.preventDefault();
+    onRowClick();
+  }
+
   return (
     <article
       className={`track-line${selectable ? " is-selectable" : ""}${selected ? " is-selected" : ""}`}
       onClick={onRowClick}
+      onKeyDown={onRowKeyDown}
+      role={selectable ? "button" : undefined}
+      tabIndex={selectable ? 0 : undefined}
+      aria-pressed={selectable ? selected : undefined}
       data-selected={selectable ? selected : undefined}
       style={{ "--track-delay": `${Math.min(index, 6) * 24}ms` } as CSSProperties}
     >
-      <span className="track-number">{String(index + 1).padStart(2, "0")}</span>
+      {showIndex ? <span className="track-number">{String(index + 1).padStart(2, "0")}</span> : null}
       <AlbumArtwork track={track} sharedId={sharedId} decorative />
       <div className="track-info">
         <strong>{track.title}</strong>
-        <small>{track.artist}{track.album ? ` · ${track.album}` : ""}</small>
+        <small>{track.artist}{showAlbum && track.album ? ` · ${track.album}` : ""}</small>
         {context ? <em>{context}</em> : null}
         {tags.length ? (
           <div className="tag-row" style={{ marginTop: 7 }}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronRight, Heart, ListMusic, UserPlus, Users } from "lucide-react";
+import { Bell, ChevronRight, Heart, UserPlus, Users } from "lucide-react";
 import {
   getFollowingActivities,
   getProfileChapters,
@@ -8,15 +8,21 @@ import {
   getPublicProfile,
   rankPublicChapters,
   type DiscoveryInteractionState,
-  type PublicChapter,
   type PublicDiscoveryCatalog,
   type PublicProfile,
   type RankedPublicChapter,
 } from "@/lib/public-discovery";
 import type { ArchiveEnvelopeV1 } from "@/lib/archive";
-import { AlbumArtwork } from "./editorial-media";
+import { ChapterCover } from "./editorial-media";
 import { MotionLink as Link } from "./editorial-motion";
 import { EmptyState, PageHeader } from "./editorial-ui";
+import {
+  ChapterDetailHero,
+  ChapterPlaylistActions,
+  ChapterTrackSection,
+  type ChapterTrackDetailItem,
+} from "./editorial-views-chapters";
+import { chapterColorStyle, formatDate } from "./editorial-format";
 
 type DiscoveryActions = {
   onToggleFollow: (profileId: string) => void;
@@ -28,13 +34,21 @@ function initials(profile: PublicProfile): string {
   return profile.name.slice(0, 1);
 }
 
-function ProfileStamp({ profile, compact = false }: { profile: PublicProfile; compact?: boolean }) {
+function ProfileStamp({
+  profile,
+  compact = false,
+  showHandle = true,
+}: {
+  profile: PublicProfile;
+  compact?: boolean;
+  showHandle?: boolean;
+}) {
   return (
     <span className={`public-profile-stamp${compact ? " is-compact" : ""}`}>
       <span className="public-profile-avatar" style={{ backgroundColor: profile.avatarTone }} aria-hidden="true">{initials(profile)}</span>
       <span>
         <strong>{profile.name}</strong>
-        <small>@{profile.handle}</small>
+        {showHandle ? <small>@{profile.handle}</small> : null}
       </span>
     </span>
   );
@@ -42,8 +56,7 @@ function ProfileStamp({ profile, compact = false }: { profile: PublicProfile; co
 
 function ChapterFeedLine({ item, index }: { item: RankedPublicChapter; index: number }) {
   const { chapter, profile, reason } = item;
-  const leadTrack = chapter.tracks[0]?.track;
-  if (!leadTrack) return null;
+  if (!chapter.tracks.length) return null;
   return (
     <Link
       className="public-chapter-line"
@@ -52,7 +65,13 @@ function ChapterFeedLine({ item, index }: { item: RankedPublicChapter; index: nu
       sharedId={chapter.id}
     >
       <span className="public-chapter-index">{String(index + 1).padStart(2, "0")}</span>
-      <AlbumArtwork track={leadTrack} sharedId={chapter.id} className="public-chapter-art" decorative />
+      <ChapterCover
+        tracks={chapter.tracks.map((item) => item.track)}
+        sharedId={chapter.id}
+        title={chapter.name}
+        color="violet"
+        className="public-chapter-art"
+      />
       <span className="public-chapter-copy">
         <ProfileStamp profile={profile} compact />
         <strong>{chapter.name}</strong>
@@ -177,27 +196,6 @@ function LikeButton({
   );
 }
 
-function PublicTrackRecord({ chapter, index }: { chapter: PublicChapter; index: number }) {
-  const item = chapter.tracks[index];
-  if (!item) return null;
-  return (
-    <article className="public-track-record">
-      <span className="public-track-number">{String(index + 1).padStart(2, "0")}</span>
-      <AlbumArtwork track={item.track} className="public-track-art" decorative />
-      <div className="public-track-copy">
-        <strong>{item.track.title}</strong>
-        <small>{item.track.artist} · {item.track.album}</small>
-        {item.visibility === "public" ? (
-          <div className="public-record-copy">
-            <p>{item.note}</p>
-            <div className="tag-row">{item.tags.map((tag) => <span className="tag" key={tag}>#{tag}</span>)}</div>
-          </div>
-        ) : <p className="private-record-notice">기록이 비공개입니다</p>}
-      </div>
-    </article>
-  );
-}
-
 export function PublicChapterDetail({
   catalog,
   state,
@@ -212,31 +210,42 @@ export function PublicChapterDetail({
   const chapter = getPublicChapter(catalog, chapterId);
   const profile = chapter ? catalog.profiles[chapter.profileId] : null;
   if (!chapter || !profile) return <div className="page-content"><EmptyState title="공개 챕터를 찾지 못했어요" action={<Link className="button" href="/discover">탐색으로 돌아가기</Link>} /></div>;
-  const followed = state.followedProfileIds.includes(profile.id);
   const liked = state.likedChapterIds.includes(chapter.id);
-  const leadTrack = chapter.tracks[0]?.track;
+  const trackItems: ChapterTrackDetailItem[] = chapter.tracks.map((item) => ({
+    id: item.id,
+    track: item.track,
+    summary: item.visibility === "public" ? item.note ?? "남긴 기록 없음" : "기록이 비공개입니다",
+    tags: item.visibility === "public"
+      ? item.tags.map((tag) => ({ id: `${item.id}:${tag}`, label: tag }))
+      : [],
+    privateRecord: item.visibility === "private",
+    action: item.visibility === "private"
+      ? <span className="chapter-memory-status">기록 비공개</span>
+      : undefined,
+  }));
+  const publicRecordCount = chapter.tracks.filter((item) => item.visibility === "public").length;
   return (
-    <div className="page-content public-chapter-detail">
-      <section className="public-chapter-hero">
-        {leadTrack ? <AlbumArtwork track={leadTrack} sharedId={chapter.id} className="public-chapter-hero-art" priority decorative /> : null}
-        <div className="public-chapter-hero-copy">
-          <Link className="public-profile-link" href={`/discover/profile?id=${encodeURIComponent(profile.id)}`} intent="forward"><ProfileStamp profile={profile} /></Link>
-          <h1>{chapter.name}</h1>
-          <p>{chapter.description}</p>
-          <div className="public-chapter-actions">
-            <FollowButton profileId={profile.id} followed={followed} onToggle={actions.onToggleFollow} />
-            <LikeButton chapterId={chapter.id} liked={liked} likeCount={chapter.likeCount} onToggle={actions.onToggleLike} />
-          </div>
-        </div>
-      </section>
-      <section className="public-record-section" aria-labelledby="public-records-title">
-        <div className="section-heading"><span className="section-label">TRACK NOTES</span><h2 id="public-records-title">{chapter.tracks.length}곡의 기록</h2></div>
-        {chapter.tracks.map((_, index) => <PublicTrackRecord chapter={chapter} index={index} key={chapter.tracks[index].id} />)}
-      </section>
-      <Link className="public-playlist-button" href={`/playlist?source=discover&id=${encodeURIComponent(chapter.id)}`} intent="modal">
-        <ListMusic size={18} aria-hidden="true" />
-        플레이리스트로 듣기
+    <div className="page-content chapter-view chapter-detail-compact public-chapter-detail">
+      <Link
+        className="public-chapter-owner"
+        href={`/discover/profile?id=${encodeURIComponent(profile.id)}`}
+        intent="forward"
+        aria-label={`${profile.name} 프로필 보기`}
+      >
+        <ProfileStamp profile={profile} showHandle={false} />
+        <ChevronRight size={16} aria-hidden="true" />
       </Link>
+      <ChapterDetailHero
+        cover={<ChapterCover tracks={chapter.tracks.map((item) => item.track)} sharedId={chapter.id} title={chapter.name} color="violet" />}
+        eyebrow={<>공개 챕터 · {formatDate(chapter.createdAt)}</>}
+        title={chapter.name}
+        description={chapter.description}
+        meta={`${chapter.tracks.length}곡 · ${publicRecordCount}개 공개 기록`}
+        actions={<LikeButton chapterId={chapter.id} liked={liked} likeCount={chapter.likeCount} onToggle={actions.onToggleLike} />}
+        style={chapterColorStyle("violet")}
+      />
+      <ChapterTrackSection items={trackItems} label={`${chapter.tracks.length}곡`} title="수록곡" />
+      <ChapterPlaylistActions chapterId={chapter.id} source="discover" />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
 import { X } from "lucide-react";
 import {
   removeSeedData,
+  restoreSeedData,
   resetArchive,
   getCubeTrackNotes,
   getTagGroupResults,
@@ -32,7 +33,6 @@ import {
   formatChapterTitle,
   formatCalendarDate,
   formatDate,
-  formatMemory,
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { TagPicker } from "./editorial-tag-picker";
@@ -59,9 +59,10 @@ function SearchResultLine({
       />
     );
   }
+  const tagContext = result.tags.slice(0, 2).map((tag) => `#${tag.label}`).join(" · ");
   const noteContext = result.matchedNote
     ? `${result.matchedNote.listenedOn ? formatCalendarDate(result.matchedNote.listenedOn) : "날짜 미지정"} · ${result.matchedNote.body}`
-    : result.cubeTrack.character || formatMemory(result.cubeTrack.memoryPeriod);
+    : tagContext || `${result.track.artist}${result.track.album ? ` · ${result.track.album}` : ""}`;
   const isUnassigned = result.cube.kind === "capture";
   return (
     <TrackLine
@@ -83,13 +84,19 @@ function memorySummary(memory: ContextualMemory): string {
     const date = note.listenedOn ? formatCalendarDate(note.listenedOn) : "날짜 미지정";
     return `${date} · ${note.body}`;
   }
-  return memory.cubeTrack.character || formatMemory(memory.cubeTrack.memoryPeriod);
+  return memory.tags.slice(0, 2).map((tag) => `#${tag.label}`).join(" · ")
+    || formatChapterTitle(memory.cube);
 }
 
-function rawSearchHref(query: string, tagIds: string[]): string {
+function rawSearchHref(
+  query: string,
+  tagIds: string[],
+  fromMemoryId?: string | null,
+): string {
   const params = new URLSearchParams();
   if (query.trim()) params.set("q", query.trim());
   [...new Set(tagIds)].forEach((tagId) => params.append("tag", tagId));
+  if (fromMemoryId) params.set("fromMemory", fromMemoryId);
   const serialized = params.toString();
   return serialized ? `/search?${serialized}` : "/search";
 }
@@ -99,12 +106,14 @@ export function Search({
   initialQuery,
   requestedTagIds,
   requestedView,
+  fromMemoryId = null,
   router,
 }: {
   archive: ArchiveEnvelopeV1;
   initialQuery: string;
   requestedTagIds: string[];
   requestedView: string | null;
+  fromMemoryId?: string | null;
   router: MotionRouter;
 }) {
   const validRequestedTagIds = useMemo(
@@ -142,17 +151,17 @@ export function Search({
     if (!containsInvalidOrDuplicate && !emptyGroup) return;
     router.replace(
       requestedView === "group"
-        ? tagGroupHref(validRequestedTagIds)
-        : rawSearchHref(initialQuery, validRequestedTagIds),
+        ? tagGroupHref(validRequestedTagIds, { fromMemoryId: fromMemoryId ?? undefined })
+        : rawSearchHref(initialQuery, validRequestedTagIds, fromMemoryId),
     );
-  }, [initialQuery, requestedKey, requestedView, router, validRequestedKey, validRequestedTagIds]);
+  }, [fromMemoryId, initialQuery, requestedKey, requestedView, router, validRequestedKey, validRequestedTagIds]);
 
   function toggle(id: string) {
     setTagIds((current) => {
       const next = current.includes(id)
         ? current.filter((item) => item !== id)
         : [...current, id];
-      router.replace(rawSearchHref(query, next));
+      router.replace(rawSearchHref(query, next, fromMemoryId));
       return next;
     });
   }
@@ -167,11 +176,11 @@ export function Search({
     return (
       <div className="page-content search-view tag-group-view">
         <PageHeader
-          eyebrow="내 키워드"
+          eyebrow="내 태그"
           title={groupTags.map((tag) => tag.label).join(" + ")}
           action={<Link className="button" href="/search" intent="back">전체 검색</Link>}
         />
-        <div className="tag-row" aria-label="선택한 키워드">
+        <div className="tag-row" aria-label="선택한 태그">
           {groupTags.map((tag) => <TagLink tag={tag} key={tag.id} />)}
         </div>
         <section className="search-results-section" aria-labelledby="tag-group-results-title">
@@ -226,7 +235,7 @@ export function Search({
               })}
             </div>
           ) : (
-            <EmptyState title="이 키워드에 담긴 음악이 아직 없어요" action={<Link className="button button-primary" href="/capture">곡 기록하기</Link>} />
+            <EmptyState title="이 태그에 담긴 음악이 아직 없어요" action={<Link className="button button-primary" href="/capture">곡 기록하기</Link>} />
           )}
         </section>
       </div>
@@ -298,7 +307,7 @@ export function Search({
                 key={result.kind === "inbox" ? `inbox:${result.track.id}` : result.cubeTrack.id}
                 index={index}
                 onTagClick={(tagId) => {
-                  router.push(tagGroupHref([tagId]));
+                  router.push(tagGroupHref([tagId], { fromMemoryId: fromMemoryId ?? undefined }));
                 }}
               />
             ))}
@@ -329,9 +338,7 @@ function RecapLine({
   }[entry.reason];
   const dateContext = entry.note.listenedOn
     ? `감상 날짜 · ${formatCalendarDate(entry.note.listenedOn)}`
-    : entry.cubeTrack.memoryPeriod
-      ? `기억 시기 · ${formatMemory(entry.cubeTrack.memoryPeriod)}`
-      : `MUMU 기록일 · ${formatDate(entry.note.createdAt)}`;
+    : `MUMU 최초 기록 · ${formatDate(entry.cubeTrack.createdAt)}`;
   return (
     <TrackLine
       track={entry.track}
@@ -527,7 +534,7 @@ export function Settings({
         <div className="panel settings-list">
           <div className="setting-row"><h3>태그 관리</h3><Link className="button" href="/tags" intent="tab">{Object.keys(archive.data.tags).length}개 보기</Link></div>
           <div className="setting-row"><div><h3>내 기록 백업</h3><p>{lastBackupAt ? `마지막 백업 · ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeZone: "Asia/Seoul" }).format(new Date(lastBackupAt))}` : "아직 백업한 기록이 없어요."}</p></div><div className="track-actions"><button className="button" type="button" onClick={exportData}>내보내기</button><button className="button" type="button" onClick={() => importInputRef.current?.click()}>불러오기</button><input ref={importInputRef} className="sr-only" id="backup-import" type="file" accept="application/json,.json" onChange={importData} tabIndex={-1} /></div></div>
-          <div className="setting-row"><h3>샘플 기록</h3><button className="button" type="button" onClick={() => commit(removeSeedData(archive), "샘플 기록을 제거했어요.", true)}>샘플만 제거</button></div>
+          <div className="setting-row"><h3>샘플 기록</h3><div className="track-actions"><button className="button" type="button" onClick={() => commit(restoreSeedData(archive, new Date().toISOString(), true), "새 샘플 기록을 추가했어요.", true)}>샘플 다시 추가</button><button className="button" type="button" onClick={() => commit(removeSeedData(archive), "샘플 기록을 제거했어요.", true)}>샘플만 제거</button></div></div>
         </div>
       </section>
       <section className="settings-group settings-danger" aria-labelledby="settings-danger-title">

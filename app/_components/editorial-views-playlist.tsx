@@ -7,17 +7,12 @@ import {
   useState,
 } from "react";
 import {
-  Apple,
-  AudioLines,
   Check,
-  ChevronRight,
   CircleAlert,
   CircleCheck,
-  CirclePlay,
   ExternalLink,
   ListMusic,
   Search,
-  type LucideIcon,
 } from "lucide-react";
 import {
   getCubeTracks,
@@ -28,9 +23,9 @@ import {
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
 import { EmptyState, TrackLine } from "./editorial-ui";
+import { MusicServiceIcon, type MusicServiceId } from "./editorial-service-icon";
 
 export type PlaylistStep = 1 | 2 | 3 | "done";
-type MusicServiceId = "apple" | "spotify" | "youtube";
 type MatchStatus = "matched" | "review" | "missing";
 
 export type PlaylistSource = {
@@ -44,8 +39,6 @@ export type PlaylistSource = {
 type MusicService = {
   id: MusicServiceId;
   name: string;
-  description: string;
-  icon: LucideIcon;
   url: string;
 };
 
@@ -53,22 +46,16 @@ const MUSIC_SERVICES: MusicService[] = [
   {
     id: "apple",
     name: "Apple Music",
-    description: "현재 곡과 가장 잘 맞아요",
-    icon: Apple,
     url: "https://music.apple.com/",
   },
   {
     id: "spotify",
     name: "Spotify",
-    description: "계정 연결이 필요해요",
-    icon: AudioLines,
     url: "https://open.spotify.com/",
   },
   {
     id: "youtube",
     name: "YouTube Music",
-    description: "일부 곡은 영상 버전으로 연결될 수 있어요",
-    icon: CirclePlay,
     url: "https://music.youtube.com/",
   },
 ];
@@ -124,7 +111,6 @@ export function PlaylistBuilder({
   const [resolvedTrackIds, setResolvedTrackIds] = useState<TrackId[]>([]);
   const viewRef = useRef<HTMLDivElement>(null);
   const selectedService = MUSIC_SERVICES.find((service) => service.id === serviceId) ?? MUSIC_SERVICES[0];
-  const SelectedServiceIcon = selectedService.icon;
   const serviceParticle = selectedService.id === "spotify" ? "로" : "으로";
   const selectedEntries = entries.filter((entry) => selectedTrackIds.includes(entry.track.id));
   const statusByTrackId = new Map(entries.map((entry, index) => [
@@ -156,7 +142,7 @@ export function PlaylistBuilder({
     return (
       <div ref={viewRef} className="page-content playlist-builder-view playlist-builder-complete">
         <div className={`playlist-complete-mark is-${selectedService.id}`} aria-hidden="true">
-          <SelectedServiceIcon size={28} strokeWidth={1.8} />
+          <MusicServiceIcon service={selectedService.id} size={68} />
           <Check size={18} strokeWidth={2.4} />
         </div>
         <span className="section-label">플레이리스트 내보내기 준비 완료</span>
@@ -201,7 +187,7 @@ export function PlaylistBuilder({
             <input id="playlist-name" className="input" value={playlistName} onChange={(event) => setPlaylistName(event.target.value)} maxLength={80} />
           </label>
           <div className="playlist-selection-head">
-            <div><strong>{selectedTrackIds.length}곡 선택</strong><span>챕터의 순서대로 담아요.</span></div>
+            <strong>{selectedTrackIds.length}곡 선택</strong>
             <button className="text-button" type="button" onClick={() => setSelectedTrackIds(selectedTrackIds.length === entries.length ? [] : entries.map((entry) => entry.track.id))}>
               {selectedTrackIds.length === entries.length ? "전체 해제" : "전체 선택"}
             </button>
@@ -215,12 +201,11 @@ export function PlaylistBuilder({
                   track={entry.track}
                   index={index}
                   sharedId={entry.id}
-                  context={entry.track.album}
-                  actions={(
-                    <button className={`playlist-track-toggle${selected ? " is-selected" : ""}`} type="button" onClick={() => toggleTrack(entry.track.id)} aria-pressed={selected} aria-label={`${entry.track.title} ${selected ? "제외" : "선택"}`}>
-                      {selected ? <Check size={15} aria-hidden="true" /> : null}
-                    </button>
-                  )}
+                  selectable
+                  selected={selected}
+                  showAlbum={false}
+                  showIndex={false}
+                  onRowClick={() => toggleTrack(entry.track.id)}
                 />
               );
             })}
@@ -230,24 +215,17 @@ export function PlaylistBuilder({
 
       {step === 2 ? (
         <section className="playlist-builder-section">
-          <div className="playlist-section-copy">
-            <h2>어디에서 들을까요?</h2>
-            <p>플레이리스트를 만들 음악 서비스를 선택하세요.</p>
-          </div>
           <div className="playlist-service-list" role="radiogroup" aria-label="음악 서비스">
             {MUSIC_SERVICES.map((service) => {
-              const Icon = service.icon;
               const selected = serviceId === service.id;
               return (
                 <button className={`playlist-service-row${selected ? " is-selected" : ""}`} type="button" role="radio" aria-checked={selected} onClick={() => setServiceId(service.id)} key={service.id}>
-                  <span className={`playlist-service-icon is-${service.id}`} aria-hidden="true"><Icon size={22} strokeWidth={1.9} /></span>
-                  <span className="playlist-service-copy"><strong>{service.name}</strong><small>{service.description}</small></span>
-                  {selected ? <CircleCheck size={20} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
+                  <span className={`playlist-service-icon is-${service.id}`} aria-hidden="true"><MusicServiceIcon service={service.id} size={42} /></span>
+                  <span className="playlist-service-copy"><strong>{service.name}</strong></span>
                 </button>
               );
             })}
           </div>
-          <p className="playlist-trust-note"><CircleCheck size={15} aria-hidden="true" />MUMU의 챕터와 기억은 바뀌지 않아요.</p>
         </section>
       ) : null}
 

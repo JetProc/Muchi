@@ -33,6 +33,7 @@ import {
 } from "@/lib/public-discovery";
 import {
   EditorialShell,
+  type ContextBackAction,
 } from "./editorial-shell";
 import { useModalFocus } from "./editorial-accessibility";
 import {
@@ -69,7 +70,7 @@ import {
   PublicChapterDetail,
   PublicProfileDetail,
 } from "./editorial-views-public-discovery";
-import type { AppView } from "./editorial-types";
+import type { AppView, ToastMessage } from "./editorial-types";
 
 export type { AppView } from "./editorial-types";
 
@@ -84,7 +85,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const [hydrated, setHydrated] = useState(false);
   const [storageBlocked, setStorageBlocked] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
   const [online, setOnline] = useState(true);
   const [systemReduce, setSystemReduce] = useState(false);
   const [previewState, setPreviewState] = useState<PreviewState | null>(null);
@@ -115,6 +116,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const searchQuery = searchParams.get("q") ?? "";
   const searchTagIds = searchParams.getAll("tag");
   const searchView = searchParams.get("view");
+  const fromMemoryId = searchParams.get("fromMemory");
   const requestedChapter = queryId ? archive.data.cubes[queryId] : null;
   const requestedMemory = queryId ? archive.data.cubeTracks[queryId] : null;
   const requestedPublicChapter = getPublicChapter(catalog, queryId);
@@ -136,15 +138,61 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     setPlaylistProgress({ routeKey: playlistRouteKey, step });
   }
 
-  function handleShellBack() {
-    if (view === "playlist" && typeof playlistStep === "number" && playlistStep > 1) {
-      handlePlaylistStepChange(playlistStep === 3 ? 2 : 1);
-      return;
+  const contextBackAction: ContextBackAction | null = (() => {
+    switch (view) {
+      case "inbox":
+      case "recap":
+      case "settings":
+        return { label: "홈으로", href: "/" };
+      case "chapter":
+        return requestedChapter?.parentId
+          ? {
+            label: "상위 챕터로",
+            href: `/chapter?id=${encodeURIComponent(requestedChapter.parentId)}`,
+            sharedId: requestedChapter.parentId,
+          }
+          : { label: "챕터로", href: "/chapters" };
+      case "memory":
+        if (!requestedMemoryChapter) return { label: "챕터로", href: "/chapters" };
+        if (requestedMemoryChapter.kind === "capture") return { label: "미분류 기록으로", href: "/tags" };
+        return {
+          label: "챕터로",
+          href: `/chapter?id=${encodeURIComponent(requestedMemoryChapter.id)}`,
+          sharedId: requestedMemoryChapter.id,
+        };
+      case "search":
+        if (fromMemoryId && archive.data.cubeTracks[fromMemoryId]) {
+          return {
+            label: "곡 기록으로",
+            href: `/memory?id=${encodeURIComponent(fromMemoryId)}`,
+            sharedId: fromMemoryId,
+          };
+        }
+        return null;
+      case "playlist":
+        if (typeof playlistStep === "number" && playlistStep > 1) {
+          return {
+            label: "이전 단계",
+            onActivate: () => handlePlaylistStepChange(playlistStep === 3 ? 2 : 1),
+          };
+        }
+        return {
+          label: "챕터로",
+          href: publicPlaylistSource?.returnHref
+            ?? (queryId ? `/chapter?id=${encodeURIComponent(queryId)}` : "/chapters"),
+          sharedId: queryId ?? undefined,
+        };
+      case "discoverChapter":
+      case "discoverProfile":
+        return { label: "탐색으로", href: "/discover" };
+      case "tags":
+        return { label: "설정으로", href: "/settings" };
+      default:
+        return null;
     }
-    router.back();
-  }
+  })();
 
-  const notify = useCallback((message: string) => {
+  const notify = useCallback((message: ToastMessage) => {
     setToast(message);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(null), 3200);
@@ -243,7 +291,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
 
   function commit(
     next: ArchiveEnvelopeV1,
-    message?: string,
+    message?: ToastMessage,
     force = false,
   ): boolean {
     if (storageBlocked && !force) {
@@ -368,7 +416,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           toast={null}
           online={online}
           scrollReady={false}
-          onBack={handleShellBack}
+          backAction={contextBackAction}
         >
           <div className="page-content">
             <div className="archive-boot" role="status" aria-live="polite">
@@ -400,7 +448,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         if (monthlyMemoryRoute) {
           return <div className="page-content"><div className="archive-boot" role="status">월별 기록으로 이동하고 있어요.</div></div>;
         }
-        return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} preview={preview} recordMode={recordMode} openChapterMove={searchParams.get("move") === "chapter"} router={router} />;
+        return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} recordMode={recordMode} openChapterMove={searchParams.get("move") === "chapter"} router={router} />;
       case "playlist":
         return (
           <PlaylistBuilder
@@ -425,6 +473,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
             initialQuery={searchQuery}
             requestedTagIds={searchTagIds}
             requestedView={searchView}
+            fromMemoryId={fromMemoryId}
             router={router}
           />
         );
@@ -448,7 +497,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         toast={toast}
         online={online}
         scrollReady={hydrated}
-        onBack={handleShellBack}
+        backAction={contextBackAction}
       >
       {storageBlocked ? (
         <div

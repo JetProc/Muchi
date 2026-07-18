@@ -26,7 +26,7 @@ export function ChapterFields({
   idPrefix: string;
   name: string;
   description: string;
-  color: CubeColor;
+  color?: CubeColor;
   nameLabel?: string;
   descriptionLabel?: string;
   colorLabel?: string;
@@ -35,7 +35,7 @@ export function ChapterFields({
   descriptionPlaceholder?: string;
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
-  onColorChange: (value: CubeColor) => void;
+  onColorChange?: (value: CubeColor) => void;
 }) {
   const nameId = `${idPrefix}-name`;
   const descriptionId = `${idPrefix}-description`;
@@ -66,23 +66,25 @@ export function ChapterFields({
           />
         </div>
       ) : null}
-      <div className="field">
-        <span className="field-label">{colorLabel}</span>
-        <div className="filter-row">
-          {CUBE_COLORS.map((item) => (
-            <button
-              aria-pressed={color === item}
-              className={`tag${color === item ? " is-selected" : ""}`}
-              key={item}
-              onClick={() => onColorChange(item)}
-              style={{ borderColor: COLOR_HEX[item] }}
-              type="button"
-            >
-              {COLOR_LABEL[item]}
-            </button>
-          ))}
+      {color && onColorChange ? (
+        <div className="field">
+          <span className="field-label">{colorLabel}</span>
+          <div className="filter-row">
+            {CUBE_COLORS.map((item) => (
+              <button
+                aria-pressed={color === item}
+                className={`tag${color === item ? " is-selected" : ""}`}
+                key={item}
+                onClick={() => onColorChange(item)}
+                style={{ borderColor: COLOR_HEX[item] }}
+                type="button"
+              >
+                {COLOR_LABEL[item]}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

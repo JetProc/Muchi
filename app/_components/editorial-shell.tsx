@@ -11,6 +11,7 @@ import { flushSync } from "react-dom";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
+  Compass,
   House,
   Library,
   Plus,
@@ -34,19 +35,23 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
   chapter: { label: "CHAPTER", path: "/chapters", index: "02" },
   memory: { label: "MEMORY", path: "/chapters", index: "03" },
   playlist: { label: "PLAYLIST", path: "/chapters", index: "03" },
+  discover: { label: "DISCOVER", path: "/discover", index: "04" },
+  discoverChapter: { label: "CHAPTER", path: "/discover", index: "04" },
+  discoverProfile: { label: "PROFILE", path: "/discover", index: "04" },
   search: { label: "SEARCH", path: "/search", index: "04" },
   recap: { label: "RECAP", path: "/recap", index: "05" },
   settings: { label: "SETTINGS", path: "/settings", index: "06" },
   tags: { label: "TAGS", path: "/tags", index: "07" },
 };
 
-const MOBILE_NAV = ["home", "chapters", "capture", "search"] as const satisfies readonly AppView[];
-const PRIMARY_VIEWS: readonly AppView[] = ["home", "capture", "chapters", "search"];
+const MOBILE_NAV = ["home", "chapters", "capture", "discover", "search"] as const satisfies readonly AppView[];
+const PRIMARY_VIEWS: readonly AppView[] = ["home", "capture", "chapters", "discover", "search"];
 
 const MOBILE_NAV_LABEL: Partial<Record<AppView, string>> = {
   home: "홈",
   chapters: "챕터",
-  capture: "추가",
+  capture: "기록",
+  discover: "탐색",
   search: "검색",
 };
 
@@ -54,19 +59,23 @@ const MOBILE_NAV_ICON = {
   home: House,
   chapters: Library,
   capture: Plus,
+  discover: Compass,
   search: Search,
 } as const;
 
 const scrollPositions = new Map<string, number>();
 
 export function TextNavigation({ view }: { view: AppView }) {
+  const searchParams = useSearchParams();
+  const discoverPlaylist = view === "playlist" && searchParams.get("source") === "discover";
   return (
     <nav className="text-navigation icon-label-nav" aria-label="주요 메뉴">
       {MOBILE_NAV.map((item) => {
         const meta = VIEW_META[item];
         const Icon = MOBILE_NAV_ICON[item];
         const active = item === view || (
-          item === "chapters" && (view === "chapter" || view === "memory" || view === "playlist")
+          item === "chapters" && (view === "chapter" || view === "memory" || (view === "playlist" && !discoverPlaylist))
+          || item === "discover" && (view === "discoverChapter" || view === "discoverProfile" || discoverPlaylist)
         );
         return (
           <Link

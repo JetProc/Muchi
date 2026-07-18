@@ -19,6 +19,19 @@ import {
   type TrackReference,
 } from "@/lib/archive";
 import {
+  DISCOVERY_STORAGE_KEY,
+  createDiscoveryInteractionState,
+  createPublicDiscoveryCatalog,
+  getPublicChapter,
+  markActivityRead,
+  parseDiscoveryInteractionState,
+  serializeDiscoveryInteractionState,
+  toPlaylistSource,
+  toggleFollow,
+  toggleLike,
+  type DiscoveryInteractionState,
+} from "@/lib/public-discovery";
+import {
   EditorialShell,
 } from "./editorial-shell";
 import { useModalFocus } from "./editorial-accessibility";
@@ -51,6 +64,11 @@ import {
   PlaylistBuilder,
   type PlaylistStep,
 } from "./editorial-views-playlist";
+import {
+  Discover,
+  PublicChapterDetail,
+  PublicProfileDetail,
+} from "./editorial-views-public-discovery";
 import type { AppView } from "./editorial-types";
 
 export type { AppView } from "./editorial-types";
@@ -61,6 +79,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
   const router = useMotionRouter();
   const [archive, setArchive] = useState<ArchiveEnvelopeV1>(() => createSeedArchive());
+  const catalog = useMemo(() => createPublicDiscoveryCatalog(), []);
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryInteractionState>(() => createDiscoveryInteractionState());
   const [hydrated, setHydrated] = useState(false);
   const [storageBlocked, setStorageBlocked] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -92,10 +112,25 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const pendingRecordMode = searchParams.get("recordMode") === "quick" ? "quick" : "detail";
   const recordMode = searchParams.get("mode") === "quick" ? "quick" : "detail";
   const sharedUrl = searchParams.get("url") ?? searchParams.get("text");
-  const playlistRouteKey = `${queryId ?? ""}:${searchParams.get("service") ?? ""}`;
+  const searchQuery = searchParams.get("q") ?? "";
+  const searchTagIds = searchParams.getAll("tag");
+  const searchView = searchParams.get("view");
+  const requestedChapter = queryId ? archive.data.cubes[queryId] : null;
+  const requestedMemory = queryId ? archive.data.cubeTracks[queryId] : null;
+  const requestedPublicChapter = getPublicChapter(catalog, queryId);
+  const requestedMemoryChapter = requestedMemory ? archive.data.cubes[requestedMemory.cubeId] : null;
+  const hiddenChapterDestination = "/tags";
+  const hiddenChapterRoute = view === "chapter"
+    && requestedChapter?.kind === "capture";
+  const monthlyMemoryRoute = view === "memory"
+    && requestedMemoryChapter?.kind === "monthly";
+  const playlistRouteKey = `${searchParams.get("source") ?? "local"}:${queryId ?? ""}:${searchParams.get("service") ?? ""}`;
   const playlistStep = playlistProgress.routeKey === playlistRouteKey
     ? playlistProgress.step
     : 1;
+  const publicPlaylistSource = searchParams.get("source") === "discover" && requestedPublicChapter
+    ? { ...toPlaylistSource(requestedPublicChapter), returnHref: `/discover/chapter?id=${encodeURIComponent(requestedPublicChapter.id)}` }
+    : null;
 
   function handlePlaylistStepChange(step: PlaylistStep) {
     setPlaylistProgress({ routeKey: playlistRouteKey, step });
@@ -123,11 +158,16 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     window.addEventListener("online", updateOnline);
     window.addEventListener("offline", updateOnline);
     const syncArchive = (event: StorageEvent) => {
-      if (event.key !== ARCHIVE_STORAGE_KEY || !event.newValue) return;
-      const parsed = parseArchive(event.newValue);
-      if (parsed.status !== "ok") return;
-      setArchive(parsed.archive);
-      notify("다른 탭에서 바뀐 음악 기록을 불러왔어요.");
+      if (!event.newValue) return;
+      if (event.key === ARCHIVE_STORAGE_KEY) {
+        const parsed = parseArchive(event.newValue);
+        if (parsed.status !== "ok") return;
+        setArchive(parsed.archive);
+        notify("다른 탭에서 바뀐 음악 기록을 불러왔어요.");
+      }
+      if (event.key === DISCOVERY_STORAGE_KEY) {
+        setDiscoveryState(parseDiscoveryInteractionState(event.newValue, catalog));
+      }
     };
     window.addEventListener("storage", syncArchive);
     if ("serviceWorker" in navigator) {
@@ -146,6 +186,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       let onboardingDone = false;
       try {
         rawArchive = window.localStorage.getItem(ARCHIVE_STORAGE_KEY);
+        setDiscoveryState(parseDiscoveryInteractionState(window.localStorage.getItem(DISCOVERY_STORAGE_KEY), catalog));
         onboardingDone = window.localStorage.getItem(ONBOARDING_KEY) === "done";
       } catch {
         setStorageBlocked("기기 저장소 접근이 차단되어 변경 사항을 저장하지 않는 보호 모드로 열었어요.");
@@ -179,11 +220,21 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       window.removeEventListener("offline", updateOnline);
       window.removeEventListener("storage", syncArchive);
     };
-  }, [notify]);
+  }, [catalog, notify]);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = reduceMotion ? "true" : "false";
   }, [reduceMotion]);
+
+  useEffect(() => {
+    if (!hydrated || !hiddenChapterRoute || !requestedChapter) return;
+    router.replace(hiddenChapterDestination);
+  }, [hiddenChapterDestination, hiddenChapterRoute, hydrated, requestedChapter, router]);
+
+  useEffect(() => {
+    if (!hydrated || !monthlyMemoryRoute || !requestedMemoryChapter) return;
+    router.replace(`/chapter?id=${encodeURIComponent(requestedMemoryChapter.id)}`);
+  }, [hydrated, monthlyMemoryRoute, requestedMemoryChapter, router]);
 
   useEffect(() => () => {
     audioRef.current?.pause();
@@ -225,6 +276,36 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     }
     setShowWelcome(false);
   }
+
+  function commitDiscovery(next: DiscoveryInteractionState, message: string) {
+    setDiscoveryState(next);
+    try {
+      window.localStorage.setItem(DISCOVERY_STORAGE_KEY, serializeDiscoveryInteractionState(next));
+      if (message) notify(message);
+    } catch {
+      notify("이 브라우저에서는 탐색 활동을 저장하지 못했어요.");
+    }
+  }
+
+  function handleToggleFollow(profileId: string) {
+    const following = discoveryState.followedProfileIds.includes(profileId);
+    commitDiscovery(toggleFollow(discoveryState, profileId), following ? "팔로우를 취소했어요." : "새 챕터 소식을 받아볼게요.");
+  }
+
+  function handleToggleLike(chapterId: string) {
+    const liked = discoveryState.likedChapterIds.includes(chapterId);
+    commitDiscovery(toggleLike(discoveryState, chapterId), liked ? "좋아요를 취소했어요." : "이 챕터를 좋아해요.");
+  }
+
+  function handleActivityRead(activityId: string) {
+    commitDiscovery(markActivityRead(discoveryState, activityId), "");
+  }
+
+  const discoveryActions = {
+    onToggleFollow: handleToggleFollow,
+    onToggleLike: handleToggleLike,
+    onActivityRead: handleActivityRead,
+  };
 
   const preview: PreviewControls = {
     state: previewState,
@@ -311,21 +392,42 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "chapters":
         return <Chapters archive={archive} commit={commit} notify={notify} router={router} pendingTrackId={pendingTrackId} pendingRecordMode={pendingRecordMode} />;
       case "chapter":
+        if (hiddenChapterRoute) {
+          return <div className="page-content"><div className="archive-boot" role="status">안전한 음악 목록으로 이동하고 있어요.</div></div>;
+        }
         return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} router={router} />;
       case "memory":
-        return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} preview={preview} recordMode={recordMode} router={router} />;
+        if (monthlyMemoryRoute) {
+          return <div className="page-content"><div className="archive-boot" role="status">월별 기록으로 이동하고 있어요.</div></div>;
+        }
+        return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} preview={preview} recordMode={recordMode} openChapterMove={searchParams.get("move") === "chapter"} router={router} />;
       case "playlist":
         return (
           <PlaylistBuilder
             archive={archive}
             chapterId={queryId}
+            playlistSource={publicPlaylistSource}
             initialServiceId={searchParams.get("service")}
             step={playlistStep}
             onStepChange={handlePlaylistStepChange}
           />
         );
+      case "discover":
+        return <Discover archive={archive} catalog={catalog} state={discoveryState} activityOnly={searchParams.get("activity") === "1"} actions={discoveryActions} />;
+      case "discoverChapter":
+        return <PublicChapterDetail catalog={catalog} state={discoveryState} chapterId={queryId} actions={discoveryActions} />;
+      case "discoverProfile":
+        return <PublicProfileDetail catalog={catalog} state={discoveryState} profileId={queryId} actions={discoveryActions} />;
       case "search":
-        return <Search archive={archive} />;
+        return (
+          <Search
+            archive={archive}
+            initialQuery={searchQuery}
+            requestedTagIds={searchTagIds}
+            requestedView={searchView}
+            router={router}
+          />
+        );
       case "recap":
         return <Recap archive={archive} />;
       case "settings":
@@ -366,13 +468,16 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           <div>오프라인이에요. 기존 기록은 볼 수 있지만 새 음악 검색과 미리듣기는 잠시 쉬어갑니다.</div>
         </div>
       ) : null}
-      <RouteStage view={view} queryKey={queryId}>{content}</RouteStage>
+      <RouteStage
+        view={view}
+        queryKey={view === "search" || view === "discover" ? searchParams.toString() : queryId}
+      >
+        {content}
+      </RouteStage>
       {showWelcome ? (
         <div className="welcome-backdrop" role="presentation">
           <div ref={welcomeDialogRef} className="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-            <span className="section-label">WELCOME TO MUMU</span>
-            <h2 id="welcome-title">좋아했던 음악을<br />한 권의 기록으로 남겨보세요.</h2>
-            <p className="welcome-storage-note">이 프로토타입의 기록은 현재 브라우저에만 저장돼요. 설정에서 언제든 JSON 파일로 백업할 수 있습니다.</p>
+            <h2 id="welcome-title">음악을 기록하세요.</h2>
             <div className="dialog-actions">
               <button
                 className="button button-ghost"
@@ -383,10 +488,10 @@ export function MusicWorldApp({ view }: { view: AppView }) {
                   setOnboardingDone();
                 }}
               >
-                빈 아카이브로 시작
+                빈 아카이브
               </button>
               <button className="button" type="button" onClick={setOnboardingDone}>
-                샘플 기록 둘러보기
+                샘플 보기
               </button>
               <button
                 className="button button-primary"
@@ -396,7 +501,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
                   router.push("/capture");
                 }}
               >
-                내 첫 곡 저장하기
+                첫 곡 기록
               </button>
             </div>
           </div>

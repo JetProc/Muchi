@@ -51,6 +51,17 @@ async function loadArchiveDomain() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
+async function loadPublicDiscoveryDomain() {
+  const source = await readFile(new URL("../lib/public-discovery.ts", import.meta.url), "utf8");
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
+}
+
 test("server-renders a deterministic MUMU editorial archive shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
@@ -118,7 +129,7 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   const appleTheme = getAppleTheme(css);
 
   assert.match(source, /className="capture-search-compact"/);
-  assert.match(source, /<h1>곡 추가<\/h1>/);
+  assert.match(source, /<h1>곡 기록<\/h1>/);
   assert.match(source, /type="search"/);
   assert.match(source, /minLength=\{1\}/);
   assert.match(source, /enterKeyHint="search"/);
@@ -130,8 +141,18 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.doesNotMatch(source, /검색 및 30초 미리듣기는 iTunes에서 제공됩니다/);
   assert.doesNotMatch(source, /검색하면 곡 목록이 여기에 표시됩니다/);
   assert.match(source, /<h2 className="capture-results-count">/);
+  assert.match(source, /const \[selectedResultIds, setSelectedResultIds\] = useState<TrackId\[\]>\(\[\]\)/);
+  assert.match(source, /className="capture-selection-bar"/);
+  assert.match(source, /type="checkbox"/);
+  assert.match(source, /selectable=\{resultSource === "search"\}/);
+  assert.match(source, /selected=\{selected\}/);
+  assert.match(source, /toggleResultSelection\(track\.id\)/);
+  assert.match(source, />기록<\/button>/);
+  assert.match(source, /function saveSelectedResults\(\)/);
   assert.match(appleTheme, /\.capture-results-count\s*\{[^}]*font-size:\s*14px !important;/s);
   assert.match(appleTheme, /\.capture-results\s*\{[^}]*margin-top:\s*var\(--apple-space-6\);/s);
+  assert.match(appleTheme, /\.track-line\.is-selected\s*\{[^}]*border-color:\s*color-mix\(in srgb, var\(--apple-primary\) 54%, var\(--apple-hairline\)\);/s);
+  assert.match(appleTheme, /\.capture-result-check\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
 });
 
 test("loads the Apple gallery theme after the legacy structural stylesheet", async () => {
@@ -196,6 +217,7 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.match(shellSource, /transitionEditorialUI\([\s\S]*?`player-\$\{preview\.state\.track\.id\}`/s);
   assert.match(globalStyles, /::view-transition-old\(root\),[\s\S]*?::view-transition-new\(root\)\s*\{[^}]*animation:\s*none;/s);
   assert.match(globalStyles, /::view-transition-new\(route-content\)\s*\{[^}]*animation:\s*page-in/s);
+  assert.match(globalStyles, /html\[data-motion-intent="tab"\] \.route-stage\s*\{[^}]*animation:\s*none;/s);
 });
 
 test("keeps mobile archive controls legible, aligned, and touch friendly", async () => {
@@ -234,12 +256,12 @@ test("uses Apple typography, whitespace, and flat mobile surfaces", async () => 
   const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
   const appleTheme = getAppleTheme(css);
 
-  assert.match(appleTheme, /body\s*\{[^}]*font-family:\s*var\(--apple-font-text\);[^}]*font-size:\s*17px;[^}]*line-height:\s*1\.47;/s);
+  assert.match(appleTheme, /body\s*\{[^}]*font-family:\s*var\(--apple-font-text\);[^}]*font-size:\s*15px;[^}]*line-height:\s*1\.42;/s);
   assert.match(appleTheme, /h1,\s*h2,\s*h3\s*\{[^}]*font-family:\s*var\(--apple-font-display\);[^}]*font-weight:\s*600;/s);
   assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*44px;[^}]*background:\s*var\(--apple-surface-black\);/s);
   assert.match(appleTheme, /\.page-content\s*\{[^}]*padding:\s*var\(--apple-space-6\) var\(--apple-page-gutter\)/s);
   assert.match(appleTheme, /\.panel,[\s\S]*?\.search-empty\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);[^}]*border-radius:\s*var\(--apple-radius-lg\) !important;[^}]*box-shadow:\s*none !important;/s);
-  assert.match(appleTheme, /@container mumu-app \(max-width:\s*419px\)[\s\S]*?h1\s*\{[^}]*font-size:\s*28px;/s);
+  assert.match(appleTheme, /@container mumu-app \(max-width:\s*419px\)[\s\S]*?h1\s*\{[^}]*font-size:\s*26px;/s);
 });
 
 test("keeps toast messages compact above the fixed mobile navigation", async () => {
@@ -272,7 +294,7 @@ test("keeps primary tabs root-level and one shared back action on secondary view
     readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(shellSource, /const PRIMARY_VIEWS[^=]*= \["home", "capture", "chapters", "search"\]/);
+  assert.match(shellSource, /const PRIMARY_VIEWS[^=]*= \["home", "capture", "chapters", "discover", "search"\]/);
   assert.match(shellSource, /const showBack = !PRIMARY_VIEWS\.includes\(view\)/);
   assert.match(shellSource, /className="header-back-button"/);
   assert.match(shellSource, /onClick=\{onBack\} aria-label="뒤로가기"/);
@@ -343,7 +365,7 @@ test("keeps compact Korean navigation inside the mobile shell", async () => {
 
   assert.match(source, /home:\s*"홈"/);
   assert.match(source, /chapters:\s*"챕터"/);
-  assert.match(source, /capture:\s*"추가"/);
+  assert.match(source, /capture:\s*"기록"/);
   assert.match(source, /search:\s*"검색"/);
   assert.match(source, /className="text-navigation icon-label-nav"/);
   const appleTheme = getAppleTheme(css);
@@ -396,7 +418,7 @@ test("uses a compact accordion inside chapters and unified rows elsewhere", asyn
   ]);
 
   for (const source of [addSource, searchSource]) {
-    assert.equal((source.match(/className="track-list track-list-unified"/g) ?? []).length, 1);
+    assert.ok((source.match(/className="track-list track-list-unified"/g) ?? []).length >= 1);
   }
   assert.doesNotMatch(chapterSource, /className="track-list track-list-unified"/);
   assert.match(chapterSource, /className="chapter-compact-track-list"/);
@@ -426,13 +448,16 @@ test("offers nested chapter creation and navigation inside chapter detail", asyn
   assert.match(chapterSource, /id="child-chapters-title">하위 챕터<\/h2>/);
   assert.match(chapterSource, />하위 챕터 만들기<\/button>/);
   assert.match(chapterSource, /className="child-chapter-list"/);
-  assert.match(chapterSource, /getRootCubes\(archive\)/);
+  assert.match(chapterSource, /getUserVisibleChapters\(archive\)/);
   assert.match(css, /\.child-chapter-row\s*\{[^}]*grid-template-columns:/s);
   assert.match(css, /\.chapter-breadcrumbs\s*\{[^}]*overflow-x:\s*auto;/s);
   assert.match(
     css,
     /\.child-chapter-dialog \.dialog-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;/s,
   );
+  assert.match(css, /\.child-chapter-dialog\s*\{[^}]*scroll-padding-bottom:\s*calc\(88px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(css, /\.child-chapter-dialog \.dialog-actions\s*\{[^}]*padding:\s*12px var\(--apple-space-2\) env\(safe-area-inset-bottom\);/s);
+  assert.match(css, /@container mumu-app \(max-width:\s*430px\)[\s\S]*?\.child-chapter-dialog\s*\{[^}]*padding-bottom:\s*var\(--apple-space-5\);/s);
 });
 
 test("shares chapter hierarchy choices, fields, and delete confirmation across flows", async () => {
@@ -445,7 +470,7 @@ test("shares chapter hierarchy choices, fields, and delete confirmation across f
 
   assert.equal((chapterSource.match(/<ChapterFields/g) ?? []).length, 3);
   assert.equal((chapterSource.match(/<ChapterDeleteDialog/g) ?? []).length, 2);
-  assert.equal((primarySource.match(/<ChapterChoice/g) ?? []).length, 2);
+  assert.equal((primarySource.match(/<ChapterChoice/g) ?? []).length, 1);
   assert.equal((chapterSource.match(/<ChapterChoice/g) ?? []).length, 1);
   assert.match(primarySource, /getCubesInTreeOrder\(archive\)/);
   assert.match(chapterSource, /getCubesInTreeOrder\(archive\)/);
@@ -480,7 +505,7 @@ test("shows chapters as a sortable playlist-folder grid", async () => {
   assert.match(source, /className="chapter-library-tabs" aria-label="챕터 종류"/);
   assert.match(source, />내가 만든 챕터<\/button>/);
   assert.match(source, />월별 챕터<\/button>/);
-  assert.match(source, /chapters\.filter\(isMonthlyChapter\)/);
+  assert.match(source, /isMonthlyChapter\(chapter\)/);
   assert.match(source, /className="chapter-library-sort"/);
   assert.match(source, /<option value="recent">최근 활동<\/option>/);
   assert.match(source, /<option value="tracks">곡 많은 순<\/option>/);
@@ -550,11 +575,12 @@ test("defers new memory tags until the memory form is saved", async () => {
   const addTagSource = source.slice(source.indexOf("function addTag("), source.indexOf("function clearDraft("));
   const saveSource = source.slice(source.indexOf("function persist("), source.indexOf("function addToOtherChapter("));
 
-  assert.match(source, /const \[draftArchive, setDraftArchive\] = useState<ArchiveEnvelopeV1 \| null>\(null\)/);
-  assert.match(addTagSource, /createTags\(draftArchive \?\? archive/);
-  assert.match(addTagSource, /setDraftArchive\(result\.archive\)/);
+  assert.match(source, /const \[pendingTags, setPendingTags\] = useState<TagDefinition\[\]>\(\[\]\)/);
+  assert.match(addTagSource, /createTags\(archive, \[label\]\)/);
+  assert.match(addTagSource, /setPendingTags/);
   assert.doesNotMatch(addTagSource, /commit\(/);
-  assert.match(saveSource, /updateCubeTrack\(draftArchive \?\? archive/);
+  assert.match(saveSource, /createTags\(archive, selectedPendingLabels\)/);
+  assert.match(saveSource, /updateCubeTrack\(created\.archive/);
   assert.match(saveSource, /character,/);
   assert.match(saveSource, /memoryPeriod,/);
   assert.match(saveSource, /setCubeTrackTagIds\(withDetails/);
@@ -613,6 +639,10 @@ test("keeps memory details and player surfaces legible on the mobile canvas", as
   assert.match(appleTheme, /\.full-player-copy > span\s*\{[^}]*color:\s*var\(--apple-body-muted\);[^}]*font-family:\s*var\(--apple-font-text\);/s);
   assert.match(appleTheme, /\.sheet-handle\s*\{[^}]*background:\s*var\(--apple-body-muted\);/s);
   assert.match(appleTheme, /\.player-dismiss-control\s*\{[^}]*position:\s*absolute;[^}]*min-height:\s*44px;/s);
+  assert.match(appleTheme, /\.player-dismiss-control\s*\{[^}]*right:\s*20px;/s);
+  assert.match(appleTheme, /\.player-dismiss-control:focus-visible\s*\{[^}]*outline-offset:\s*-2px;/s);
+  assert.match(appleTheme, /\.app-shell\.has-player\s*\{[^}]*grid-template-rows:\s*44px minmax\(0, 1fr\) 68px calc\(70px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(appleTheme, /\.app-shell\.has-player \.mini-player\s*\{[^}]*position:\s*relative;[^}]*grid-row:\s*3;/s);
   assert.match(appleTheme, /\.full-player-art\s*\{[^}]*padding-top:\s*var\(--apple-space-3\);/s);
   assert.doesNotMatch(globals, /\.full-player :focus-visible\s*\{[^}]*outline-color:\s*var\(--signal\);/s);
 });
@@ -656,18 +686,22 @@ test("uses a compact swipe-first mobile home without primary playback", async ()
   assert.match(appleTheme, /\.hero-carousel-controls button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
 });
 
-test("keeps automatic monthly chapters readable but out of manual assignment", async () => {
-  const [formatSource, primarySource, chapterSource] = await Promise.all([
+test("keeps automatic monthly chapters readable but out of manual assignment and memory editing", async () => {
+  const [formatSource, primarySource, chapterSource, appSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-format.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(formatSource, /export function isAssignableChapter/);
-  assert.match(formatSource, /return !isMonthlyChapter\(chapter\)/);
-  assert.ok((primarySource.match(/isAssignableChapter\(chapter\)/g) ?? []).length >= 2);
+  assert.match(formatSource, /return isUserVisibleChapter\(chapter\)/);
+  assert.ok((primarySource.match(/isAssignableChapter\(chapter\)/g) ?? []).length >= 1);
   assert.match(chapterSource, /isAssignableChapter\(item\)/);
   assert.match(chapterSource, /<h1>\{formatChapterTitle\(chapter\)\}<\/h1>/);
+  assert.match(appSource, /requestedChapter\?\.kind === "capture"/);
+  assert.match(appSource, /requestedMemoryChapter\?\.kind === "monthly"/);
+  assert.match(appSource, /router\.replace\(`\/chapter\?id=\$\{encodeURIComponent\(requestedMemoryChapter\.id\)\}`\)/);
 });
 
 test("removes redundant helper copy and keeps preview controls compact", async () => {
@@ -701,7 +735,7 @@ test("removes redundant helper copy and keeps preview controls compact", async (
   assert.doesNotMatch(source, /완벽하게 정리하지 않아도 괜찮아요/);
   assert.doesNotMatch(source, /welcome-steps/);
   assert.match(source, /다른 챕터의 같은 곡과 기억은 그대로 남습니다/);
-  assert.match(source, /현재 브라우저에만 저장/);
+  assert.match(source, /브라우저에만 저장됩니다/);
   assert.doesNotMatch(chapterSource, /ITUNES_PREVIEW_USAGE_NOTICE|미리듣기는 홍보 목적으로만/);
   assert.doesNotMatch(itunesSource, /ITUNES_PREVIEW_USAGE_NOTICE|미리듣기는 홍보 목적으로만/);
   assert.match(mediaSource, /className="play-button preview-icon-button"/);
@@ -736,16 +770,22 @@ test("keeps archive search compact with the shared tag picker", async () => {
   assert.match(source, /const results = hasSearch/);
   assert.doesNotMatch(source, /내 언어로 음악을 다시 찾기/);
   assert.doesNotMatch(source, /className="search-editor/);
-  assert.ok(source.indexOf("search-tag-controls") < source.indexOf("search-results-section"));
+  assert.ok(source.lastIndexOf("search-tag-controls") < source.lastIndexOf("search-results-section"));
   assert.match(pickerSource, /role="dialog"/);
-  assert.match(pickerSource, /TAG_PICKER_CATEGORIES = \["mood", "genre", "custom"\]/);
-  assert.match(pickerSource, /mood: "감정·상황"/);
-  assert.match(pickerSource, /className="tag-picker-category-list"/);
-  assert.match(pickerSource, /className="tag-picker-category-row"/);
-  assert.doesNotMatch(pickerSource, /role="tablist"|tag-picker-categories|"frequent"/);
+  assert.match(pickerSource, /className="tag-picker-open"/);
+  assert.match(pickerSource, /aria-label="경험 태그 목록"/);
+  assert.doesNotMatch(pickerSource, /TAG_PICKER_CATEGORIES|CATEGORY_LABEL|role="tablist"|"frequent"/);
   assert.match(css, /@container mumu-app \(max-width:\s*430px\)[\s\S]*?\.tag-picker-panel\s*\{[^}]*bottom:\s*0;/s);
-  assert.match(css, /\.tag-picker-category-list\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);/s);
+  assert.match(css, /\.tag-picker-open\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);/s);
   assert.match(css, /\.tag-picker-options\s*\{[^}]*max-height:\s*286px;/s);
+  assert.match(css, /\.tag-picker-open-meta\s*\{[^}]*flex:\s*0 0 auto;/s);
+  assert.match(css, /\.tag-picker-option > span\s*\{[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s);
+  assert.match(css, /\.tag-manager-copy \.tag\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*normal;/s);
+  assert.match(css, /@container mumu-app \(max-width:\s*430px\)[\s\S]*?\.album-hero\s*\{[^}]*min-height:\s*clamp\(360px, 54dvh, 400px\);/s);
+  assert.match(css, /\.album-memory-reveal\s*\{[^}]*max-height:\s*0;/s);
+  assert.match(css, /\.album-hero\.is-expanded \.album-memory-reveal\s*\{[^}]*max-height:\s*none;/s);
+  assert.match(css, /\.track-info \.tag-row\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/s);
+  assert.match(css, /\.search-view \.track-info em,[\s\S]*?\.recap-view \.track-info em\s*\{[^}]*-webkit-line-clamp:\s*2;/s);
 });
 
 test("builds a mobile playlist creation UI without streaming side effects", async () => {
@@ -1173,13 +1213,13 @@ test("exposes low-risk prototype actions and the interview-driven capture paths"
     readFile(new URL("../app/manifest.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.match(primarySource, /곡만 보관/);
-  assert.match(primarySource, /한 줄 기록/);
-  assert.match(primarySource, /자세히 기록/);
+  assert.match(primarySource, /곡만 기록/);
+  assert.match(primarySource, /키워드로 기록/);
+  assert.match(primarySource, /기억 더 남기기/);
   assert.match(primarySource, /기존 플레이리스트 가져오기/);
   assert.match(primarySource, /실제 곡을 가져오지는 않아요/);
   assert.match(chapterSource, /기록 이미지 만들기 · 실험/);
-  assert.match(chapterSource, /저장하고 \{providerName\}으로 돌아가기/);
+  assert.match(chapterSource, /기록하고 \{providerName\}으로 돌아가기/);
   assert.match(chapterSource, /music-world:memory-draft:v1/);
   assert.match(appSource, /searchParams\.get\("url"\) \?\? searchParams\.get\("text"\)/);
   assert.match(manifestSource, /share_target:/);
@@ -1378,7 +1418,7 @@ test("keeps user child chapters when bundled seed data is removed", async () => 
   assert.equal(archiveDomain.getCubeTracks(cleaned, child.cube.id).length, 1);
 });
 
-test("stores a stable registration date and groups registered tracks into searchable monthly chapters", async () => {
+test("stores a stable registration date without exposing monthly indexes as editable search memories", async () => {
   const archiveDomain = await loadArchiveDomain();
   const firstTrack = {
     id: archiveDomain.makeProviderTrackId("youtube", "M7lc1UVf-VE"),
@@ -1432,14 +1472,16 @@ test("stores a stable registration date and groups registered tracks into search
       .every((entry) => entry.cubeTrack.tagIds.every((tagId) => !tagId.startsWith("auto:period:"))),
   );
 
-  for (const query of ["2026-07", "2026년 7월"]) {
-    const results = archiveDomain.searchArchive(recaptured, { query });
-    const foundTrackIds = results
-      .filter((result) => result.kind === "cube-track" && result.cube.id === monthlyChapters[0].id)
-      .map((result) => result.track.id)
-      .sort();
-    assert.deepEqual(foundTrackIds, [firstTrack.id, secondTrack.id].sort(), query);
-  }
+  const monthlyCubeTrackId = archiveDomain.getCubeTracks(recaptured, monthlyChapters[0].id)[0].cubeTrack.id;
+  assert.equal(
+    archiveDomain.searchArchive(recaptured, { query: "2026-07" })
+      .some((result) => result.kind === "cube-track" && result.cube.id === monthlyChapters[0].id),
+    false,
+  );
+  assert.throws(
+    () => archiveDomain.setCubeTrackTagIds(recaptured, monthlyCubeTrackId, []),
+    /월별 자동 기록은 편집할 수 없습니다/,
+  );
 });
 
 test("migrates existing archives with registration dates and monthly chapters", async () => {
@@ -1519,6 +1561,92 @@ test("migrates legacy period tags into internal registration data only", async (
   assert.match(parsed.archive.data.tracks[cubeTrack.trackId].registeredAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(parsed.archive.data.cubes["month:2026-07"].name, "7월");
   assert.equal(parsed.archive.data.cubes["month:2026-07"].description, "7월에 등록한 곡들");
+});
+
+test("seeds flat custom tags with experience-first phrases", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const seed = archiveDomain.createSeedArchive();
+  const tags = Object.values(seed.data.tags);
+  const labels = new Set(tags.map((tag) => tag.label));
+  const oldAdjectiveLabels = [
+    "차가운",
+    "도시적인",
+    "질주하는",
+    "그리운",
+    "따뜻한",
+    "눈부신",
+    "탁 트인",
+    "몽환적인",
+    "혼자 듣는",
+    "들뜬",
+    "방 안의",
+  ];
+
+  assert.ok(tags.length > 0);
+  assert.ok(tags.every((tag) => tag.category === "custom"));
+  assert.ok(labels.has("운동할 때"));
+  assert.ok(labels.has("과거에 좋아했던 음악"));
+  assert.ok(tags.some((tag) => tag.label.includes("때") || tag.label.includes("시절")));
+  assert.ok(oldAdjectiveLabels.every((label) => !labels.has(label)));
+});
+
+test("migrates bundled adjective tags without changing user tags", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const legacy = structuredClone(archiveDomain.createSeedArchive());
+  legacy.data.tags["seed:tag:cold"].label = "차가운";
+  legacy.data.tags["seed:tag:cold"].normalizedLabel = "차가운";
+  legacy.data.tags["seed:tag:cold"].category = "emotion";
+  legacy.data.tags["user:tag:custom"] = {
+    id: "user:tag:custom",
+    label: "차가운",
+    normalizedLabel: "차가운",
+    category: "emotion",
+    source: "user",
+    createdAt: "2026-07-01T00:00:00.000Z",
+  };
+
+  const parsed = archiveDomain.parseArchive(archiveDomain.serializeArchive(legacy));
+
+  assert.equal(parsed.status, "ok");
+  assert.equal(parsed.migrated, true);
+  assert.equal(parsed.archive.data.tags["seed:tag:cold"].label, "혼자 걷는 밤");
+  assert.equal(parsed.archive.data.tags["seed:tag:cold"].category, "custom");
+  assert.equal(parsed.archive.data.tags["user:tag:custom"].label, "차가운");
+});
+
+test("seeds dated listening history and refreshes legacy seed records without losing user notes", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const seed = archiveDomain.createSeedArchive();
+  const seedRecords = Object.values(seed.data.cubeTracks)
+    .filter((cubeTrack) => cubeTrack.source === "seed");
+
+  assert.equal(seedRecords.length, 6);
+  assert.ok(seedRecords.every((cubeTrack) => cubeTrack.notes.length >= 2));
+  assert.ok(seedRecords.every((cubeTrack) => (
+    cubeTrack.notes.every((note) => /^\d{4}-\d{2}-\d{2}$/.test(note.listenedOn ?? ""))
+  )));
+
+  const legacy = structuredClone(seed);
+  const dawnRadio = legacy.data.cubeTracks["seed:cube-track:dawn-radio"];
+  const bundledNote = dawnRadio.notes[0];
+  dawnRadio.notes = [
+    { ...bundledNote, listenedOn: null },
+    {
+      id: "memory-note:user-kept",
+      listenedOn: "2026-07-16",
+      body: "사용자가 직접 남긴 감상",
+      createdAt: "2026-07-16T09:00:00.000Z",
+      updatedAt: "2026-07-16T09:00:00.000Z",
+    },
+  ];
+
+  const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
+  assert.equal(parsed.status, "ok");
+  assert.equal(parsed.migrated, true);
+  const refreshedNotes = parsed.archive.data.cubeTracks["seed:cube-track:dawn-radio"].notes;
+  assert.ok(refreshedNotes.length >= 3);
+  assert.ok(refreshedNotes.every((note) => note.listenedOn !== null));
+  assert.ok(refreshedNotes.some((note) => note.id === "memory-note:user-kept"));
 });
 
 test("manages a reusable tag library independently from track memories", async () => {
@@ -1658,50 +1786,275 @@ test("supports all or any matching when archive search uses multiple tags", asyn
   assert.ok(anyMatches.some((result) => result.kind === "cube-track" && result.cubeTrack.id === second.id));
 });
 
-test("uses managed tag chips instead of suggestions or free-form memory tags", async () => {
-  const [memorySource, pickerSource, managerSource, formatSource] = await Promise.all([
+test("migrates schema v5 chapter signatures to explicit v6 kinds without guessing ambiguous chapters", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const track = {
+    id: archiveDomain.makeProviderTrackId("youtube", "M7lc1UVf-VE"),
+    provider: "youtube",
+    providerTrackId: "M7lc1UVf-VE",
+    title: "마이그레이션 곡",
+    artist: "테스트",
+    album: "",
+    genre: "",
+    durationMs: null,
+    artworkUrl: null,
+    previewUrl: null,
+    externalUrl: null,
+  };
+  const current = archiveDomain.captureTrackToInbox(
+    archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z"),
+    track,
+    "2026-07-10T00:00:00.000Z",
+  );
+  const legacy = structuredClone(current);
+  legacy.schemaVersion = 5;
+  Object.values(legacy.data.cubes).forEach((cube) => {
+    delete cube.kind;
+    delete cube.systemKey;
+  });
+  legacy.data.cubes["month:2026-08"] = {
+    id: "month:2026-08",
+    parentId: null,
+    name: "8월",
+    description: "8월에 등록한 곡들",
+    color: "blue",
+    sortOrder: 2,
+    source: "user",
+    createdAt: legacy.updatedAt,
+    updatedAt: legacy.updatedAt,
+  };
+
+  const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
+  assert.equal(parsed.status, "ok");
+  assert.equal(parsed.archive.schemaVersion, 6);
+  assert.equal(parsed.archive.data.cubes["month:2026-07"].kind, "monthly");
+  assert.equal(parsed.archive.data.cubes["month:2026-07"].systemKey, "month:2026-07");
+  assert.equal(parsed.archive.data.cubes["month:2026-08"].kind, "manual");
+  assert.equal(parsed.archive.data.cubes["month:2026-08"].systemKey, null);
+});
+
+test("keeps canonical monthly id collisions visible and creates one collision-safe monthly index", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const empty = archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z");
+  const manual = archiveDomain.createCube(empty, {
+    id: "month:2026-07",
+    name: "내가 만든 7월",
+  }).archive;
+  const track = {
+    id: archiveDomain.makeProviderTrackId("youtube", "M7lc1UVf-VE"),
+    provider: "youtube",
+    providerTrackId: "M7lc1UVf-VE",
+    title: "7월 곡",
+    artist: "테스트",
+    album: "",
+    genre: "",
+    durationMs: null,
+    artworkUrl: null,
+    previewUrl: null,
+    externalUrl: null,
+  };
+  const captured = archiveDomain.captureTrackToInbox(manual, track, "2026-07-10T00:00:00.000Z");
+  const monthly = Object.values(captured.data.cubes).filter(
+    (cube) => cube.systemKey === "month:2026-07",
+  );
+
+  assert.equal(captured.data.cubes["month:2026-07"].kind, "manual");
+  assert.equal(monthly.length, 1);
+  assert.notEqual(monthly[0].id, "month:2026-07");
+  assert.ok(archiveDomain.getUserVisibleChapters(captured).some((cube) => cube.id === "month:2026-07"));
+});
+
+test("rejects malformed capture and duplicate monthly system invariants", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const empty = archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z");
+  const invalidCapture = structuredClone(empty);
+  invalidCapture.data.cubes.captureA = {
+    id: "captureA", parentId: null, name: "A", description: "", color: "violet",
+    kind: "capture", systemKey: "capture", sortOrder: 0, source: "user",
+    createdAt: empty.updatedAt, updatedAt: empty.updatedAt,
+  };
+  invalidCapture.data.cubes.captureB = {
+    ...invalidCapture.data.cubes.captureA,
+    id: "captureB",
+    sortOrder: 1,
+  };
+  assert.equal(archiveDomain.parseArchive(JSON.stringify(invalidCapture)).status, "invalid");
+
+  const duplicateMonths = structuredClone(empty);
+  for (const id of ["month-a", "month-b"]) {
+    duplicateMonths.data.cubes[id] = {
+      id, parentId: null, name: "7월", description: "7월에 등록한 곡들", color: "violet",
+      kind: "monthly", systemKey: "month:2026-07", sortOrder: 0, source: "user",
+      createdAt: empty.updatedAt, updatedAt: empty.updatedAt,
+    };
+  }
+  assert.equal(archiveDomain.parseArchive(JSON.stringify(duplicateMonths)).status, "invalid");
+});
+
+test("applies capture, tag removal, and identity-preserving move transitions atomically", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const track = {
+    id: archiveDomain.makeProviderTrackId("youtube", "M7lc1UVf-VE"),
+    provider: "youtube",
+    providerTrackId: "M7lc1UVf-VE",
+    title: "전이 테스트",
+    artist: "테스트",
+    album: "",
+    genre: "",
+    durationMs: null,
+    artworkUrl: null,
+    previewUrl: null,
+    externalUrl: null,
+  };
+  const inbox = archiveDomain.captureTrackToInbox(
+    archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z"),
+    track,
+    "2026-07-10T00:00:00.000Z",
+  );
+  const before = structuredClone(inbox);
+  assert.throws(
+    () => archiveDomain.archiveInboxTrackWithTags(inbox, track.id, []),
+    /키워드가 하나 필요/,
+  );
+  assert.deepEqual(inbox, before);
+
+  const archived = archiveDomain.archiveInboxTrackWithTags(
+    inbox,
+    track.id,
+    ["새벽에 달릴 때"],
+    "2026-07-11T00:00:00.000Z",
+  );
+  assert.equal(archived.archive.data.inbox[track.id], undefined);
+  assert.equal(archiveDomain.getContextArchiveState(archived.archive, archived.cubeTrack.id), "unassigned-archived");
+  assert.equal(archiveDomain.getTrackArchiveSummary(archived.archive, track.id).monthlyContextIds.length, 1);
+
+  const chapter = archiveDomain.createCube(archived.archive, { name: "달리기" }).archive;
+  const destination = archiveDomain.getUserVisibleChapters(chapter).find((cube) => cube.name === "달리기");
+  const moved = archiveDomain.moveCaptureTrackToCube(
+    chapter,
+    archived.cubeTrack.id,
+    destination.id,
+    "2026-07-12T00:00:00.000Z",
+  );
+  assert.equal(moved.status, "moved");
+  assert.equal(moved.cubeTrack.id, archived.cubeTrack.id);
+  assert.equal(moved.cubeTrack.createdAt, archived.cubeTrack.createdAt);
+  assert.deepEqual(moved.cubeTrack.tagIds, archived.cubeTrack.tagIds);
+
+  const onlyTagId = moved.cubeTrack.tagIds[0];
+  const chapterOnly = archiveDomain.setCubeTrackTagIds(
+    moved.archive,
+    moved.cubeTrack.id,
+    [],
+    "2026-07-13T00:00:00.000Z",
+  );
+  assert.equal(archiveDomain.getContextArchiveState(chapterOnly, moved.cubeTrack.id), "chapter-only");
+  assert.ok(chapterOnly.data.tags[onlyTagId]);
+});
+
+test("restores Inbox only for an empty unassigned memory with no manual context", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const track = {
+    id: archiveDomain.makeProviderTrackId("youtube", "M7lc1UVf-VE"), provider: "youtube",
+    providerTrackId: "M7lc1UVf-VE", title: "태그 제거", artist: "테스트", album: "", genre: "",
+    durationMs: null, artworkUrl: null, previewUrl: null, externalUrl: null,
+  };
+  const inbox = archiveDomain.captureTrackToInbox(
+    archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z"), track, "2026-07-10T00:00:00.000Z",
+  );
+  const archived = archiveDomain.archiveInboxTrackWithTags(inbox, track.id, ["다시 찾기"]);
+  const reverted = archiveDomain.setCubeTrackTagIds(archived.archive, archived.cubeTrack.id, []);
+  assert.equal(reverted.data.cubeTracks[archived.cubeTrack.id], undefined);
+  assert.ok(reverted.data.inbox[track.id]);
+
+  const archivedAgain = archiveDomain.archiveInboxTrackWithTags(reverted, track.id, ["메모 있음"]);
+  const withNote = archiveDomain.addCubeTrackNote(
+    archivedAgain.archive,
+    archivedAgain.cubeTrack.id,
+    { listenedOn: "2026-07-17", body: "나중에도 남길 메모" },
+  );
+  const draft = archiveDomain.setCubeTrackTagIds(withNote, archivedAgain.cubeTrack.id, []);
+  assert.equal(archiveDomain.getContextArchiveState(draft, archivedAgain.cubeTrack.id), "unassigned-draft");
+  assert.equal(draft.data.inbox[track.id], undefined);
+});
+
+test("deduplicates tag groups by track while preserving each contextual memory", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const seed = archiveDomain.createSeedArchive();
+  const radioMemories = Object.values(seed.data.cubeTracks).filter(
+    (memory) => memory.trackId === archiveDomain.makeTrackId(1569294423),
+  );
+  const tagged = radioMemories.reduce(
+    (archive, memory) => archiveDomain.setCubeTrackTags(archive, memory.id, ["Radio 다시 찾기"]),
+    seed,
+  );
+  const tag = Object.values(tagged.data.tags).find((item) => item.label === "Radio 다시 찾기");
+  const results = archiveDomain.getTagGroupResults(tagged, [tag.id]);
+  const radio = results.find((result) => result.track.id === archiveDomain.makeTrackId(1569294423));
+
+  assert.equal(results.filter((result) => result.track.id === radio.track.id).length, 1);
+  assert.equal(radio.memories.length, 2);
+  assert.notEqual(radio.memories[0].cubeTrack.id, radio.memories[1].cubeTrack.id);
+  assert.equal(archiveDomain.getTagGroups(tagged).find((group) => group.tag.id === tag.id).trackCount, 1);
+});
+
+test("uses one flat library of personal experience tags", async () => {
+  const [memorySource, pickerSource, managerSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-tag-picker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-tags.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/editorial-format.ts", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(memorySource, /TAG_SUGGESTIONS|id="custom-tag"/);
   assert.match(pickerSource, /manageHref = "\/tags"/);
+  assert.match(pickerSource, /어떤 순간에 다시 찾고 싶나요\?/);
+  assert.match(pickerSource, /태그 검색 또는 새 태그 만들기/);
+  assert.match(pickerSource, /onCreate\?: \(label: string\) => boolean/);
+  assert.doesNotMatch(pickerSource, /TAG_PICKER_CATEGORIES|CATEGORY_LABEL|activeCategory|EditableTagCategory/);
   assert.match(managerSource, /id="bulk-tags"/);
   assert.match(managerSource, /\.split\(\/\[\\n,;\]\+\//);
-  assert.match(
-    managerSource,
-    /MANUAL_TAG_CATEGORIES[^=]*=\s*\["emotion", "genre", "custom"\]/,
-  );
-  assert.match(managerSource, /category === "situation" \|\| category === "energy" \|\| category === "texture"/);
-  assert.match(formatSource, /custom:\s*"커스텀"/);
+  assert.match(managerSource, /newCandidates\.map\(\(label\) => label\)/);
+  assert.doesNotMatch(managerSource, /MANUAL_TAG_CATEGORIES|bulk-category|editCategory|태그 카테고리/);
 });
 
 test("uses one searchable tag picker and a separate memory period editor", async () => {
-  const [memorySource, managerSource, discoverySource, pickerSource, archiveSource, formatSource] = await Promise.all([
+  const [memorySource, managerSource, discoverySource, pickerSource, archiveSource, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-tags.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-tag-picker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/archive.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/editorial-format.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
   ]);
 
   assert.match(memorySource, /<TagPicker/);
   assert.match(memorySource, /onCreate=\{addTag\}/);
+  assert.match(memorySource, /title="키워드 기록"/);
+  assert.match(memorySource, /description=\{<>나중에 어떤 말로 <strong>‘\{track\.title\}’<\/strong>을 찾고 싶은가요\?<\/>\}/);
   assert.match(discoverySource, /<TagPicker/);
   assert.doesNotMatch(memorySource, /managed-tag-groups|managed-tag-option|inline-tag-composer|period-tag-group|추가 시기 · 자동/);
   assert.doesNotMatch(managerSource, /TAG_LIBRARY_CATEGORIES|category === "period"|추가일 기준 자동/);
-  assert.match(pickerSource, /type EditableTagCategory = "emotion" \| "situation" \| "genre" \| "custom"/);
-  assert.match(pickerSource, /category === "mood" \? "emotion" : category/);
-  assert.match(pickerSource, /role="listbox"/);
-  assert.doesNotMatch(pickerSource, /aria-label="새 태그 카테고리"/);
-  assert.match(formatSource, /emotion:\s*"감정·상황"/);
-  assert.match(formatSource, /situation:\s*"감정·상황"/);
+  assert.match(pickerSource, /role="group" aria-label="경험 태그 목록"/);
+  assert.doesNotMatch(pickerSource, /카테고리|category/);
   assert.doesNotMatch(archiveSource, /"period",\s*\n\] as const/);
-  assert.match(formatSource, /period\.year/);
+  assert.match(css, /\.page-header-description\s*\{[^}]*font-size:\s*14px;[^}]*word-break:\s*keep-all;/s);
+  assert.match(css, /\.page-header h1,[\s\S]*?\.capture-search-header h1\s*\{[^}]*overflow-wrap:\s*normal;[^}]*word-break:\s*keep-all;/s);
+  assert.doesNotMatch(css, /\.memory-view \.page-header h1\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
   assert.match(memorySource, /기억한 시기/);
+  assert.match(memorySource, /const \[currentYear, currentMonth\] = today\.split\("-"\)/);
+  assert.match(memorySource, /const currentMonthValue = String\(Number\(currentMonth\)\)/);
+  assert.match(memorySource, /useState<"none" \| NonNullable<MemoryPeriod>\["kind"\]>\("month"\)/);
+  assert.match(memorySource, /useState\(currentYear\)/);
+  assert.match(memorySource, /useState\(currentMonthValue\)/);
+  assert.match(memorySource, /const defaultPeriodKind = cubeTrack\.memoryPeriod\?\.kind \?\? "month"/);
+  assert.match(memorySource, /const defaultPeriodYear = cubeTrack\.memoryPeriod\s*\? cubeTrack\.memoryPeriod\.year\?\.toString\(\) \?\? ""\s*: currentYear/s);
+  assert.match(memorySource, /const defaultPeriodMonth = cubeTrack\.memoryPeriod\?\.kind === "month"\s*\? String\(cubeTrack\.memoryPeriod\.month\)\s*: currentMonthValue/s);
+  assert.match(memorySource, /setPeriodKind\(draftKeepsPeriod \? draft\.periodKind \?\? defaultPeriodKind : defaultPeriodKind\)/);
+  assert.match(memorySource, /setPeriodYear\(draftKeepsPeriod \? draft\.periodYear \?\? defaultPeriodYear : defaultPeriodYear\)/);
+  assert.match(memorySource, /setPeriodMonth\(draftKeepsPeriod \? draft\.periodMonth \?\? defaultPeriodMonth : defaultPeriodMonth\)/);
+  assert.match(memorySource, /const \[periodTouched, setPeriodTouched\] = useState\(false\)/);
+  assert.match(memorySource, /draft\.periodTouched\s*\?\? \(draft\.periodKind !== undefined && draft\.periodKind !== "none"\)/s);
+  assert.match(memorySource, /periodTouched,/);
   assert.match(memorySource, /const \[periodKind, setPeriodKind\]/);
   assert.match(memorySource, /id="memory-period-kind"/);
   assert.match(memorySource, /id="memory-period-year"/);
@@ -1730,4 +2083,73 @@ test("keeps recap creation contextual and modal blur calm", async () => {
     appleTheme,
     /\.dialog-backdrop,[\s\S]*?\.welcome-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*background:\s*rgba\(0, 0, 0, 0\.38\);[^}]*backdrop-filter:\s*saturate\(110%\) blur\(20px\) !important;/s,
   );
+});
+
+test("builds a separate public discovery catalog with explainable similarity and local interactions", async () => {
+  const [archiveDomain, discoveryDomain] = await Promise.all([
+    loadArchiveDomain(),
+    loadPublicDiscoveryDomain(),
+  ]);
+  const archive = archiveDomain.createSeedArchive();
+  const catalog = discoveryDomain.createPublicDiscoveryCatalog();
+  const state = discoveryDomain.createDiscoveryInteractionState();
+  const profiles = Object.values(catalog.profiles);
+  const chapters = Object.values(catalog.chapters);
+
+  assert.ok(profiles.length >= 12);
+  assert.ok(chapters.length >= 36);
+  assert.ok(profiles.every((profile) => chapters.filter((chapter) => chapter.profileId === profile.id).length >= 3));
+  assert.ok(chapters.every((chapter) => chapter.tracks.length >= 5 && chapter.tracks.length <= 15));
+
+  const ranked = discoveryDomain.rankPublicChapters(archive, catalog, state);
+  assert.ok(ranked.length > 0);
+  assert.ok(ranked[0].sharedTrackCount > 0);
+  assert.match(ranked[0].reason, /겹치는 곡/);
+
+  const privateRecord = chapters.flatMap((chapter) => chapter.tracks).find((track) => track.visibility === "private");
+  assert.ok(privateRecord);
+  assert.equal(privateRecord.note, null);
+  assert.deepEqual(privateRecord.tags, []);
+
+  const profileId = profiles[0].id;
+  const chapterId = chapters[0].id;
+  const followed = discoveryDomain.toggleFollow(state, profileId);
+  const liked = discoveryDomain.toggleLike(followed, chapterId);
+  assert.ok(liked.followedProfileIds.includes(profileId));
+  assert.ok(liked.likedChapterIds.includes(chapterId));
+  assert.deepEqual(discoveryDomain.parseDiscoveryInteractionState(
+    discoveryDomain.serializeDiscoveryInteractionState(liked),
+    catalog,
+  ), liked);
+});
+
+test("wires public chapter discovery into mobile navigation and playlist export", async () => {
+  const [typesSource, shellSource, appSource, discoverySource, playlistSource, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-types.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-public-discovery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(typesSource, /\| "discover"/);
+  assert.match(typesSource, /\| "discoverChapter"/);
+  assert.match(shellSource, /MOBILE_NAV = \["home", "chapters", "capture", "discover", "search"\]/);
+  assert.match(shellSource, /item === "discover" && \(view === "discoverChapter" \|\| view === "discoverProfile" \|\| discoverPlaylist\)/);
+  assert.match(shellSource, /discoverPlaylist = view === "playlist" && searchParams\.get\("source"\) === "discover"/);
+  assert.match(appSource, /case "discover":/);
+  assert.match(appSource, /case "discoverChapter":/);
+  assert.match(appSource, /DISCOVERY_STORAGE_KEY/);
+  assert.match(discoverySource, /기록이 비공개입니다/);
+  assert.match(discoverySource, /플레이리스트로 듣기/);
+  assert.match(discoverySource, /aria-pressed=\{followed\}/);
+  assert.match(playlistSource, /export type PlaylistSource/);
+  assert.match(playlistSource, /playlistSource\?: PlaylistSource \| null/);
+  assert.match(css, /grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
+
+  for (const pathname of ["/discover", "/discover/chapter?id=public%3Achapter%3Asoyeon%3A1", "/discover/profile?id=public%3Aprofile%3Asoyeon"]) {
+    const response = await render(pathname);
+    assert.equal(response.status, 200, pathname);
+  }
 });

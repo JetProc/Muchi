@@ -21,8 +21,10 @@ import {
 } from "lucide-react";
 import {
   getCubeTracks,
+  isUserVisibleChapter,
   type ArchiveEnvelopeV1,
   type TrackId,
+  type TrackReference,
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
 import { EmptyState, TrackLine } from "./editorial-ui";
@@ -30,6 +32,14 @@ import { EmptyState, TrackLine } from "./editorial-ui";
 export type PlaylistStep = 1 | 2 | 3 | "done";
 type MusicServiceId = "apple" | "spotify" | "youtube";
 type MatchStatus = "matched" | "review" | "missing";
+
+export type PlaylistSource = {
+  id: string;
+  name: string;
+  description: string;
+  tracks: TrackReference[];
+  returnHref: string;
+};
 
 type MusicService = {
   id: MusicServiceId;
@@ -79,23 +89,34 @@ function initialMatchStatus(index: number, total: number): MatchStatus {
 export function PlaylistBuilder({
   archive,
   chapterId,
+  playlistSource,
   initialServiceId,
   step,
   onStepChange,
 }: {
   archive: ArchiveEnvelopeV1;
   chapterId: string | null;
+  playlistSource?: PlaylistSource | null;
   initialServiceId: string | null;
   step: PlaylistStep;
   onStepChange: (step: PlaylistStep) => void;
 }) {
-  const chapter = chapterId ? archive.data.cubes[chapterId] : null;
+  const requestedChapter = chapterId ? archive.data.cubes[chapterId] : null;
+  const chapter = isUserVisibleChapter(requestedChapter) ? requestedChapter : null;
+  const localPlaylistSource = chapter ? {
+    id: chapter.id,
+    name: chapter.name,
+    description: chapter.description,
+    tracks: getCubeTracks(archive, chapter.id).map((entry) => entry.track),
+    returnHref: `/chapter?id=${encodeURIComponent(chapter.id)}`,
+  } satisfies PlaylistSource : null;
+  const source = playlistSource ?? localPlaylistSource;
   const presetServiceId = isMusicServiceId(initialServiceId) ? initialServiceId : null;
   const entries = useMemo(
-    () => chapter ? getCubeTracks(archive, chapter.id) : [],
-    [archive, chapter],
+    () => source?.tracks.map((track) => ({ id: `${source.id}:${track.id}`, track })) ?? [],
+    [source],
   );
-  const [playlistName, setPlaylistName] = useState(chapter?.name ?? "");
+  const [playlistName, setPlaylistName] = useState(source?.name ?? "");
   const [selectedTrackIds, setSelectedTrackIds] = useState<TrackId[]>(
     () => entries.map((entry) => entry.track.id),
   );
@@ -121,7 +142,7 @@ export function PlaylistBuilder({
     viewRef.current?.closest<HTMLElement>(".shell-main")?.scrollTo({ top: 0 });
   }, [step]);
 
-  if (!chapterId || !chapter) {
+  if (!source) {
     return <div className="page-content"><EmptyState title="챕터를 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
   }
 
@@ -141,7 +162,7 @@ export function PlaylistBuilder({
         <span className="section-label">플레이리스트 내보내기 준비 완료</span>
         <h1>내보낼 준비가 됐어요</h1>
         <div className="playlist-complete-summary">
-          <strong>{playlistName || chapter.name}</strong>
+          <strong>{playlistName || source.name}</strong>
           <span>{selectedService.name} · {selectedEntries.length - missingCount}곡</span>
         </div>
         <a className="button button-primary playlist-open-service" href={selectedService.url} target="_blank" rel="noopener noreferrer">
@@ -149,7 +170,7 @@ export function PlaylistBuilder({
           <ExternalLink size={15} aria-hidden="true" />
         </a>
         {missingCount ? <p className="playlist-complete-note">{missingCount}곡은 찾지 못해 제외했어요.</p> : null}
-        <Link className="text-link" href={`/chapter?id=${encodeURIComponent(chapter.id)}`} intent="back">챕터로 돌아가기</Link>
+        <Link className="text-link" href={source.returnHref} intent="back">챕터로 돌아가기</Link>
       </div>
     );
   }
@@ -190,10 +211,10 @@ export function PlaylistBuilder({
               const selected = selectedTrackIds.includes(entry.track.id);
               return (
                 <TrackLine
-                  key={entry.cubeTrack.id}
+                  key={entry.id}
                   track={entry.track}
                   index={index}
-                  sharedId={entry.cubeTrack.id}
+                  sharedId={entry.id}
                   context={entry.track.album}
                   actions={(
                     <button className={`playlist-track-toggle${selected ? " is-selected" : ""}`} type="button" onClick={() => toggleTrack(entry.track.id)} aria-pressed={selected} aria-label={`${entry.track.title} ${selected ? "제외" : "선택"}`}>
@@ -242,7 +263,7 @@ export function PlaylistBuilder({
             {selectedEntries.map((entry) => {
               const status = matchStatus(entry.track.id);
               return (
-                <div className={`playlist-match-row is-${status}`} key={entry.cubeTrack.id}>
+                <div className={`playlist-match-row is-${status}`} key={entry.id}>
                   <span className="playlist-match-status">
                     {status === "matched" ? <CircleCheck size={17} aria-hidden="true" /> : <CircleAlert size={17} aria-hidden="true" />}
                   </span>

@@ -28,6 +28,22 @@ MUMU is a mobile-only product. Every product view is designed and tested within 
 - Deleting a parent removes only its direct memories and promotes its direct children one level so nested archives are not lost.
 - The child-chapter creation sheet keeps its final actions visible above the 70px bottom navigation.
 
+### Personal music library
+
+- Home is the owner’s personal music library: the first action is opening a featured chapter, not editing decoration.
+- Personalization is intentionally constrained to a background theme, a shelf template, and up to three featured root chapters.
+- Do not introduce 3D scenes, free drag placement, avatars, or decorative canvas rendering.
+- Visitor preview uses the same library grammar but shows public chapters only; private records expose a status, never tags or memo text.
+
+### Record and find
+
+- `기록` is a write flow for collecting music from external services. Its results use `+ / 체크` selection and a fixed `N곡 기록하기` action.
+- `찾기` is a read flow for retrieving saved songs, chapters, tags, and memos from the personal archive. Its result row opens the existing memory directly.
+- Keep `/capture` and `/search` separate. Never mix external catalog results with personal archive results in one list.
+- The mobile navigation label is `찾기`, while the internal route and `AppView` value remain `search` for compatibility.
+- Record copy uses `기록할 곡이나 아티스트`; find copy uses `내 기록 찾기` and `곡, 챕터, 태그, 메모로 찾기`.
+- Shared input height and touch targets preserve visual consistency, while headings, result actions, empty states, and accessibility labels communicate the different intent.
+
 **Key Characteristics:**
 - Photography-first presentation; UI recedes so the product can speak.
 - Alternating full-bleed tile sections: white/parchment ↔ near-black, with the color change itself acting as the section divider.

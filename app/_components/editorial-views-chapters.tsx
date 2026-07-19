@@ -517,10 +517,8 @@ export function ChapterDetail({
   if (!chapterId || !chapter) return <div className="page-content"><EmptyState title="챕터를 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
   const activeChapter = chapter;
 
-  const allTags = entries.flatMap((entry) => entry.tags);
   const childChapters = getChildCubes(archive, activeChapter.id);
   const monthlyChapter = isMonthlyChapter(activeChapter);
-  const canCreateChild = !monthlyChapter;
 
   function saveChapter(event: FormEvent) {
     event.preventDefault();
@@ -671,45 +669,47 @@ export function ChapterDetail({
           tagHref={(tag) => `/search?tag=${encodeURIComponent(tag.id)}`}
         />
       ) : <section className="section chapter-track-section"><div className="section-head"><div className="chapter-section-heading"><h2>수록곡</h2><span className="section-label">0곡</span></div>{!monthlyChapter ? <Link className="text-button compact-section-action" href="/capture" intent="modal"><Plus size={15} aria-hidden="true" />추가</Link> : null}</div><EmptyState title="이 순간의 첫 곡을 담아보세요" /></section>}
-      <section className="child-chapter-section" aria-labelledby="child-chapters-title">
-        <div className="child-chapter-head">
-          <h2 id="child-chapters-title">하위 챕터</h2>
-          {canCreateChild && childChapters.length ? (
-            <button className="text-button compact-section-action" type="button" onClick={openChildCreator}>
-              <Plus size={15} aria-hidden="true" />
-              추가
-            </button>
-          ) : null}
-        </div>
-        {childChapters.length ? (
-          <div className="child-chapter-list">
-            {childChapters.map((child) => {
-              const childEntries = getCubeTracks(archive, child.id);
-              return (
-                <Link
-                  className="child-chapter-row"
-                  href={`/chapter?id=${encodeURIComponent(child.id)}`}
-                  intent="shared"
-                  sharedId={child.id}
-                  key={child.id}
-                >
-                  <ChapterCover archive={archive} chapter={child} />
-                  <span className="child-chapter-copy">
-                    <strong>{child.name}</strong>
-                    <small>{childEntries.length}곡</small>
-                    {child.description ? <span>{child.description}</span> : null}
-                  </span>
-                  <ChevronRight size={17} aria-hidden="true" />
-                </Link>
-              );
-            })}
+      {!monthlyChapter ? (
+        <section className="child-chapter-section" aria-labelledby="child-chapters-title">
+          <div className="child-chapter-head">
+            <h2 id="child-chapters-title">하위 챕터</h2>
+            {childChapters.length ? (
+              <button className="text-button compact-section-action" type="button" onClick={openChildCreator}>
+                <Plus size={15} aria-hidden="true" />
+                추가
+              </button>
+            ) : null}
           </div>
-        ) : (
-          <div className="child-chapter-empty">
-            {canCreateChild ? <button className="text-button compact-section-action" type="button" onClick={openChildCreator}><Plus size={15} aria-hidden="true" />추가</button> : null}
-          </div>
-        )}
-      </section>
+          {childChapters.length ? (
+            <div className="child-chapter-list">
+              {childChapters.map((child) => {
+                const childEntries = getCubeTracks(archive, child.id);
+                return (
+                  <Link
+                    className="child-chapter-row"
+                    href={`/chapter?id=${encodeURIComponent(child.id)}`}
+                    intent="shared"
+                    sharedId={child.id}
+                    key={child.id}
+                  >
+                    <ChapterCover archive={archive} chapter={child} />
+                    <span className="child-chapter-copy">
+                      <strong>{child.name}</strong>
+                      <small>{childEntries.length}곡</small>
+                      {child.description ? <span>{child.description}</span> : null}
+                    </span>
+                    <ChevronRight size={17} aria-hidden="true" />
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="child-chapter-empty">
+              <button className="text-button compact-section-action" type="button" onClick={openChildCreator}><Plus size={15} aria-hidden="true" />추가</button>
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {editing ? (
         <div className="dialog-backdrop" role="presentation" onClick={() => setEditing(false)}>

@@ -552,6 +552,7 @@ test("offers nested chapter creation and navigation inside chapter detail", asyn
   assert.match(chapterSource, /parentId:\s*activeChapter\.id/);
   assert.doesNotMatch(chapterSource, /className="chapter-breadcrumbs"/);
   assert.match(chapterSource, /id="child-chapters-title">하위 챕터<\/h2>/);
+  assert.match(chapterSource, /\{!monthlyChapter \? \(\s*<section className="child-chapter-section"/s);
   assert.doesNotMatch(chapterSource, /하위 챕터 · \{childChapters\.length\}/);
   assert.match(chapterSource, /className="text-button compact-section-action"[\s\S]*?>\s*<Plus size=\{15\} aria-hidden="true" \/>\s*추가/s);
   assert.match(chapterSource, /className="child-chapter-list"/);

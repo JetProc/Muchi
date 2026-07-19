@@ -1835,6 +1835,46 @@ button.tag {
   min-width: 0;
 }
 
+.chapter-detail-utilities.is-inline {
+  flex: 0 0 auto;
+}
+
+.chapter-detail-utilities.is-inline .chapter-service-actions {
+  margin-top: 0;
+}
+
+.chapter-detail-utilities.is-inline .chapter-service-grid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chapter-detail-utilities.is-inline .chapter-service-link {
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50% !important;
+}
+
+.chapter-detail-utilities.is-inline .chapter-service-link > span:not(.chapter-service-icon) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.chapter-detail-utilities.is-inline .chapter-service-icon {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+}
+
 .chapter-detail-hero {
   position: relative;
 }
@@ -2508,6 +2548,30 @@ button.tag {
   margin-top: 3px;
   font-size: 20px;
   line-height: 1.2;
+}
+
+.memory-record-visibility {
+  min-height: 30px;
+  gap: 5px;
+  padding: 5px 9px;
+  border-color: var(--apple-hairline);
+  color: var(--apple-ink-muted-80);
+  background: var(--apple-surface-pearl);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.memory-record-visibility.is-public {
+  border-color: color-mix(in srgb, var(--apple-primary) 22%, var(--apple-hairline));
+  color: var(--apple-primary);
+}
+
+.memory-record-visibility.is-private {
+  color: var(--apple-ink-muted-48);
+}
+
+.memory-record-visibility svg {
+  flex: none;
 }
 
 .memory-note-composer-compact .textarea {
@@ -4501,6 +4565,10 @@ button.tag {
 @container mumu-app (max-width: 430px) {
   .inbox-chapter-sheet {
     padding: 0;
+  }
+
+  .inbox-chapter-sheet.is-swipeable-sheet {
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
   .inbox-chapter-sheet-scroll {

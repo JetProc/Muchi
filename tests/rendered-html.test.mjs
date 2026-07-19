@@ -577,6 +577,9 @@ test("keeps chapter actions compact and puts playlist import before the track li
   const chapterDetail = sliceBetween(chapterSource, "export function ChapterDetail(", "export function MemoryPanel(", "ChapterDetail source");
 
   assert.match(chapterDetail, /utilities=\{entries\.length \? <ChapterPlaylistActions chapterId=\{chapter\.id\} \/>/);
+  assert.match(chapterDetail, /meta=\{`\$\{entries\.length\}곡`\}/);
+  assert.doesNotMatch(chapterDetail, /개 태그|개 메모/);
+  assert.doesNotMatch(chapterDetail, /챕터 ·/);
   assert.doesNotMatch(chapterDetail, /href="\/capture" intent="modal">곡 기록<\/Link>/);
   assert.match(chapterDetail, /className="chapter-menu-trigger"/);
   assert.match(chapterDetail, /className="chapter-menu-popover" role="menu"/);
@@ -1073,6 +1076,8 @@ test("builds a mobile playlist creation UI without streaming side effects", asyn
   assert.match(appleTheme, /\.playlist-simulation-note\s*\{[^}]*margin:\s*0 0 var\(--apple-space-3\);/s);
   assert.match(appleTheme, /\.public-chapter-detail \.chapter-hero-copy\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;/s);
   assert.match(appleTheme, /\.chapter-detail-meta-row\s*\{[^}]*justify-content:\s*space-between;/s);
+  assert.match(appleTheme, /\.chapter-detail-utilities\.is-inline \.chapter-service-grid\s*\{[^}]*display:\s*flex;/s);
+  assert.match(appleTheme, /\.chapter-detail-utilities\.is-inline \.chapter-service-link\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/s);
   assert.doesNotMatch(appleTheme, /\.public-chapter-detail \.chapter-actions\s*\{/);
   assert.match(appleTheme, /\.public-chapter-detail \.public-like-button\s*\{[^}]*min-height:\s*32px;/s);
 });
@@ -2446,6 +2451,10 @@ test("keeps the memory form focused on tags, an optional dated memo, and one com
 
   assert.match(memorySource, /title="곡 기록"/);
   assert.match(memoryFormSource, /<TagEditor/);
+  assert.match(memoryFormSource, /memory-record-visibility/);
+  assert.match(memoryFormSource, /<Unlock size=\{14\}/);
+  assert.match(memoryFormSource, /<Lock size=\{14\}/);
+  assert.doesNotMatch(memoryFormSource, /기록 공개|기록 비공개/);
   assert.match(discoverySource, /<TagPicker/);
   assert.doesNotMatch(memoryFormSource, /managed-tag-groups|managed-tag-option|inline-tag-composer|period-tag-group|추가 시기 · 자동/);
   assert.doesNotMatch(managerSource, /TAG_LIBRARY_CATEGORIES|category === "period"|추가일 기준 자동/);
@@ -2525,6 +2534,7 @@ test("builds a separate public discovery catalog with explainable similarity and
   assert.ok(profiles.every((profile) => profile.space.featuredChapterIds.length === 3));
   assert.ok(profiles.every((profile) => profile.space.featuredChapterIds.every((chapterId) => catalog.chapters[chapterId]?.profileId === profile.id)));
   assert.ok(chapters.every((chapter) => chapter.tracks.length >= 5 && chapter.tracks.length <= 15));
+  assert.ok(chapters.every((chapter) => !/ · \d+$/.test(chapter.name)));
 
   const ranked = discoveryDomain.rankPublicChapters(archive, catalog, state);
   assert.ok(ranked.length > 0);
@@ -2583,7 +2593,9 @@ test("uses shared chapter components for public discovery details and playlist e
   const publicProfileSource = discoverySource.slice(discoverySource.indexOf("export function PublicProfileDetail("));
   assert.match(publicChapterSource, /<LikeButton/);
   assert.match(publicChapterSource, /actionsOutsideCopy/);
-  assert.match(publicChapterSource, /utilitiesOutsideCopy/);
+  assert.doesNotMatch(publicChapterSource, /utilitiesOutsideCopy/);
+  assert.match(publicChapterSource, /meta=\{`\$\{chapter\.tracks\.length\}곡`\}/);
+  assert.doesNotMatch(publicChapterSource, /공개 챕터 ·|공개 기록/);
   assert.match(publicChapterSource, /className="public-chapter-owner"/);
   assert.match(publicChapterSource, /<ProfileStamp profile=\{profile\} showHandle=\{false\} \/>/);
   assert.match(publicChapterSource, /item\.visibility === "private"[\s\S]*?기록 비공개[\s\S]*?: undefined/);

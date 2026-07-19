@@ -12,8 +12,10 @@ import {
 import {
   ChevronDown,
   ChevronRight,
+  Lock,
   MoreHorizontal,
   Plus,
+  Unlock,
 } from "lucide-react";
 import {
   ARCHIVE_LIMITS,
@@ -143,9 +145,9 @@ export function ChapterDetailHero({
         {description ? <p>{description}</p> : null}
         <div className="chapter-detail-meta-row">
           <p className="chapter-detail-meta">{meta}</p>
+          {!utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities is-inline">{utilities}</div> : null}
           {!actionsOutsideCopy && actions ? <div className="chapter-detail-meta-action">{actions}</div> : null}
         </div>
-        {!utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities">{utilities}</div> : null}
       </div>
       {actionsOutsideCopy && actions ? <div className="chapter-detail-meta-action is-outside-copy">{actions}</div> : null}
       {utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities is-outside-copy">{utilities}</div> : null}
@@ -624,10 +626,10 @@ export function ChapterDetail({
     <div className="page-content chapter-view chapter-detail-compact">
       <ChapterDetailHero
         cover={<ChapterCover archive={archive} chapter={chapter} />}
-        eyebrow={<>챕터 · {formatDate(chapter.updatedAt)}</>}
+        eyebrow={formatDate(chapter.updatedAt)}
         title={formatChapterTitle(chapter)}
         description={chapter.description}
-        meta={`${entries.length}곡 · ${new Set(allTags.map((tag) => tag.id)).size}개 태그 · ${entries.reduce((count, entry) => count + entry.cubeTrack.notes.length, 0)}개 메모`}
+        meta={`${entries.length}곡`}
         menu={!monthlyChapter ? (
           <div className="chapter-menu" ref={menuRef}>
             <button
@@ -1169,7 +1171,18 @@ export function Memory({
             <div className="memory-note-heading">
               <h2 id="memory-note-title">메모</h2>
               <div className="memory-note-heading-actions">
-                {cube.kind === "manual" ? <button className="text-button" type="button" onClick={toggleRecordVisibility}>{activeCubeTrack.recordVisibility === "public" ? "기록 공개" : "기록 비공개"}</button> : null}
+                {cube.kind === "manual" ? (
+                  <button
+                    className={`text-button memory-record-visibility ${activeCubeTrack.recordVisibility === "public" ? "is-public" : "is-private"}`}
+                    type="button"
+                    onClick={toggleRecordVisibility}
+                    aria-pressed={activeCubeTrack.recordVisibility === "public"}
+                    aria-label={`곡 기록 ${activeCubeTrack.recordVisibility === "public" ? "공개" : "비공개"}`}
+                  >
+                    {activeCubeTrack.recordVisibility === "public" ? <Unlock size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+                    <span>{activeCubeTrack.recordVisibility === "public" ? "공개" : "비공개"}</span>
+                  </button>
+                ) : null}
                 {editingNoteId ? <button className="text-button" type="button" onClick={cancelNoteEdit}>수정 취소</button> : null}
               </div>
             </div>

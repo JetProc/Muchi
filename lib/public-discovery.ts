@@ -250,7 +250,7 @@ function createChapter(profileIndex: number, chapterIndex: number): PublicChapte
   return {
     id,
     profileId: `public:profile:${profile[0]}`,
-    name: `${theme[0]} · ${profileIndex + 1}`,
+    name: theme[0],
     description: theme[1],
     color: profile[4],
     artworkUrl: ARTWORKS[(profileIndex + chapterIndex) % ARTWORKS.length],

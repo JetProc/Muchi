@@ -228,7 +228,6 @@ export function PublicChapterDetail({
       ? <span className="chapter-memory-status">기록 비공개</span>
       : undefined,
   }));
-  const publicRecordCount = chapter.tracks.filter((item) => item.visibility === "public").length;
   return (
     <div className="page-content chapter-view chapter-detail-compact public-chapter-detail">
       <Link
@@ -242,14 +241,13 @@ export function PublicChapterDetail({
       </Link>
       <ChapterDetailHero
         cover={<ChapterCover tracks={chapter.tracks.map((item) => item.track)} sharedId={chapter.id} title={chapter.name} color="violet" />}
-        eyebrow={<>공개 챕터 · {formatDate(chapter.createdAt)}</>}
+        eyebrow={formatDate(chapter.createdAt)}
         title={chapter.name}
         description={chapter.description}
-        meta={`${chapter.tracks.length}곡 · ${publicRecordCount}개 공개 기록`}
+        meta={`${chapter.tracks.length}곡`}
         actions={<LikeButton chapterId={chapter.id} liked={liked} likeCount={chapter.likeCount} onToggle={actions.onToggleLike} />}
         actionsOutsideCopy
         utilities={<ChapterPlaylistActions chapterId={chapter.id} source="discover" />}
-        utilitiesOutsideCopy
         style={chapterColorStyle("violet")}
       />
       <ChapterTrackSection items={trackItems} label={`${chapter.tracks.length}곡`} title="수록곡" />

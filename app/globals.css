@@ -358,17 +358,17 @@ html.has-native-transition .has-shared-transition {
 }
 
 @keyframes route-enter {
-  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  from { transform: translate3d(0, 8px, 0); }
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes route-back-enter {
-  from { opacity: 0; transform: translate3d(-10px, 0, 0); }
+  from { transform: translate3d(-8px, 0, 0); }
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes route-sheet-enter {
-  from { opacity: 0; transform: translate3d(0, 42px, 0) scale(0.985); }
+  from { transform: translate3d(0, 24px, 0) scale(0.99); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
@@ -2357,12 +2357,14 @@ button.tag {
 
 .chapter-detail-compact .chapter-hero h1 {
   margin: 3px 0 0;
+  display: -webkit-box;
   overflow: hidden;
   color: var(--apple-ink);
   font-size: clamp(21px, 6cqw, 30px);
   line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .chapter-detail-compact .chapter-detail-hero .section-label {
@@ -2415,14 +2417,15 @@ button.tag {
 .chapter-detail-compact .chapter-service-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 8px;
-  padding: 6px 8px;
+  margin-top: 6px;
+  padding: 0;
   box-shadow: none !important;
 }
 
 .chapter-detail-compact .chapter-service-grid {
   display: flex;
   min-width: 0;
+  align-items: center;
   justify-content: flex-end;
   gap: 4px;
 }
@@ -2430,9 +2433,11 @@ button.tag {
 .chapter-detail-compact .chapter-service-link {
   position: relative;
   display: inline-flex;
-  width: 38px;
-  min-width: 38px;
-  min-height: 38px;
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  height: 34px;
+  align-self: center;
   justify-content: center;
   padding: 0;
   border-radius: 999px !important;
@@ -2442,6 +2447,11 @@ button.tag {
   position: absolute;
   inset: -3px;
   content: "";
+}
+
+.chapter-detail-compact .chapter-detail-utilities {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .chapter-detail-compact .chapter-service-link > span:last-child {
@@ -2569,23 +2579,22 @@ button.tag {
 
 .chapter-memory-link {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 30px;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
-  border: 1px solid var(--apple-hairline);
+  padding: 3px 6px;
+  border: 0;
   border-radius: 5px !important;
   color: var(--apple-primary);
-  background: var(--apple-canvas);
+  background: transparent;
   font-family: var(--apple-font-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 750;
   white-space: nowrap;
 }
 
 .chapter-memory-link:hover,
 .chapter-memory-link:focus-visible {
-  border-color: var(--apple-primary);
   background: color-mix(in srgb, var(--apple-primary) 8%, transparent);
 }
 

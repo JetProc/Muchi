@@ -65,8 +65,8 @@ const SEARCH_RESULT_REVEAL_DELAY_MS = 240;
 
 type HomeMemory = ReturnType<typeof getCubeTracks>[number] & { chapter: Cube };
 
-function tagGroupHref(tagId: string): string {
-  return `/search?tag=${encodeURIComponent(tagId)}&view=group`;
+function tagSearchHref(tagId: string): string {
+  return `/search?tag=${encodeURIComponent(tagId)}`;
 }
 
 export function AlbumHero({
@@ -151,7 +151,7 @@ export function AlbumHero({
               {featured.tags.length ? (
                 <div className="tag-row">
                   {featured.tags.slice(0, 5).map((tag) => (
-                    <Link className="tag" href={tagGroupHref(tag.id)} key={tag.id}>
+                    <Link className="tag" href={tagSearchHref(tag.id)} key={tag.id}>
                       #{tag.label}
                     </Link>
                   ))}
@@ -266,7 +266,7 @@ export function Home({ archive }: {
             </div>
             <div className="tag-row" aria-label="최근 사용한 태그">
               {recentKeywords.map(({ tag, trackCount }) => (
-                <Link className="tag" href={tagGroupHref(tag.id)} key={tag.id}>
+                <Link className="tag" href={tagSearchHref(tag.id)} key={tag.id}>
                   #{tag.label} · {trackCount}곡
                 </Link>
               ))}
@@ -350,7 +350,7 @@ export function Home({ archive }: {
                   actions={(
                     <>
                       {memory.tags.slice(0, 2).map((tag) => (
-                        <Link className="tag" href={tagGroupHref(tag.id)} key={tag.id}>
+                        <Link className="tag" href={tagSearchHref(tag.id)} key={tag.id}>
                           #{tag.label}
                         </Link>
                       ))}
@@ -490,6 +490,32 @@ export function Capture({
       // Session-only draft persistence is best effort.
     }
   }, [manualAlbum, manualArtist, manualTitle, musicUrl, query, selectedResults]);
+
+  useEffect(() => {
+    const resetCapture = () => {
+      searchRequestRef.current += 1;
+      clearCaptureDraft();
+      setMusicUrl("");
+      setQuery("");
+      setResults([]);
+      setSelectedResults([]);
+      setVisibleResultCount(SEARCH_RESULT_BATCH_SIZE);
+      setLoading(false);
+      setLoadingMore(false);
+      setLinkLoading(false);
+      setError(null);
+      setLinkError(null);
+      setLinkDialogOpen(false);
+      setManualFallback(null);
+      setManualTitle("");
+      setManualArtist("");
+      setManualAlbum("");
+      setResultSource(null);
+      resetRecordDialog();
+    };
+    window.addEventListener("music-world:reset-capture", resetCapture);
+    return () => window.removeEventListener("music-world:reset-capture", resetCapture);
+  }, []);
 
   useEffect(() => {
     const trigger = loadMoreTriggerRef.current;
@@ -645,7 +671,7 @@ export function Capture({
     }
     if (commit(
       next,
-      already ? "이미 정리 대기 중인 곡이에요." : "나중에 이어서 기록할 곡으로 남겼어요.",
+      already ? "이미 보관함에 저장한 곡이에요." : "보관함에 우선 저장했어요.",
     )) {
       clearCaptureDraft();
       setSelectedResults((current) => current.filter((item) => item.id !== track.id));
@@ -676,7 +702,7 @@ export function Capture({
 
     const message = added
       ? {
-        text: `${added}곡을 정리 대기함에 기록했어요.`,
+        text: `${added}곡을 보관함에 우선 저장했어요.`,
         action: { label: "보관함 보기", href: "/inbox" },
       }
       : already
@@ -755,9 +781,9 @@ export function Capture({
       </header>
       <section className="capture-search-compact" aria-label="음악 검색">
         <form className="search-form capture-search-form" onSubmit={submit}>
-          <label className="sr-only" htmlFor="itunes-query">곡명 또는 아티스트</label>
-          <input id="itunes-query" className="input" type="search" name="music-search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="곡명 또는 아티스트 검색" minLength={1} enterKeyHint="search" autoComplete="off" />
-          <button className="capture-search-submit" type="submit" aria-label="검색" disabled={loading || !online || !query.trim()}>{loading ? <LoadingDots /> : <Search aria-hidden="true" size={20} />}</button>
+          <label className="sr-only" htmlFor="itunes-query">외부 음악에서 기록할 곡 찾기</label>
+          <input id="itunes-query" className="input" type="search" name="music-search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="기록할 곡이나 아티스트" minLength={1} enterKeyHint="search" autoComplete="off" autoFocus data-route-autofocus />
+          <button className="capture-search-submit" type="submit" aria-label="외부 음악 검색" disabled={loading || !online || !query.trim()}>{loading ? <LoadingDots /> : <Search aria-hidden="true" size={20} />}</button>
         </form>
       </section>
       <div className="capture-link-row">
@@ -779,16 +805,15 @@ export function Capture({
       {resultSource ? (
         <section className="section capture-results" aria-busy={loadingMore}>
           <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-            {resultSource === "link" ? `가져온 음악 ${results.length}곡` : `검색 결과 ${results.length}곡`}
+            {resultSource === "link" ? `가져온 음악 ${results.length}곡` : `찾은 음악 ${results.length}곡`}
           </p>
-          <div className="section-head">
-            <h2 className="capture-results-count">
-              {results.length
-                ? resultSource === "link"
-                  ? `가져온 음악 ${results.length}곡`
-                  : `검색 결과 ${results.length}곡`
-                : "검색 결과 없음"}
-            </h2>
+          <div className="section-head capture-results-head">
+            {resultSource === "link" || !results.length ? (
+              <h2 className="capture-results-count">
+                {results.length ? "가져온 음악" : "찾은 음악이 없어요"}
+              </h2>
+            ) : null}
+            {results.length ? <span className="section-label">{results.length}곡</span> : null}
           </div>
           {results.length ? (
             <>
@@ -874,13 +899,16 @@ export function Capture({
 
       {assigning ? (
         <div className="dialog-backdrop" role="presentation" onClick={resetRecordDialog}>
-          <div ref={assignDialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="assign-title" onClick={(event) => event.stopPropagation()}>
+          <div ref={assignDialogRef} className="dialog record-dialog" role="dialog" aria-modal="true" aria-labelledby="assign-title" onClick={(event) => event.stopPropagation()}>
             <h2 id="assign-title">{recordMode === "choose" ? "기록" : recordMode === "tag" ? "태그" : "기록 완료"}</h2>
-            <p>{assigning.artist} · {assigning.title}</p>
+            <div className="record-dialog-track">
+              <AlbumArtwork track={assigning} decorative />
+              <p><strong>{assigning.title}</strong><span>{assigning.artist}</span></p>
+            </div>
             {recordMode === "choose" ? (
               <div className="record-mode-list">
-                <button type="button" onClick={() => saveInbox(assigning)}><strong>곡만 기록</strong></button>
-                <button type="button" onClick={() => setRecordMode("tag")}><strong>태그로 기록</strong></button>
+                <button type="button" onClick={() => saveInbox(assigning)}><strong>보관함에 우선 저장</strong></button>
+                <button type="button" onClick={() => setRecordMode("tag")}><strong>자세히 기록</strong></button>
               </div>
             ) : recordMode === "tag" ? (
               <form className="form-stack" onSubmit={saveKeywords}>
@@ -908,7 +936,7 @@ export function Capture({
                 ) : null}
                 <div className="dialog-actions">
                   <button className="button" type="button" onClick={() => setRecordMode("choose")}>뒤로</button>
-                  <button className="button button-primary" type="submit" disabled={!selectedTagLabels.length && !newTagLabel.trim()}>태그로 기록</button>
+                  <button className="button button-primary" type="submit" disabled={!selectedTagLabels.length && !newTagLabel.trim()}>기록하기</button>
                 </div>
               </form>
             ) : (

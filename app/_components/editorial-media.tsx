@@ -98,18 +98,22 @@ export function ChapterCover({
   const coverId = sharedId ?? chapter?.id;
   const coverTitle = title ?? (chapter ? formatChapterTitle(chapter) : "챕터");
   const coverColor = color ?? chapter?.color;
+  const customCover = chapter?.coverImageUrl ?? null;
   return (
     <div
-      className={`chapter-artwork chapter-artwork-${Math.max(1, entries.length)} ${className}`.trim()}
+      className={`chapter-artwork ${customCover ? "chapter-artwork-custom" : `chapter-artwork-${Math.max(1, entries.length)}`} ${className}`.trim()}
       data-shared-transition-id={sharedArtworkKey(coverId)}
       style={{
         ...(coverColor ? chapterColorStyle(coverColor) : {}),
         ...sharedArtworkStyle(coverId),
       }}
       role="img"
-      aria-label={`${coverTitle} 대표 앨범 아트 모음`}
+      aria-label={customCover ? `${coverTitle} 대표 이미지` : `${coverTitle} 대표 앨범 아트 모음`}
     >
-      {entries.length ? entries.map((track) => (
+      {customCover ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="chapter-custom-cover" src={customCover} alt="" />
+      ) : entries.length ? entries.map((track) => (
         <AlbumArtwork
           key={track.id}
           track={track}

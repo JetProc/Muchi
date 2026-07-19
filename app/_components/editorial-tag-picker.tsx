@@ -15,7 +15,11 @@ interface TagPickerProps {
   label?: string;
   maxSelected?: number;
   onCreate?: (label: string) => boolean;
-  manageHref?: string;
+  manageHref?: string | null;
+  actionLabel?: string;
+  emptyText?: string;
+  panelTitle?: string;
+  suggestionsLabel?: string;
 }
 
 function editDistance(left: string, right: string): number {
@@ -46,6 +50,10 @@ export function TagPicker({
   maxSelected = ARCHIVE_LIMITS.tagsPerCubeTrack,
   onCreate,
   manageHref = "/tags",
+  actionLabel = "태그 선택",
+  emptyText = "운동할 때, 과거에 좋아했던 음악처럼 남겨보세요",
+  panelTitle = "태그",
+  suggestionsLabel = "빠른 선택",
 }: TagPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -113,7 +121,7 @@ export function TagPicker({
 
       {suggestedTags.length ? (
         <div className="tag-picker-suggestions" aria-label="자주 쓰거나 최근에 쓴 태그">
-          <span>빠른 선택</span>
+          <span>{suggestionsLabel}</span>
           <div>
             {suggestedTags.map((tag) => (
               <button
@@ -136,10 +144,10 @@ export function TagPicker({
         aria-expanded={open}
       >
         <span className="tag-picker-open-copy">
-          <strong>태그 선택</strong>
+          <strong>{actionLabel}</strong>
           <span>{selectedTagIds.length
             ? selectedTags.map((tag) => `#${tag.label}`).join(" · ")
-            : "운동할 때, 과거에 좋아했던 음악처럼 남겨보세요"}</span>
+            : emptyText}</span>
         </span>
         <span className="tag-picker-open-meta">
           {selectedTagIds.length ? <em>{selectedTagIds.length}</em> : null}
@@ -160,7 +168,7 @@ export function TagPicker({
             <div className="tag-picker-panel-handle" aria-hidden="true" />
             <div className="tag-picker-panel-head">
               <div>
-                <strong id="tag-picker-title">경험 태그</strong>
+                <strong id="tag-picker-title">{panelTitle}</strong>
                 <span>{selectedTagIds.length} / {maxSelected}</span>
               </div>
               <button className="icon-button" type="button" onClick={close} aria-label="닫기">
@@ -185,7 +193,49 @@ export function TagPicker({
               ) : null}
             </label>
 
-            <div className="tag-picker-options" role="group" aria-label="경험 태그 목록">
+            {onCreate ? (
+              creating ? (
+                <div className="tag-picker-create">
+                  <input
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return;
+                      event.preventDefault();
+                      submitTag();
+                    }}
+                    maxLength={ARCHIVE_LIMITS.tagLabel}
+                    placeholder="예: 운동할 때, 첫 자취방에서"
+                    aria-label="새 태그 이름"
+                  />
+                  <button type="button" onClick={submitTag} disabled={!draft.trim()} aria-label="새 태그 추가">
+                    <Plus size={15} aria-hidden="true" />
+                  </button>
+                  {similarTags.length ? (
+                    <div className="tag-picker-similar" role="status">
+                      <span>비슷한 기존 태그</span>
+                      {similarTags.map((tag) => (
+                        <button
+                          type="button"
+                          key={tag.id}
+                          onClick={() => {
+                            if (!selectedTagIds.includes(tag.id)) onToggle(tag.id);
+                            setDraft("");
+                            setCreating(false);
+                          }}
+                        >#{tag.label} 쓰기</button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <button className="tag-picker-create-trigger tag-picker-create-wide" type="button" onClick={() => setCreating(true)}>
+                  <Plus size={14} aria-hidden="true" /> 새 태그
+                </button>
+              )
+            ) : null}
+
+            <div className="tag-picker-options" role="group" aria-label="태그 목록">
               {visibleTags.map((tag) => {
                 const selected = selectedTagIds.includes(tag.id);
                 const disabled = !selected && selectedTagIds.length >= maxSelected;
@@ -206,50 +256,10 @@ export function TagPicker({
               {!visibleTags.length ? <p className="tag-picker-empty">일치하는 태그가 없습니다.</p> : null}
             </div>
 
-            <div className="tag-picker-footer">
-              {onCreate ? (
-                creating ? (
-                  <div className="tag-picker-create">
-                    <input
-                      value={draft}
-                      onChange={(event) => setDraft(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter") return;
-                        event.preventDefault();
-                        submitTag();
-                      }}
-                      maxLength={ARCHIVE_LIMITS.tagLabel}
-                      placeholder="예: 운동할 때, 첫 자취방에서"
-                      aria-label="새 태그 이름"
-                    />
-                    <button type="button" onClick={submitTag} disabled={!draft.trim()} aria-label="새 태그 추가">
-                      <Plus size={15} aria-hidden="true" />
-                    </button>
-                    {similarTags.length ? (
-                      <div className="tag-picker-similar" role="status">
-                        <span>비슷한 기존 태그</span>
-                        {similarTags.map((tag) => (
-                          <button
-                            type="button"
-                            key={tag.id}
-                            onClick={() => {
-                              if (!selectedTagIds.includes(tag.id)) onToggle(tag.id);
-                              setDraft("");
-                              setCreating(false);
-                            }}
-                          >#{tag.label} 쓰기</button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <button className="tag-picker-create-trigger" type="button" onClick={() => setCreating(true)}>
-                    <Plus size={14} aria-hidden="true" /> 새 태그
-                  </button>
-                )
-              ) : <span />}
-              <Link className="text-link" href={manageHref} intent="tab">태그 관리</Link>
-            </div>
+            {onCreate || manageHref ? <div className="tag-picker-footer">
+              {manageHref ? <Link className="text-link" href={manageHref} intent="tab">태그 관리</Link> : <span />}
+              <button className="button button-primary tag-picker-confirm" type="button" onClick={close}>추가</button>
+            </div> : null}
           </div>
         </>
       ) : null}

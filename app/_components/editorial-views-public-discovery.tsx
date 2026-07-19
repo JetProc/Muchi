@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronRight, Heart, UserPlus, Users } from "lucide-react";
+import { Bell, ChevronRight, Heart, UserPlus, Users, X } from "lucide-react";
 import {
   getFollowingActivities,
   getProfileChapters,
@@ -16,6 +16,7 @@ import type { ArchiveEnvelopeV1 } from "@/lib/archive";
 import { ChapterCover } from "./editorial-media";
 import { MotionLink as Link } from "./editorial-motion";
 import { EmptyState, PageHeader } from "./editorial-ui";
+import { MusicRoomFrame, type PersonalSpaceShelfItem } from "./editorial-music-room";
 import {
   ChapterDetailHero,
   ChapterPlaylistActions,
@@ -144,8 +145,12 @@ export function Discover({
         eyebrow={activityOnly ? "FOLLOWING" : "DISCOVER"}
         title={activityOnly ? "새로 열린 챕터" : "비슷한 결의 기록"}
         description={activityOnly ? "팔로우한 아카이버의 새 공개 기록" : "곡이 함께 묶인 방식을 따라가 보세요."}
-        action={(
-          <Link className={`discover-activity-button${activityOnly ? " is-active" : ""}`} href={activityOnly ? "/discover" : "/discover?activity=1"} intent="tab" aria-label={unreadCount ? `새 활동 ${unreadCount}개` : "팔로우 활동"}>
+        action={activityOnly ? (
+          <Link className="discover-activity-button is-active" href="/discover" intent="back" aria-label="팔로잉 활동 닫기">
+            <X size={18} aria-hidden="true" />
+          </Link>
+        ) : (
+          <Link className="discover-activity-button" href="/discover?activity=1" intent="tab" aria-label={unreadCount ? `새 활동 ${unreadCount}개` : "팔로우 활동"}>
             <Bell size={18} aria-hidden="true" />
             {unreadCount ? <span>{unreadCount}</span> : null}
           </Link>
@@ -242,10 +247,12 @@ export function PublicChapterDetail({
         description={chapter.description}
         meta={`${chapter.tracks.length}곡 · ${publicRecordCount}개 공개 기록`}
         actions={<LikeButton chapterId={chapter.id} liked={liked} likeCount={chapter.likeCount} onToggle={actions.onToggleLike} />}
+        actionsOutsideCopy
+        utilities={<ChapterPlaylistActions chapterId={chapter.id} source="discover" />}
+        utilitiesOutsideCopy
         style={chapterColorStyle("violet")}
       />
       <ChapterTrackSection items={trackItems} label={`${chapter.tracks.length}곡`} title="수록곡" />
-      <ChapterPlaylistActions chapterId={chapter.id} source="discover" />
     </div>
   );
 }
@@ -254,32 +261,41 @@ export function PublicProfileDetail({
   catalog,
   state,
   profileId,
+  showAll,
   actions,
 }: {
   catalog: PublicDiscoveryCatalog;
   state: DiscoveryInteractionState;
   profileId: string | null;
+  showAll: boolean;
   actions: DiscoveryActions;
 }) {
   const profile = getPublicProfile(catalog, profileId);
   if (!profile) return <div className="page-content"><EmptyState title="아카이버를 찾지 못했어요" action={<Link className="button" href="/discover">탐색으로 돌아가기</Link>} /></div>;
   const chapters = getProfileChapters(catalog, profile.id);
   const followed = state.followedProfileIds.includes(profile.id);
-  return (
-    <div className="page-content public-profile-detail">
-      <section className="public-profile-hero">
-        <ProfileStamp profile={profile} />
-        <p>{profile.bio}</p>
-        <small>{profile.followerCount.toLocaleString("ko-KR")}명이 팔로우</small>
-        <FollowButton profileId={profile.id} followed={followed} onToggle={actions.onToggleFollow} />
-      </section>
-      <section className="public-profile-chapters" aria-labelledby="profile-chapter-title">
-        <div className="section-heading"><span className="section-label">PUBLIC CHAPTERS</span><h2 id="profile-chapter-title">공개한 챕터</h2></div>
-        {chapters.map((chapter, index) => {
-          const item: RankedPublicChapter = { chapter, profile, sharedTrackCount: 0, sharedTrackDensity: 0, reason: "공개 챕터" };
-          return <ChapterFeedLine item={item} index={index} key={chapter.id} />;
-        })}
-      </section>
-    </div>
-  );
+  const featured = profile.space.featuredChapterIds
+    .map((id) => catalog.chapters[id])
+    .filter((chapter): chapter is NonNullable<typeof chapter> => Boolean(chapter && chapter.profileId === profile.id));
+  const visibleChapters = showAll ? chapters : featured;
+  const items: PersonalSpaceShelfItem[] = visibleChapters.map((chapter) => ({
+    id: chapter.id,
+    title: chapter.name,
+    trackCount: chapter.tracks.length,
+    artwork: <ChapterCover tracks={chapter.tracks.map((item) => item.track)} sharedId={chapter.id} title={chapter.name} color="violet" />,
+    href: `/discover/chapter?id=${encodeURIComponent(chapter.id)}`,
+  }));
+  const profileHref = `/discover/profile?id=${encodeURIComponent(profile.id)}`;
+  return <MusicRoomFrame
+    eyebrow={showAll ? "ALL CHAPTERS" : "MUSIC ROOM"}
+    title={showAll ? `${profile.name}의 모든 챕터` : `${profile.name}의 음악 서재`}
+    owner={<ProfileStamp profile={profile} showHandle={false} />}
+    ownerBio={profile.bio}
+    themeId={profile.space.themeId}
+    layoutId={showAll ? "stack" : profile.space.layoutId}
+    items={items}
+    empty={<EmptyState title="공개한 챕터 없음" />}
+    primaryAction={<FollowButton profileId={profile.id} followed={followed} onToggle={actions.onToggleFollow} />}
+    footer={chapters.length && !showAll ? <Link href={`${profileHref}&view=all`} intent="forward">전체 챕터 보기</Link> : showAll ? <Link href={profileHref} intent="back">대표 챕터 보기</Link> : undefined}
+  />;
 }

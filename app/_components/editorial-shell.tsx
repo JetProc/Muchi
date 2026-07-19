@@ -29,6 +29,7 @@ import type { AppView, ToastMessage } from "./editorial-types";
 
 const VIEW_META: Record<AppView, { label: string; path: string; index: string }> = {
   home: { label: "HOME", path: "/", index: "00" },
+  space: { label: "SPACE", path: "/", index: "00" },
   capture: { label: "ADD", path: "/capture", index: "＋" },
   inbox: { label: "INBOX", path: "/inbox", index: "01" },
   chapters: { label: "CHAPTERS", path: "/chapters", index: "02" },
@@ -38,20 +39,20 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
   discover: { label: "DISCOVER", path: "/discover", index: "04" },
   discoverChapter: { label: "CHAPTER", path: "/discover", index: "04" },
   discoverProfile: { label: "PROFILE", path: "/discover", index: "04" },
-  search: { label: "SEARCH", path: "/search", index: "04" },
+  search: { label: "FIND", path: "/search", index: "04" },
   recap: { label: "RECAP", path: "/recap", index: "05" },
   settings: { label: "SETTINGS", path: "/settings", index: "06" },
   tags: { label: "TAGS", path: "/tags", index: "07" },
 };
 
-const MOBILE_NAV = ["home", "chapters", "capture", "discover", "search"] as const satisfies readonly AppView[];
+const MOBILE_NAV = ["home", "discover", "capture", "chapters", "search"] as const satisfies readonly AppView[];
 
 const MOBILE_NAV_LABEL: Partial<Record<AppView, string>> = {
   home: "홈",
   chapters: "챕터",
   capture: "기록",
   discover: "탐색",
-  search: "검색",
+  search: "찾기",
 };
 
 const MOBILE_NAV_ICON = {
@@ -122,8 +123,12 @@ export function TextNavigation({ view }: { view: AppView }) {
             href={meta.path}
             intent={item === "capture" ? "modal" : "tab"}
             className={`${active ? "is-active" : ""}${item === "capture" ? " nav-add" : ""}`}
-            aria-label={item === "capture" ? "새 음악 기록" : meta.label}
+            aria-label={item === "capture" ? "새 음악 기록" : item === "search" ? "내 기록 찾기" : meta.label}
             aria-current={active ? "page" : undefined}
+            onClick={item === "capture" ? () => {
+              window.sessionStorage.removeItem("music-world:capture-draft:v1");
+              window.dispatchEvent(new Event("music-world:reset-capture"));
+            } : undefined}
           >
             <Icon aria-hidden="true" size={24} strokeWidth={1.8} />
             <span className="icon-label-nav-label">{MOBILE_NAV_LABEL[item] ?? meta.label}</span>

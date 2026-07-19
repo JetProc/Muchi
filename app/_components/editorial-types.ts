@@ -2,6 +2,7 @@ import type { ArchiveEnvelopeV1 } from "@/lib/archive";
 
 export type AppView =
   | "home"
+  | "space"
   | "capture"
   | "inbox"
   | "chapters"

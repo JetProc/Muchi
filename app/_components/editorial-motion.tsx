@@ -105,14 +105,14 @@ function consumeTransitionRejections(transition: ViewTransitionHandle) {
 }
 
 function canUseNativeTransition(transitionDocument: TransitionDocument) {
-  return Boolean(transitionDocument.startViewTransition)
-    && window.matchMedia("(max-width: 479px)").matches;
+  return Boolean(transitionDocument.startViewTransition);
 }
 
 function focusDestination() {
-  const target = Array.from(document.querySelectorAll<HTMLElement>(
-    ".route-stage h1, .route-stage h2",
-  )).find((candidate) => !candidate.closest(".sr-only"))
+  const target = document.querySelector<HTMLElement>(".route-stage [data-route-autofocus]")
+    ?? Array.from(document.querySelectorAll<HTMLElement>(
+      ".route-stage h1, .route-stage h2",
+    )).find((candidate) => !candidate.closest(".sr-only"))
     ?? document.querySelector<HTMLElement>("#main-content");
   if (!target) return;
 

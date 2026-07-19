@@ -1,8 +1,14 @@
-import type { ArchiveEnvelopeV1, TrackId, TrackReference } from "./archive";
+import type { ArchiveEnvelopeV1, SpaceLayoutId, SpaceThemeId, TrackId, TrackReference } from "./archive";
 
 export const DISCOVERY_STORAGE_KEY = "music-world:public-discovery:v1";
 
 export type PublicRecordVisibility = "public" | "private";
+
+export type PublicSpacePresentation = {
+  themeId: SpaceThemeId;
+  layoutId: SpaceLayoutId;
+  featuredChapterIds: string[];
+};
 
 export type PublicProfile = {
   id: string;
@@ -11,6 +17,7 @@ export type PublicProfile = {
   bio: string;
   avatarTone: string;
   followerCount: number;
+  space: PublicSpacePresentation;
 };
 
 export type PublicChapterTrack = {
@@ -179,6 +186,17 @@ const CHAPTER_THEMES = [
   ["방 안의 파도", "불을 끄고 앨범 한 장을 끝까지 들은 시간", "방 안에서 듣던 음악", "잠들기 전"],
 ] as const;
 
+const PUBLIC_SPACE_THEMES: SpaceThemeId[] = ["paper", "midnight", "moss"];
+const PUBLIC_SPACE_LAYOUTS: SpaceLayoutId[] = ["shelf", "folio", "stack"];
+
+function publicSpace(slug: string, profileIndex: number): PublicSpacePresentation {
+  return {
+    themeId: PUBLIC_SPACE_THEMES[profileIndex % PUBLIC_SPACE_THEMES.length],
+    layoutId: PUBLIC_SPACE_LAYOUTS[profileIndex % PUBLIC_SPACE_LAYOUTS.length],
+    featuredChapterIds: CHAPTER_THEMES.map((_, chapterIndex) => `public:chapter:${slug}:${chapterIndex + 1}`),
+  };
+}
+
 function generatedTrack(profileIndex: number, chapterIndex: number, trackIndex: number): TrackReference {
   const id = `itunes:${820_000_000 + profileIndex * 1_000 + chapterIndex * 100 + trackIndex}` as TrackId;
   const titles = ["Afterimage", "Soft Focus", "Mile Marker", "Room Tone", "Slow Return", "Blue Hour", "Paper Moon", "Glasshouse"];
@@ -243,9 +261,9 @@ function createChapter(profileIndex: number, chapterIndex: number): PublicChapte
 }
 
 export function createPublicDiscoveryCatalog(): PublicDiscoveryCatalog {
-  const profiles = Object.fromEntries(PROFILE_SEEDS.map(([slug, name, handle, bio, avatarTone, followerCount]) => {
+  const profiles = Object.fromEntries(PROFILE_SEEDS.map(([slug, name, handle, bio, avatarTone, followerCount], profileIndex) => {
     const id = `public:profile:${slug}`;
-    return [id, { id, name, handle, bio, avatarTone, followerCount } satisfies PublicProfile];
+    return [id, { id, name, handle, bio, avatarTone, followerCount, space: publicSpace(slug, profileIndex) } satisfies PublicProfile];
   })) as Record<string, PublicProfile>;
   const chapterList = PROFILE_SEEDS.flatMap((_, profileIndex) => (
     CHAPTER_THEMES.map((__, chapterIndex) => createChapter(profileIndex, chapterIndex))

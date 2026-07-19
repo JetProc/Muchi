@@ -47,9 +47,9 @@ import {
 } from "./editorial-motion";
 import {
   Capture,
-  Home,
   Inbox,
 } from "./editorial-views-primary";
+import { PersonalSpace, VisitorSpace } from "./editorial-personal-space";
 import {
   ChapterDetail,
   Chapters,
@@ -76,15 +76,23 @@ export type { AppView } from "./editorial-types";
 
 const ONBOARDING_KEY = "music-world:onboarding:v1";
 
+type ClientSessionCache = {
+  archive: ArchiveEnvelopeV1;
+  discoveryState: DiscoveryInteractionState;
+  showWelcome: boolean;
+};
+
+let clientSessionCache: ClientSessionCache | null = null;
+
 export function MusicWorldApp({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
   const router = useMotionRouter();
-  const [archive, setArchive] = useState<ArchiveEnvelopeV1>(() => createSeedArchive());
+  const [archive, setArchive] = useState<ArchiveEnvelopeV1>(() => clientSessionCache?.archive ?? createSeedArchive());
   const catalog = useMemo(() => createPublicDiscoveryCatalog(), []);
-  const [discoveryState, setDiscoveryState] = useState<DiscoveryInteractionState>(() => createDiscoveryInteractionState());
-  const [hydrated, setHydrated] = useState(false);
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryInteractionState>(() => clientSessionCache?.discoveryState ?? createDiscoveryInteractionState());
+  const [hydrated, setHydrated] = useState(() => clientSessionCache !== null);
   const [storageBlocked, setStorageBlocked] = useState<string | null>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(() => clientSessionCache?.showWelcome ?? false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [online, setOnline] = useState(true);
   const [systemReduce, setSystemReduce] = useState(false);
@@ -144,6 +152,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "recap":
       case "settings":
         return { label: "홈으로", href: "/" };
+      case "space":
+        return { label: "내 공간으로", href: "/" };
       case "chapter":
         return requestedChapter?.parentId
           ? {
@@ -186,6 +196,13 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "discoverProfile":
         return { label: "탐색으로", href: "/discover" };
       case "tags":
+        if (fromMemoryId && archive.data.cubeTracks[fromMemoryId]) {
+          return {
+            label: "곡 기록으로",
+            href: `/memory?id=${encodeURIComponent(fromMemoryId)}`,
+            sharedId: fromMemoryId,
+          };
+        }
         return { label: "설정으로", href: "/settings" };
       default:
         return null;
@@ -210,11 +227,14 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       if (event.key === ARCHIVE_STORAGE_KEY) {
         const parsed = parseArchive(event.newValue);
         if (parsed.status !== "ok") return;
+        if (clientSessionCache) clientSessionCache = { ...clientSessionCache, archive: parsed.archive };
         setArchive(parsed.archive);
         notify("다른 탭에서 바뀐 음악 기록을 불러왔어요.");
       }
       if (event.key === DISCOVERY_STORAGE_KEY) {
-        setDiscoveryState(parseDiscoveryInteractionState(event.newValue, catalog));
+        const nextDiscoveryState = parseDiscoveryInteractionState(event.newValue, catalog);
+        if (clientSessionCache) clientSessionCache = { ...clientSessionCache, discoveryState: nextDiscoveryState };
+        setDiscoveryState(nextDiscoveryState);
       }
     };
     window.addEventListener("storage", syncArchive);
@@ -230,20 +250,31 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       }
     }
     const hydrationTimer = window.setTimeout(() => {
+      if (clientSessionCache) {
+        setOnline(window.navigator.onLine);
+        setSystemReduce(media.matches);
+        setHydrated(true);
+        return;
+      }
       let rawArchive: string | null = null;
       let onboardingDone = false;
+      let nextDiscoveryState = createDiscoveryInteractionState();
       try {
         rawArchive = window.localStorage.getItem(ARCHIVE_STORAGE_KEY);
-        setDiscoveryState(parseDiscoveryInteractionState(window.localStorage.getItem(DISCOVERY_STORAGE_KEY), catalog));
+        nextDiscoveryState = parseDiscoveryInteractionState(window.localStorage.getItem(DISCOVERY_STORAGE_KEY), catalog);
         onboardingDone = window.localStorage.getItem(ONBOARDING_KEY) === "done";
       } catch {
         setStorageBlocked("기기 저장소 접근이 차단되어 변경 사항을 저장하지 않는 보호 모드로 열었어요.");
       }
       const parsed = parseArchive(rawArchive);
+      let nextArchive = createSeedArchive();
       if (parsed.status === "ok") {
-        setArchive(parsed.archive);
+        nextArchive = parsed.archive;
+        setArchive(nextArchive);
       } else if (parsed.status === "empty") {
         const seed = createSeedArchive();
+        nextArchive = seed;
+        setArchive(nextArchive);
         try {
           window.localStorage.setItem(ARCHIVE_STORAGE_KEY, serializeArchive(seed));
         } catch {
@@ -256,7 +287,10 @@ export function MusicWorldApp({ view }: { view: AppView }) {
             : "저장된 데이터를 읽을 수 없어 보호 모드로 열었어요.",
         );
       }
-      setShowWelcome(!onboardingDone);
+      const nextShowWelcome = !onboardingDone;
+      clientSessionCache = { archive: nextArchive, discoveryState: nextDiscoveryState, showWelcome: nextShowWelcome };
+      setDiscoveryState(nextDiscoveryState);
+      setShowWelcome(nextShowWelcome);
       setOnline(window.navigator.onLine);
       setSystemReduce(media.matches);
       setHydrated(true);
@@ -269,6 +303,11 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       window.removeEventListener("storage", syncArchive);
     };
   }, [catalog, notify]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    clientSessionCache = { archive, discoveryState, showWelcome };
+  }, [archive, discoveryState, hydrated, showWelcome]);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = reduceMotion ? "true" : "false";
@@ -301,11 +340,13 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     try {
       const stored = parseArchive(window.localStorage.getItem(ARCHIVE_STORAGE_KEY));
       if (!force && stored.status === "ok" && stored.archive.updatedAt !== archive.updatedAt) {
+        if (clientSessionCache) clientSessionCache = { ...clientSessionCache, archive: stored.archive };
         setArchive(stored.archive);
         notify("다른 탭의 최신 변경을 먼저 불러왔어요. 확인한 뒤 다시 저장해 주세요.");
         return false;
       }
       window.localStorage.setItem(ARCHIVE_STORAGE_KEY, serializeArchive(next));
+      if (clientSessionCache) clientSessionCache = { ...clientSessionCache, archive: next };
       setArchive(next);
       setStorageBlocked(null);
       if (message) notify(message);
@@ -322,10 +363,12 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     } catch {
       notify("이 브라우저에서는 시작 안내 상태를 저장하지 못했어요.");
     }
+    if (clientSessionCache) clientSessionCache = { ...clientSessionCache, showWelcome: false };
     setShowWelcome(false);
   }
 
   function commitDiscovery(next: DiscoveryInteractionState, message: string) {
+    if (clientSessionCache) clientSessionCache = { ...clientSessionCache, discoveryState: next };
     setDiscoveryState(next);
     try {
       window.localStorage.setItem(DISCOVERY_STORAGE_KEY, serializeDiscoveryInteractionState(next));
@@ -435,6 +478,10 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     switch (view) {
       case "capture":
         return <Capture archive={archive} commit={commit} notify={notify} online={online} router={router} sharedUrl={sharedUrl} />;
+      case "space":
+        return searchParams.get("view") === "visitor"
+          ? <VisitorSpace archive={archive} chapterId={queryId} />
+          : <PersonalSpace archive={archive} commit={commit} notify={notify} />;
       case "inbox":
         return <Inbox archive={archive} commit={commit} notify={notify} router={router} />;
       case "chapters":
@@ -465,7 +512,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "discoverChapter":
         return <PublicChapterDetail catalog={catalog} state={discoveryState} chapterId={queryId} actions={discoveryActions} />;
       case "discoverProfile":
-        return <PublicProfileDetail catalog={catalog} state={discoveryState} profileId={queryId} actions={discoveryActions} />;
+        return <PublicProfileDetail catalog={catalog} state={discoveryState} profileId={queryId} showAll={searchParams.get("view") === "all"} actions={discoveryActions} />;
       case "search":
         return (
           <Search
@@ -484,7 +531,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "tags":
         return <TagManager archive={archive} commit={commit} notify={notify} />;
       default:
-        return <Home archive={archive} />;
+        return <PersonalSpace archive={archive} commit={commit} notify={notify} />;
     }
   })();
 

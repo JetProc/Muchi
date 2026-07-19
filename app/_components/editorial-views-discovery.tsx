@@ -6,21 +6,19 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
 } from "react";
-import { X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import {
   removeSeedData,
   restoreSeedData,
   resetArchive,
-  getCubeTrackNotes,
-  getTagGroupResults,
   parseArchive,
   searchArchive,
   selectRecap,
   serializeArchive,
   type ArchiveEnvelopeV1,
   type ArchiveSearchResult,
-  type ContextualMemory,
   type MotionPreference,
   type RecapEntry,
   type RecapMode,
@@ -29,6 +27,7 @@ import { MotionLink as Link } from "./editorial-motion";
 import type { MotionRouter } from "./editorial-motion";
 import { useModalFocus } from "./editorial-accessibility";
 import { EmptyState, PageHeader, TrackLine } from "./editorial-ui";
+import { AlbumArtwork } from "./editorial-media";
 import {
   formatChapterTitle,
   formatCalendarDate,
@@ -36,7 +35,6 @@ import {
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { TagPicker } from "./editorial-tag-picker";
-import { TagLink, tagGroupHref } from "./editorial-tag-link";
 
 const LAST_BACKUP_AT_KEY = "music-world:last-backup-at:v1";
 
@@ -49,43 +47,58 @@ function SearchResultLine({
   index: number;
   onTagClick: (tagId: string) => void;
 }) {
+  const rowStyle = { "--track-delay": `${Math.min(index, 6) * 24}ms` } as CSSProperties;
   if (result.kind === "inbox") {
     return (
-      <TrackLine
-        track={result.track}
-        index={index}
-        context="임시 보관함 · 아직 미분류"
-        actions={<Link className="button" href="/inbox">정리하기</Link>}
-      />
+      <article className="search-track-row" style={rowStyle}>
+        <Link className="search-track-main" href="/inbox" intent="forward">
+          <AlbumArtwork track={result.track} decorative />
+          <span className="search-track-copy">
+            <strong>{result.track.title}</strong>
+            <small>{result.track.artist}</small>
+            <em>보관함 · 아직 미분류</em>
+          </span>
+          <ChevronRight size={16} aria-hidden="true" />
+        </Link>
+      </article>
     );
   }
-  const tagContext = result.tags.slice(0, 2).map((tag) => `#${tag.label}`).join(" · ");
-  const noteContext = result.matchedNote
-    ? `${result.matchedNote.listenedOn ? formatCalendarDate(result.matchedNote.listenedOn) : "날짜 미지정"} · ${result.matchedNote.body}`
-    : tagContext || `${result.track.artist}${result.track.album ? ` · ${result.track.album}` : ""}`;
   const isUnassigned = result.cube.kind === "capture";
-  return (
-    <TrackLine
-      track={result.track}
-      index={index}
-      sharedId={result.cubeTrack.id}
-      tags={result.tags}
-      maxTags={2}
-      onTagClick={(tag) => onTagClick(tag.id)}
-      context={`${isUnassigned ? "챕터로 옮기기 전 기억" : formatChapterTitle(result.cube)} · ${noteContext}`}
-      actions={<Link className="button" href={`/memory?id=${encodeURIComponent(result.cubeTrack.id)}`} intent="shared" sharedId={result.cubeTrack.id}>기억 열기</Link>}
-    />
+  const uniqueTags = result.tags.filter(
+    (tag, tagIndex, tags) => tags.findIndex((candidate) => candidate.id === tag.id) === tagIndex,
   );
-}
-
-function memorySummary(memory: ContextualMemory): string {
-  const note = getCubeTrackNotes(memory.cubeTrack)[0];
-  if (note) {
-    const date = note.listenedOn ? formatCalendarDate(note.listenedOn) : "날짜 미지정";
-    return `${date} · ${note.body}`;
-  }
-  return memory.tags.slice(0, 2).map((tag) => `#${tag.label}`).join(" · ")
-    || formatChapterTitle(memory.cube);
+  const context = [
+    isUnassigned ? "챕터로 옮기기 전 기억" : formatChapterTitle(result.cube),
+    result.matchedNote?.body,
+  ].filter(Boolean).join(" · ");
+  return (
+    <article className="search-track-row" style={rowStyle}>
+      <Link
+        className="search-track-main"
+        href={`/memory?id=${encodeURIComponent(result.cubeTrack.id)}`}
+        intent="shared"
+        sharedId={result.cubeTrack.id}
+      >
+        <AlbumArtwork track={result.track} sharedId={result.cubeTrack.id} decorative />
+        <span className="search-track-copy">
+          <strong>{result.track.title}</strong>
+          <small>{result.track.artist}</small>
+          {context ? <em>{context}</em> : null}
+        </span>
+        <ChevronRight size={16} aria-hidden="true" />
+      </Link>
+      {uniqueTags.length ? (
+        <div className="search-track-tags" aria-label={`${result.track.title} 태그`}>
+          {uniqueTags.slice(0, 4).map((tag) => (
+            <button className="tag" type="button" key={tag.id} onClick={() => onTagClick(tag.id)}>
+              #{tag.label}
+            </button>
+          ))}
+          {uniqueTags.length > 4 ? <span className="tag">+{uniqueTags.length - 4}</span> : null}
+        </div>
+      ) : null}
+    </article>
+  );
 }
 
 function rawSearchHref(
@@ -125,7 +138,6 @@ export function Search({
   const [query, setQuery] = useState(initialQuery);
   const [tagIds, setTagIds] = useState<string[]>(validRequestedTagIds);
   const [tagMatch, setTagMatch] = useState<"all" | "any">("all");
-  const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const tags = useMemo(() => Object.values(archive.data.tags), [archive.data.tags]);
   const tagUsageCounts = useMemo(() => Object.values(archive.data.cubeTracks)
     .reduce<Record<string, number>>((counts, item) => {
@@ -134,12 +146,14 @@ export function Search({
       });
       return counts;
     }, {}), [archive.data.cubeTracks]);
-  const groupView = requestedView === "group" && validRequestedTagIds.length > 0;
-  const groupResults = useMemo(
-    () => groupView ? getTagGroupResults(archive, validRequestedTagIds) : [],
-    [archive, groupView, validRequestedTagIds],
-  );
-  const groupTags = validRequestedTagIds.map((tagId) => archive.data.tags[tagId]);
+  const quickTagIds = useMemo(() => tags
+    .filter((tag) => !tagIds.includes(tag.id))
+    .sort((left, right) => (
+      (tagUsageCounts[right.id] ?? 0) - (tagUsageCounts[left.id] ?? 0)
+      || left.label.localeCompare(right.label, "ko")
+    ))
+    .slice(0, 5)
+    .map((tag) => tag.id), [tagIds, tagUsageCounts, tags]);
   const hasSearch = Boolean(query.trim() || tagIds.length);
   const results = hasSearch
     ? searchArchive(archive, { query, tagIds, tagMatch, includeInbox: true })
@@ -147,13 +161,9 @@ export function Search({
 
   useEffect(() => {
     const containsInvalidOrDuplicate = requestedKey !== validRequestedKey;
-    const emptyGroup = requestedView === "group" && validRequestedTagIds.length === 0;
-    if (!containsInvalidOrDuplicate && !emptyGroup) return;
-    router.replace(
-      requestedView === "group"
-        ? tagGroupHref(validRequestedTagIds, { fromMemoryId: fromMemoryId ?? undefined })
-        : rawSearchHref(initialQuery, validRequestedTagIds, fromMemoryId),
-    );
+    const legacyGroupView = requestedView === "group";
+    if (!containsInvalidOrDuplicate && !legacyGroupView) return;
+    router.replace(rawSearchHref(initialQuery, validRequestedTagIds, fromMemoryId));
   }, [fromMemoryId, initialQuery, requestedKey, requestedView, router, validRequestedKey, validRequestedTagIds]);
 
   function toggle(id: string) {
@@ -172,89 +182,26 @@ export function Search({
     router.replace("/search");
   }
 
-  if (groupView) {
-    return (
-      <div className="page-content search-view tag-group-view">
-        <PageHeader
-          eyebrow="내 태그"
-          title={groupTags.map((tag) => tag.label).join(" + ")}
-          action={<Link className="button" href="/search" intent="back">전체 검색</Link>}
-        />
-        <div className="tag-row" aria-label="선택한 태그">
-          {groupTags.map((tag) => <TagLink tag={tag} key={tag.id} />)}
-        </div>
-        <section className="search-results-section" aria-labelledby="tag-group-results-title">
-          <div className="search-results-head">
-            <h2 id="tag-group-results-title">{groupResults.length}곡을 다시 찾았어요</h2>
-          </div>
-          {groupResults.length ? (
-            <div className="track-list track-list-unified">
-              {groupResults.map((result, index) => {
-                const expanded = expandedTrackId === result.track.id;
-                return (
-                  <div key={result.track.id}>
-                    <TrackLine
-                      track={result.track}
-                      index={index}
-                      tags={groupTags}
-                      context={`${result.memories.length}개의 독립된 기억`}
-                      actions={(
-                        <button
-                          className="button"
-                          type="button"
-                          aria-expanded={expanded}
-                          onClick={() => setExpandedTrackId(expanded ? null : result.track.id)}
-                        >
-                          {expanded ? "접기" : `${result.memories.length}개 기억`}
-                        </button>
-                      )}
-                    />
-                    {expanded ? (
-                      <div className="tag-manager-list" aria-label={`${result.track.title}의 기억`}>
-                        {result.memories.map((memory) => {
-                          const unassigned = memory.cube.kind === "capture";
-                          return (
-                            <article className="tag-manager-row" key={memory.cubeTrack.id}>
-                              <div className="tag-manager-copy">
-                                <strong>{unassigned ? "챕터로 옮기기 전 기억" : formatChapterTitle(memory.cube)}</strong>
-                                <small>{memorySummary(memory)}</small>
-                              </div>
-                              <div className="tag-manager-actions">
-                                {!unassigned ? (
-                                  <Link className="text-link" href={`/chapter?id=${encodeURIComponent(memory.cube.id)}`}>챕터</Link>
-                                ) : null}
-                                <Link className="button" href={`/memory?id=${encodeURIComponent(memory.cubeTrack.id)}`} intent="shared" sharedId={memory.cubeTrack.id}>기억 열기</Link>
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState title="이 태그에 담긴 음악이 아직 없어요" action={<Link className="button button-primary" href="/capture">곡 기록하기</Link>} />
-          )}
-        </section>
-      </div>
-    );
+  function searchByTag(tagId: string) {
+    setQuery("");
+    setTagIds([tagId]);
+    setTagMatch("all");
+    router.push(rawSearchHref("", [tagId], fromMemoryId));
   }
 
   return (
     <div className="page-content search-view">
-      <header className="search-workspace-header">
-        <h1 className="sr-only">기록 검색</h1>
+      <header className="search-workspace-header archive-find-header">
+        <h1 className="archive-find-title">내 기록 찾기</h1>
         <div className="search-query-row">
-          <label className="sr-only" htmlFor="archive-query">곡, 아티스트, 챕터, 등록 월, 기억 검색</label>
+          <label className="sr-only" htmlFor="archive-query">내 음악 기록에서 찾기</label>
           <input
             id="archive-query"
-            className="input search-input"
+            className="input search-input archive-find-input"
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="곡, 아티스트, 챕터, 기억 검색"
+            placeholder="곡, 챕터, 태그, 메모로 찾기"
             enterKeyHint="search"
             autoComplete="off"
           />
@@ -272,11 +219,17 @@ export function Search({
         {tags.length ? (
           <div className="search-tag-controls">
             <TagPicker
-              label="태그 필터"
+              label="태그로 찾기"
               tags={tags}
               selectedTagIds={tagIds}
+              suggestedTagIds={quickTagIds}
               usageCounts={tagUsageCounts}
               onToggle={toggle}
+              suggestionsLabel="빠른 찾기"
+              actionLabel="태그로 찾기"
+              emptyText="자주 쓰는 태그를 빠르게 선택하세요"
+              panelTitle="태그 찾기"
+              manageHref={null}
             />
             {tagIds.length > 1 ? (
               <select
@@ -293,10 +246,10 @@ export function Search({
         ) : null}
       </header>
 
-      <section className="search-results-section" aria-labelledby="search-results-title">
+      <section className="search-results-section archive-find-results" aria-labelledby="search-results-title">
         <div className="search-results-head">
           <h2 id="search-results-title" aria-live="polite">
-            {hasSearch ? `${results.length}개의 기록` : "찾고 싶은 기억을 입력하세요"}
+            {hasSearch ? `${results.length}개의 기록` : "내 음악 세계에서 찾고 싶은 것을 입력하세요"}
           </h2>
         </div>
         {results.length ? (
@@ -306,9 +259,7 @@ export function Search({
                 result={result}
                 key={result.kind === "inbox" ? `inbox:${result.track.id}` : result.cubeTrack.id}
                 index={index}
-                onTagClick={(tagId) => {
-                  router.push(tagGroupHref([tagId], { fromMemoryId: fromMemoryId ?? undefined }));
-                }}
+                onTagClick={searchByTag}
               />
             ))}
           </div>

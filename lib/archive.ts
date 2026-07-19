@@ -1,4 +1,4 @@
-export const ARCHIVE_SCHEMA_VERSION = 6 as const;
+export const ARCHIVE_SCHEMA_VERSION = 8 as const;
 export const ARCHIVE_SEED_VERSION = 2 as const;
 export const ARCHIVE_STORAGE_KEY = "music-world:archive:v1";
 
@@ -12,6 +12,7 @@ export const ARCHIVE_LIMITS = {
   people: 60,
   memo: 1_000,
   notesPerCubeTrack: 100,
+  chapterCoverDataUrl: 1_500_000,
 } as const;
 
 export const CUBE_COLORS = [
@@ -42,6 +43,12 @@ export type EntitySource = "seed" | "user";
 export type CubeColor = (typeof CUBE_COLORS)[number];
 export type CubeKind = "manual" | "monthly" | "capture";
 export type CubeSystemKey = null | "capture" | `month:${string}`;
+export type ChapterVisibility = "private" | "public";
+export type RecordVisibility = "private" | "public";
+export const SPACE_THEME_IDS = ["paper", "midnight", "moss"] as const;
+export const SPACE_LAYOUT_IDS = ["shelf", "folio", "stack"] as const;
+export type SpaceThemeId = (typeof SPACE_THEME_IDS)[number];
+export type SpaceLayoutId = (typeof SPACE_LAYOUT_IDS)[number];
 export type MotionPreference = "system" | "reduce" | "full";
 export type Season = "spring" | "summer" | "autumn" | "winter";
 export const TAG_CATEGORIES = [
@@ -79,11 +86,13 @@ export interface Cube {
   parentId: string | null;
   name: string;
   description: string;
+  coverImageUrl: string | null;
   color: CubeColor;
   kind: CubeKind;
   systemKey: CubeSystemKey;
   sortOrder: number;
   source: EntitySource;
+  visibility: ChapterVisibility;
   createdAt: string;
   updatedAt: string;
 }
@@ -100,6 +109,7 @@ export interface CubeTrack {
   notes: MemoryNote[];
   sortOrder: number;
   source: EntitySource;
+  recordVisibility: RecordVisibility;
   createdAt: string;
   updatedAt: string;
 }
@@ -127,6 +137,12 @@ export interface InboxEntry {
   source: EntitySource;
 }
 
+export interface PersonalSpace {
+  themeId: SpaceThemeId;
+  layoutId: SpaceLayoutId;
+  featuredCubeIds: string[];
+}
+
 export interface Preferences {
   motion: MotionPreference;
   recapEnabled: boolean;
@@ -141,6 +157,7 @@ export interface ArchiveData {
   cubeTracks: Record<string, CubeTrack>;
   tags: Record<string, TagDefinition>;
   inbox: Partial<Record<TrackId, InboxEntry>>;
+  space: PersonalSpace;
   preferences: Preferences;
 }
 
@@ -211,14 +228,18 @@ export interface CreateCubeInput {
   parentId?: string | null;
   name: string;
   description?: string;
+  coverImageUrl?: string | null;
   color?: CubeColor;
+  visibility?: ChapterVisibility;
 }
 
 export interface UpdateCubeInput {
   parentId?: string | null;
   name?: string;
   description?: string;
+  coverImageUrl?: string | null;
   color?: CubeColor;
+  visibility?: ChapterVisibility;
 }
 
 export interface UpdateCubeTrackInput {
@@ -299,6 +320,12 @@ const DEFAULT_PREFERENCES: Preferences = {
   lastCubeId: null,
   seedDismissed: false,
   country: "KR",
+};
+
+const DEFAULT_PERSONAL_SPACE: PersonalSpace = {
+  themeId: "paper",
+  layoutId: "shelf",
+  featuredCubeIds: [],
 };
 
 const SEED_NOW = "2026-07-01T00:00:00.000Z";
@@ -462,6 +489,22 @@ function validCalendarDate(value: unknown): value is string {
   return date.getUTCFullYear() === year
     && date.getUTCMonth() === month - 1
     && date.getUTCDate() === day;
+}
+
+function validChapterCoverImage(value: unknown): value is string | null {
+  return value === null || (
+    typeof value === "string"
+    && value.length <= ARCHIVE_LIMITS.chapterCoverDataUrl
+    && /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value)
+  );
+}
+
+function normalizeChapterCoverImage(value: string | null | undefined): string | null {
+  const normalized = value ?? null;
+  if (!validChapterCoverImage(normalized)) {
+    throw new ArchiveDomainError("invalid-input", "대표 이미지는 JPG, PNG, WEBP 형식만 사용할 수 있어요.");
+  }
+  return normalized;
 }
 
 function withData(
@@ -683,6 +726,7 @@ export function createEmptyArchive(now = nowIso()): ArchiveEnvelopeV1 {
       cubeTracks: {},
       tags: {},
       inbox: {},
+      space: { ...DEFAULT_PERSONAL_SPACE },
       preferences: { ...DEFAULT_PREFERENCES, seedDismissed: true },
     },
   };
@@ -800,11 +844,13 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       parentId: null,
       name: "예전에 좋아했던 기타 음악",
       description: "한때 매일 들었지만 잠시 잊고 있던 곡들",
+      coverImageUrl: null,
       color: "amber",
       kind: "manual",
       systemKey: null,
       sortOrder: 0,
       source: "seed",
+      visibility: "private",
       createdAt: "2021-06-03T02:10:00.000Z",
       updatedAt: "2026-07-10T20:10:00.000Z",
     },
@@ -813,11 +859,13 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       parentId: null,
       name: "새벽에 혼자 운전할 때",
       description: "집에 바로 들어가기 싫어 강변을 한 바퀴 더 돌던 밤",
+      coverImageUrl: null,
       color: "violet",
       kind: "manual",
       systemKey: null,
       sortOrder: 1,
       source: "seed",
+      visibility: "private",
       createdAt: "2025-07-10T02:10:00.000Z",
       updatedAt: "2026-07-04T23:40:00.000Z",
     },
@@ -826,11 +874,13 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       parentId: "seed:cube:past-favorites",
       name: "2018년 겨울",
       description: "불안했던 시절과 학교 앞 카페의 노란 불빛",
+      coverImageUrl: null,
       color: "cyan",
       kind: "manual",
       systemKey: null,
       sortOrder: 0,
       source: "seed",
+      visibility: "private",
       createdAt: "2025-07-09T02:10:00.000Z",
       updatedAt: "2026-05-18T20:20:00.000Z",
     },
@@ -839,11 +889,13 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       parentId: null,
       name: "운동 시작 20분",
       description: "몸보다 기분을 먼저 움직이게 하는 곡",
+      coverImageUrl: null,
       color: "blue",
       kind: "manual",
       systemKey: null,
       sortOrder: 2,
       source: "seed",
+      visibility: "private",
       createdAt: "2024-09-02T09:00:00.000Z",
       updatedAt: "2026-07-04T10:30:00.000Z",
     },
@@ -852,11 +904,13 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       parentId: null,
       name: "비 오는 퇴근길",
       description: "서두르지 않고 집까지 걷고 싶던 날",
+      coverImageUrl: null,
       color: "cyan",
       kind: "manual",
       systemKey: null,
       sortOrder: 3,
       source: "seed",
+      visibility: "private",
       createdAt: "2024-07-22T10:00:00.000Z",
       updatedAt: "2026-06-25T12:20:00.000Z",
     },
@@ -865,11 +919,13 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       parentId: null,
       name: "첫 자취방에서",
       description: "가구가 없던 작은 방에서 혼자 크게 틀어두던 노래",
+      coverImageUrl: null,
       color: "coral",
       kind: "manual",
       systemKey: null,
       sortOrder: 4,
       source: "seed",
+      visibility: "private",
       createdAt: "2025-07-08T02:10:00.000Z",
       updatedAt: "2026-04-03T18:30:00.000Z",
     },
@@ -878,11 +934,13 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       parentId: null,
       name: "아무 계획 없는 일요일",
       description: "알람을 끄고 앨범 한 장을 천천히 듣는 오전",
+      coverImageUrl: null,
       color: "mint",
       kind: "manual",
       systemKey: null,
       sortOrder: 5,
       source: "seed",
+      visibility: "private",
       createdAt: "2023-03-19T01:00:00.000Z",
       updatedAt: "2026-05-31T05:00:00.000Z",
     },
@@ -1173,10 +1231,11 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       cubeTracks,
       tags: tags as Record<string, TagDefinition>,
       inbox,
+      space: { ...DEFAULT_PERSONAL_SPACE },
       preferences: { ...DEFAULT_PREFERENCES },
     },
   };
-  return archive;
+  return withPersonalSpaceDefaults(archive);
 }
 
 function seedCubeTrack(
@@ -1202,6 +1261,7 @@ function seedCubeTrack(
     notes: seedMemoryNotes(slug),
     sortOrder,
     source: "seed",
+    recordVisibility: "private",
     createdAt: SEED_NOW,
     updatedAt: SEED_NOW,
   };
@@ -1284,11 +1344,13 @@ function ensureMonthlyChapter(
     parentId: null,
     name: `${month}월`,
     description: `${month}월에 등록한 곡들`,
+    coverImageUrl: null,
     color: CUBE_COLORS[(month - 1) % CUBE_COLORS.length],
     kind: "monthly",
     systemKey,
     sortOrder: Object.values(archive.data.cubes).filter((item) => item.parentId === null).length,
     source: "user",
+    visibility: "private",
     createdAt: now,
     updatedAt: now,
   };
@@ -1350,7 +1412,7 @@ export function removeInboxTrack(
   const inbox = { ...archive.data.inbox };
   delete inbox[trackId];
   const data = pruneUnreferencedTracks({ ...archive.data, inbox });
-  return withData(archive, data, now);
+  return withPersonalSpaceDefaults(withData(archive, data, now));
 }
 
 function compareCubeOrder(left: Cube, right: Cube): number {
@@ -1418,6 +1480,7 @@ export function createCube(
       "챕터 설명",
       ARCHIVE_LIMITS.cubeDescription,
     ),
+    coverImageUrl: normalizeChapterCoverImage(input.coverImageUrl),
     color: input.color ?? "violet",
     kind: "manual",
     systemKey: null,
@@ -1425,6 +1488,7 @@ export function createCube(
       (candidate) => candidate.parentId === parentId,
     ).length,
     source: "user",
+    visibility: input.visibility ?? "private",
     createdAt: now,
     updatedAt: now,
   };
@@ -1452,6 +1516,9 @@ export function updateCube(
   if (input.color !== undefined && !CUBE_COLORS.includes(input.color)) {
     throw new ArchiveDomainError("invalid-input", "지원하지 않는 챕터 색상입니다.");
   }
+  if (input.visibility !== undefined && input.visibility !== "public" && input.visibility !== "private") {
+    throw new ArchiveDomainError("invalid-input", "챕터 공개 상태가 올바르지 않습니다.");
+  }
   const parentId = input.parentId === undefined ? current.parentId : input.parentId;
   assertValidCubeParent(archive.data.cubes, cubeId, parentId);
   const parentChanged = parentId !== current.parentId;
@@ -1470,7 +1537,11 @@ export function updateCube(
             ARCHIVE_LIMITS.cubeDescription,
           ),
         }),
+    ...(input.coverImageUrl === undefined
+      ? {}
+      : { coverImageUrl: normalizeChapterCoverImage(input.coverImageUrl) }),
     ...(input.color === undefined ? {} : { color: input.color }),
+    ...(input.visibility === undefined ? {} : { visibility: input.visibility }),
     ...(parentChanged
       ? {
           sortOrder: Object.values(archive.data.cubes).filter(
@@ -1538,7 +1609,7 @@ export function deleteCube(
           : archive.data.preferences.lastCubeId,
     },
   });
-  return withData(archive, data, now);
+  return withPersonalSpaceDefaults(withData(archive, data, now));
 }
 
 export function addTrackToCube(
@@ -1585,6 +1656,7 @@ function addTrackToCubeInternal(
     notes: [],
     sortOrder,
     source: "user",
+    recordVisibility: "private",
     createdAt: now,
     updatedAt: now,
   };
@@ -1645,11 +1717,13 @@ function ensureCaptureCube(
     parentId: null,
     name: "태그 기록",
     description: "아직 챕터를 정하지 않은 음악 기록",
+    coverImageUrl: null,
     color: "violet",
     kind: "capture",
     systemKey: "capture",
     sortOrder: Object.values(archive.data.cubes).filter((item) => item.parentId === null).length,
     source: "user",
+    visibility: "private",
     createdAt: now,
     updatedAt: now,
   };
@@ -2230,6 +2304,113 @@ function assertSameIds(currentIds: string[], orderedIds: string[], label: string
 
 export function isUserVisibleChapter(cube: Cube | undefined | null): cube is Cube {
   return cube?.kind === "manual" && cube.systemKey === null;
+}
+
+function isManualRootChapter(cube: Cube | undefined | null): cube is Cube {
+  return isUserVisibleChapter(cube) && cube.parentId === null;
+}
+
+/** Adds safe defaults for data written before the personal-space schema. */
+function withPersonalSpaceDefaults(archive: ArchiveEnvelopeV1): ArchiveEnvelopeV1 {
+  const cubes = Object.fromEntries(Object.entries(archive.data.cubes).map(([id, cube]) => [
+    id,
+    cube.visibility === "public" || cube.visibility === "private"
+      ? cube
+      : { ...cube, visibility: "private" as const },
+  ])) as Record<string, Cube>;
+  const cubeTracks = Object.fromEntries(Object.entries(archive.data.cubeTracks).map(([id, cubeTrack]) => [
+    id,
+    cubeTrack.recordVisibility === "public" || cubeTrack.recordVisibility === "private"
+      ? cubeTrack
+      : { ...cubeTrack, recordVisibility: "private" as const },
+  ])) as Record<string, CubeTrack>;
+  const candidateIds = Array.isArray(archive.data.space?.featuredCubeIds)
+    ? archive.data.space.featuredCubeIds
+    : [];
+  const usableFeaturedIds = [...new Set(candidateIds)]
+    .filter((id) => isManualRootChapter(cubes[id]))
+    .slice(0, 3);
+  const fallbackIds = Object.values(cubes)
+    .filter(isManualRootChapter)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id))
+    .slice(0, 3)
+    .map((cube) => cube.id);
+  const rawSpace = archive.data.space;
+  const space: PersonalSpace = {
+    themeId: SPACE_THEME_IDS.includes(rawSpace?.themeId) ? rawSpace.themeId : DEFAULT_PERSONAL_SPACE.themeId,
+    layoutId: SPACE_LAYOUT_IDS.includes(rawSpace?.layoutId) ? rawSpace.layoutId : DEFAULT_PERSONAL_SPACE.layoutId,
+    featuredCubeIds: usableFeaturedIds.length ? usableFeaturedIds : fallbackIds,
+  };
+  const changed = !rawSpace
+    || rawSpace.themeId !== space.themeId
+    || rawSpace.layoutId !== space.layoutId
+    || rawSpace.featuredCubeIds.join("\u0000") !== space.featuredCubeIds.join("\u0000")
+    || Object.values(archive.data.cubes).some((cube) => cube.visibility !== "public" && cube.visibility !== "private")
+    || Object.values(archive.data.cubeTracks).some((cubeTrack) => cubeTrack.recordVisibility !== "public" && cubeTrack.recordVisibility !== "private");
+  return changed
+    ? withData(archive, { ...archive.data, cubes, cubeTracks, space }, archive.updatedAt)
+    : archive;
+}
+
+export function updatePersonalSpace(
+  archive: ArchiveEnvelopeV1,
+  input: Partial<PersonalSpace>,
+  now = nowIso(),
+): ArchiveEnvelopeV1 {
+  const current = withPersonalSpaceDefaults(archive);
+  const candidate: PersonalSpace = {
+    themeId: input.themeId ?? current.data.space.themeId,
+    layoutId: input.layoutId ?? current.data.space.layoutId,
+    featuredCubeIds: input.featuredCubeIds ?? current.data.space.featuredCubeIds,
+  };
+  if (!SPACE_THEME_IDS.includes(candidate.themeId) || !SPACE_LAYOUT_IDS.includes(candidate.layoutId)) {
+    throw new ArchiveDomainError("invalid-input", "지원하지 않는 내 공간 설정입니다.");
+  }
+  if (candidate.featuredCubeIds.length > 3 || new Set(candidate.featuredCubeIds).size !== candidate.featuredCubeIds.length) {
+    throw new ArchiveDomainError("invalid-input", "대표 챕터 설정이 올바르지 않습니다.");
+  }
+  if (!candidate.featuredCubeIds.every((id) => isManualRootChapter(current.data.cubes[id]))) {
+    throw new ArchiveDomainError("invalid-input", "대표 챕터는 최상위 수동 챕터만 선택할 수 있습니다.");
+  }
+  return withData(current, { ...current.data, space: candidate }, now);
+}
+
+export function setCubeTrackRecordVisibility(
+  archive: ArchiveEnvelopeV1,
+  cubeTrackId: string,
+  recordVisibility: RecordVisibility,
+  now = nowIso(),
+): ArchiveEnvelopeV1 {
+  const current = assertEditableCubeTrack(archive, cubeTrackId);
+  if (recordVisibility !== "public" && recordVisibility !== "private") {
+    throw new ArchiveDomainError("invalid-input", "기록 공개 상태가 올바르지 않습니다.");
+  }
+  return withData(archive, {
+    ...archive.data,
+    cubeTracks: {
+      ...archive.data.cubeTracks,
+      [cubeTrackId]: { ...current, recordVisibility, updatedAt: now },
+    },
+  }, now);
+}
+
+export type VisitorSpaceChapter = {
+  chapter: Cube;
+  tracks: Array<{ cubeTrack: CubeTrack; track: TrackReference; tags: TagDefinition[]; privateRecord: boolean }>;
+};
+
+export function getVisitorSpaceChapters(archive: ArchiveEnvelopeV1): VisitorSpaceChapter[] {
+  const normalized = withPersonalSpaceDefaults(archive);
+  return getRootCubes(normalized)
+    .filter((chapter) => chapter.visibility === "public")
+    .map((chapter) => ({
+      chapter,
+      tracks: getCubeTracks(normalized, chapter.id).map((entry) => ({
+        ...entry,
+        tags: entry.cubeTrack.recordVisibility === "public" ? entry.tags : [],
+        privateRecord: entry.cubeTrack.recordVisibility !== "public",
+      })),
+    }));
 }
 
 export function getCaptureCube(archive: ArchiveEnvelopeV1): Cube | null {
@@ -2839,6 +3020,7 @@ export function validateArchiveEnvelope(value: unknown): value is ArchiveEnvelop
     !isRecord(data.cubeTracks) ||
     !isRecord(data.tags) ||
     !isRecord(data.inbox) ||
+    !isPersonalSpace(data.space) ||
     !isPreferences(data.preferences)
   ) {
     return false;
@@ -2978,11 +3160,13 @@ function isCube(value: unknown): value is Cube {
     value.name.length <= ARCHIVE_LIMITS.cubeName &&
     typeof value.description === "string" &&
     value.description.length <= ARCHIVE_LIMITS.cubeDescription &&
+    validChapterCoverImage(value.coverImageUrl) &&
     CUBE_COLORS.includes(value.color as CubeColor) &&
     ["manual", "monthly", "capture"].includes(value.kind as CubeKind) &&
     (value.systemKey === null || typeof value.systemKey === "string") &&
     Number.isInteger(value.sortOrder) &&
     (value.source === "seed" || value.source === "user") &&
+    (value.visibility === "private" || value.visibility === "public") &&
     validIsoDate(value.createdAt) &&
     validIsoDate(value.updatedAt)
   );
@@ -3010,6 +3194,7 @@ function isCubeTrack(value: unknown): value is CubeTrack {
     new Set(value.notes.map((note) => note.id)).size === value.notes.length &&
     Number.isInteger(value.sortOrder) &&
     (value.source === "seed" || value.source === "user") &&
+    (value.recordVisibility === "private" || value.recordVisibility === "public") &&
     validIsoDate(value.createdAt) &&
     validIsoDate(value.updatedAt)
   );
@@ -3060,6 +3245,17 @@ function isPreferences(value: unknown): value is Preferences {
     (value.lastCubeId === null || typeof value.lastCubeId === "string") &&
     typeof value.seedDismissed === "boolean" &&
     value.country === "KR"
+  );
+}
+
+function isPersonalSpace(value: unknown): value is PersonalSpace {
+  if (!isRecord(value)) return false;
+  return (
+    SPACE_THEME_IDS.includes(value.themeId as SpaceThemeId)
+    && SPACE_LAYOUT_IDS.includes(value.layoutId as SpaceLayoutId)
+    && hasOnlyStrings(value.featuredCubeIds)
+    && value.featuredCubeIds.length <= 3
+    && new Set(value.featuredCubeIds).size === value.featuredCubeIds.length
   );
 }
 
@@ -3279,10 +3475,41 @@ function removeLegacyInboxConflicts(value: Record<string, unknown>): Record<stri
 }
 
 function prepareLegacyEnvelope(value: Record<string, unknown>): Record<string, unknown> {
-  return {
+  return addLegacyChapterCoverDefaults(addLegacyPersonalSpaceDefaults({
     ...removeLegacyInboxConflicts(addLegacyCubeKinds(value)),
     seedVersion: ARCHIVE_SEED_VERSION,
-  };
+  }));
+}
+
+function addLegacyPersonalSpaceDefaults(value: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(value.data)) return value;
+  const cubes = isRecord(value.data.cubes)
+    ? Object.fromEntries(Object.entries(value.data.cubes).map(([id, cube]) => [
+      id,
+      isRecord(cube) ? { ...cube, visibility: cube.visibility === "public" ? "public" : "private" } : cube,
+    ]))
+    : value.data.cubes;
+  const cubeTracks = isRecord(value.data.cubeTracks)
+    ? Object.fromEntries(Object.entries(value.data.cubeTracks).map(([id, cubeTrack]) => [
+      id,
+      isRecord(cubeTrack)
+        ? { ...cubeTrack, recordVisibility: cubeTrack.recordVisibility === "public" ? "public" : "private" }
+        : cubeTrack,
+    ]))
+    : value.data.cubeTracks;
+  const space = isRecord(value.data.space)
+    ? value.data.space
+    : { ...DEFAULT_PERSONAL_SPACE };
+  return { ...value, data: { ...value.data, cubes, cubeTracks, space } };
+}
+
+function addLegacyChapterCoverDefaults(value: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(value.data) || !isRecord(value.data.cubes)) return value;
+  const cubes = Object.fromEntries(Object.entries(value.data.cubes).map(([id, cube]) => [
+    id,
+    isRecord(cube) ? { ...cube, coverImageUrl: null } : cube,
+  ]));
+  return { ...value, data: { ...value.data, cubes } };
 }
 
 function migrateVersionOne(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
@@ -3371,6 +3598,24 @@ function migrateVersionFive(value: Record<string, unknown>): ArchiveEnvelopeV1 |
     : null;
 }
 
+function migrateVersionSix(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
+  const candidate = addLegacyChapterCoverDefaults(prepareLegacyEnvelope({
+    ...value,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  }));
+  return validateArchiveEnvelope(candidate)
+    ? withPersonalSpaceDefaults(candidate)
+    : null;
+}
+
+function migrateVersionSeven(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
+  const candidate = addLegacyChapterCoverDefaults({
+    ...value,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  });
+  return validateArchiveEnvelope(candidate) ? candidate : null;
+}
+
 export function migrateArchive(value: unknown): MigrationResult {
   if (!isRecord(value)) return { status: "invalid", error: "저장 데이터가 객체가 아닙니다." };
   if (typeof value.schemaVersion === "number" && value.schemaVersion > ARCHIVE_SCHEMA_VERSION) {
@@ -3406,8 +3651,20 @@ export function migrateArchive(value: unknown): MigrationResult {
       ? { status: "ok", archive: migrated, migrated: true }
       : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
+  if (value.schemaVersion === 6) {
+    const migrated = migrateVersionSix(value);
+    return migrated
+      ? { status: "ok", archive: migrated, migrated: true }
+      : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+  }
+  if (value.schemaVersion === 7) {
+    const migrated = migrateVersionSeven(value);
+    return migrated
+      ? { status: "ok", archive: migrated, migrated: true }
+      : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+  }
   if (value.schemaVersion === ARCHIVE_SCHEMA_VERSION && value.seedVersion === 1) {
-    const candidate = { ...value, seedVersion: ARCHIVE_SEED_VERSION };
+    const candidate = prepareLegacyEnvelope({ ...value, seedVersion: ARCHIVE_SEED_VERSION });
     if (!validateArchiveEnvelope(candidate)) {
       return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
     }
@@ -3420,7 +3677,7 @@ export function migrateArchive(value: unknown): MigrationResult {
   if (!validateArchiveEnvelope(value)) {
     return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
-  const archive = refreshLegacySeedMemory(normalizeArchiveTags(value));
+  const archive = withPersonalSpaceDefaults(refreshLegacySeedMemory(normalizeArchiveTags(value)));
   return { status: "ok", archive, migrated: archive !== value };
 }
 

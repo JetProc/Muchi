@@ -58,6 +58,7 @@ html {
   color: var(--apple-ink);
   background: var(--apple-canvas-parchment);
   scroll-behavior: smooth;
+  overscroll-behavior: none;
 }
 
 body {
@@ -67,6 +68,7 @@ body {
   margin: 0;
   border: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   color: var(--apple-ink);
   background: var(--apple-surface-chip);
   font-family: var(--apple-font-text);
@@ -2932,6 +2934,37 @@ button.tag {
   margin-top: var(--apple-space-5);
 }
 
+.is-swipeable-sheet {
+  overscroll-behavior: contain;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.is-swipeable-sheet.is-dragging {
+  transition: none;
+}
+
+.bottom-sheet-drag-handle {
+  width: 100%;
+  min-height: 30px;
+  margin: 0;
+  padding: 12px 0 10px;
+  border: 0;
+  border-radius: 0 !important;
+  background: transparent;
+  touch-action: none;
+}
+
+.bottom-sheet-drag-handle > span,
+.tag-picker-panel-handle > span {
+  display: block;
+  width: 38px;
+  height: 4px;
+  margin: 0 auto;
+  border-radius: var(--apple-radius-pill);
+  background: var(--apple-surface-chip);
+}
+
 .tag-picker-backdrop {
   position: fixed;
   z-index: 310;
@@ -2962,11 +2995,14 @@ button.tag {
 }
 
 .tag-picker-panel-handle {
-  width: 40px;
-  height: 5px;
-  margin: -14px auto 16px;
-  border-radius: var(--apple-radius-pill) !important;
-  background: var(--apple-surface-chip);
+  width: 100%;
+  min-height: 30px;
+  margin: calc(var(--apple-space-6) * -1) 0 var(--apple-space-2);
+  padding: 12px 0 10px;
+  border: 0;
+  border-radius: 0 !important;
+  background: transparent;
+  touch-action: none;
 }
 
 .tag-picker-panel-head,
@@ -3270,6 +3306,10 @@ button.tag {
 
 .sheet-handle {
   background: var(--apple-body-muted);
+}
+
+.bottom-sheet-drag-handle.sheet-handle {
+  background: transparent;
 }
 
 .full-player-copy > span {
@@ -4316,6 +4356,11 @@ button.tag {
     border-radius: var(--apple-radius-lg) var(--apple-radius-lg) 0 0 !important;
   }
 
+  .dialog.is-swipeable-sheet {
+    max-height: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   .chapter-removal-dialog {
     align-self: center;
     width: min(calc(100% - 40px), 360px);
@@ -4340,6 +4385,18 @@ button.tag {
     border-left: 0;
     border-radius: var(--apple-radius-lg) var(--apple-radius-lg) 0 0 !important;
     transform: none;
+  }
+
+  .tag-picker-panel.is-swipeable-sheet {
+    max-height: none;
+    padding-bottom: 0;
+  }
+
+  .tag-picker-panel.is-swipeable-sheet .tag-picker-footer {
+    position: sticky;
+    z-index: 2;
+    bottom: 0;
+    margin-bottom: 0;
   }
 
   .playlist-builder-view {

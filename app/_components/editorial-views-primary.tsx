@@ -51,6 +51,7 @@ import {
 } from "./editorial-ui";
 import { ChapterTrackSection } from "./editorial-views-chapters";
 import { useModalFocus } from "./editorial-accessibility";
+import { useSwipeableBottomSheet } from "./use-swipeable-bottom-sheet";
 import {
   formatChapterTitle,
   formatDate,
@@ -923,7 +924,7 @@ export function Capture({
                   </div>
                 ) : null}
                 <div className="field">
-                  <label htmlFor="capture-new-tag">나만의 태그</label>
+                  <label htmlFor="capture-new-tag">새 태그</label>
                   <div className="search-form">
                     <input id="capture-new-tag" className="input" value={newTagLabel} onChange={(event) => setNewTagLabel(event.target.value)} maxLength={ARCHIVE_LIMITS.tagLabel} placeholder="예: 스무 살 여름, 새벽 러닝" autoFocus />
                     <button className="button" type="button" onClick={addCustomTag} disabled={!newTagLabel.trim()}>추가</button>
@@ -974,6 +975,12 @@ export function Inbox({
     Boolean(selectedTrack),
     () => setSelectedTrack(null),
   );
+  const chapterSheet = useSwipeableBottomSheet({
+    initialSnap: "middle",
+    snapPoints: ["middle", "expanded"],
+    snapHeights: { middle: "56%", expanded: "86%" },
+    onDismiss: () => setSelectedTrack(null),
+  });
 
   function assign(trackId: TrackId, chapterId: string) {
     try {
@@ -1031,8 +1038,24 @@ export function Inbox({
 
       {selectedTrack ? (
         <div className="dialog-backdrop" role="presentation" onClick={() => setSelectedTrack(null)}>
-          <div ref={assignDialogRef} className="dialog inbox-chapter-sheet" role="dialog" aria-modal="true" aria-labelledby="inbox-assign-title" onClick={(event) => event.stopPropagation()}>
-            <div className="inbox-chapter-sheet-scroll">
+          <div
+            ref={assignDialogRef}
+            className={`dialog inbox-chapter-sheet is-swipeable-sheet${chapterSheet.isDragging ? " is-dragging" : ""}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inbox-assign-title"
+            onClick={(event) => event.stopPropagation()}
+            style={chapterSheet.sheetStyle}
+            {...chapterSheet.sheetProps}
+          >
+            <button
+              className="sheet-handle bottom-sheet-drag-handle"
+              type="button"
+              tabIndex={-1}
+              aria-label="챕터 선택 시트 높이 변경"
+              {...chapterSheet.dragHandleProps}
+            ><span /></button>
+            <div className="inbox-chapter-sheet-scroll" data-bottom-sheet-scroll="true">
               <h2 id="inbox-assign-title">챕터 선택</h2>
               <div className="inbox-chapter-list">
               {chapters.map((chapter, index) => (

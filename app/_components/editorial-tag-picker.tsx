@@ -5,6 +5,7 @@ import { Check, ChevronRight, Plus, Search, X } from "lucide-react";
 import { ARCHIVE_LIMITS, type TagDefinition } from "@/lib/archive";
 import { useModalFocus } from "./editorial-accessibility";
 import { MotionLink as Link } from "./editorial-motion";
+import { useSwipeableBottomSheet } from "./use-swipeable-bottom-sheet";
 
 interface TagPickerProps {
   tags: TagDefinition[];
@@ -60,6 +61,12 @@ export function TagPicker({
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState("");
   const panelRef = useModalFocus<HTMLDivElement>(open, close);
+  const sheet = useSwipeableBottomSheet({
+    initialSnap: "middle",
+    snapPoints: ["middle", "expanded"],
+    snapHeights: { middle: "56%", expanded: "82%" },
+    onDismiss: close,
+  });
   const sortedTags = useMemo(() => [...tags].sort((left, right) => {
     const selectedDifference = Number(selectedTagIds.includes(right.id)) - Number(selectedTagIds.includes(left.id));
     const usageDifference = (usageCounts[right.id] ?? 0) - (usageCounts[left.id] ?? 0);
@@ -160,12 +167,20 @@ export function TagPicker({
           <button className="tag-picker-backdrop" type="button" onClick={close} aria-label="태그 선택 닫기" />
           <div
             ref={panelRef}
-            className="tag-picker-panel"
+            className={`tag-picker-panel is-swipeable-sheet${sheet.isDragging ? " is-dragging" : ""}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="tag-picker-title"
+            style={sheet.sheetStyle}
+            {...sheet.sheetProps}
           >
-            <div className="tag-picker-panel-handle" aria-hidden="true" />
+            <button
+              className="tag-picker-panel-handle"
+              type="button"
+              tabIndex={-1}
+              aria-label="태그 선택 시트 높이 변경"
+              {...sheet.dragHandleProps}
+            ><span /></button>
             <div className="tag-picker-panel-head">
               <div>
                 <strong id="tag-picker-title">{panelTitle}</strong>
@@ -185,6 +200,7 @@ export function TagPicker({
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="태그 검색 또는 새 태그 만들기"
                 autoComplete="off"
+                data-modal-autofocus
               />
               {query ? (
                 <button type="button" onClick={() => setQuery("")} aria-label="태그 검색어 지우기">
@@ -235,7 +251,7 @@ export function TagPicker({
               )
             ) : null}
 
-            <div className="tag-picker-options" role="group" aria-label="태그 목록">
+            <div className="tag-picker-options" role="group" aria-label="태그 목록" data-bottom-sheet-scroll="true">
               {visibleTags.map((tag) => {
                 const selected = selectedTagIds.includes(tag.id);
                 const disabled = !selected && selectedTagIds.length >= maxSelected;

@@ -614,7 +614,7 @@ test("shares chapter hierarchy choices, fields, and delete confirmation across f
   assert.match(deleteSource, /하위 챕터.*한 단계 위로 이동해 그대로 남습니다/);
 });
 
-test("keeps the Inbox on the shared expandable track pattern with a fixed chapter sheet", async () => {
+test("keeps the Inbox on the shared expandable track pattern with a swipeable chapter sheet", async () => {
   const [primarySource, chapterSource, uiSource, appleTheme] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
@@ -629,8 +629,10 @@ test("keeps the Inbox on the shared expandable track pattern with a fixed chapte
   assert.doesNotMatch(inboxSource, /<TrackLine/);
   assert.match(inboxSource, />\s*삭제\s*<\/button>/);
   assert.match(inboxSource, />\s*기록\s*<\/button>/);
-  assert.match(inboxSource, /className="dialog inbox-chapter-sheet"/);
-  assert.match(inboxSource, /className="inbox-chapter-sheet-scroll"/);
+  assert.match(inboxSource, /useSwipeableBottomSheet\(/);
+  assert.match(inboxSource, /className=\{`dialog inbox-chapter-sheet is-swipeable-sheet/);
+  assert.match(inboxSource, /className="inbox-chapter-sheet-scroll" data-bottom-sheet-scroll="true"/);
+  assert.match(inboxSource, /aria-label="챕터 선택 시트 높이 변경"/);
   assert.match(inboxSource, /className="inbox-chapter-sheet-footer"/);
   assert.match(inboxSource, /showSelectionLabel=\{false\}/);
   assert.match(chapterSource, /detailActions\?: ReactNode/);
@@ -640,6 +642,8 @@ test("keeps the Inbox on the shared expandable track pattern with a fixed chapte
   assert.match(appleTheme, /\.inbox-chapter-sheet\s*\{[^}]*display:\s*grid;[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto;[^}]*overflow:\s*hidden;/s);
   assert.match(appleTheme, /\.inbox-chapter-sheet-scroll\s*\{[^}]*overflow-y:\s*auto;/s);
   assert.match(appleTheme, /\.inbox-chapter-sheet-footer\s*\{[^}]*position:\s*relative;[^}]*border-top:/s);
+  assert.match(appleTheme, /\.is-swipeable-sheet\s*\{[^}]*overscroll-behavior:\s*contain;[^}]*transition:\s*transform/s);
+  assert.match(appleTheme, /\.inbox-chapter-sheet\.is-swipeable-sheet\s*\{[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\) auto;/s);
   assert.match(appleTheme, /\.inbox-view \.chapter-compact-track-detail-actions\s*\{[^}]*padding:\s*7px 0 12px 52px;/s);
   assert.match(appleTheme, /\.inbox-track-actions\s*\{[^}]*display:\s*flex;[^}]*gap:\s*10px;/s);
   assert.match(appleTheme, /\.inbox-track-actions \.button\s*\{[^}]*min-height:\s*30px;[^}]*height:\s*30px;[^}]*border-radius:\s*10px !important;/s);

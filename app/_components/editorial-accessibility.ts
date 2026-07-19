@@ -43,7 +43,7 @@ export function useModalFocus<T extends HTMLElement>(
     ).filter((element) => element.getClientRects().length > 0);
 
     const focusFrame = window.requestAnimationFrame(() => {
-      const first = getFocusable()[0];
+      const first = container.querySelector<HTMLElement>("[data-modal-autofocus]") ?? getFocusable()[0];
       if (first) first.focus({ preventScroll: true });
       else {
         container.setAttribute("tabindex", "-1");

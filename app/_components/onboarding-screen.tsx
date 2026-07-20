@@ -1,53 +1,100 @@
 "use client";
 
+import { useState, type FormEvent } from "react";
+import {
+  NICKNAME_MAX_LENGTH,
+  validateNickname,
+} from "@/lib/profile";
+
 export function OnboardingScreen({
   displayName,
+  avatarUrl,
   loading,
   error,
   onComplete,
 }: {
   displayName: string;
+  avatarUrl: string | null;
   loading: boolean;
   error: string | null;
-  onComplete: () => void;
+  onComplete: (nickname: string) => void;
 }) {
-  const greeting = displayName ? `${displayName}님, 반가워요.` : "반가워요.";
+  const suggested = validateNickname(displayName);
+  const [nickname, setNickname] = useState(suggested.ok ? suggested.nickname : "");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const nicknameLength = Array.from(nickname).length;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const validation = validateNickname(nickname);
+    if (!validation.ok) {
+      setValidationError(validation.message);
+      return;
+    }
+    setValidationError(null);
+    onComplete(validation.nickname);
+  }
 
   return (
     <main className="onboarding-screen" aria-labelledby="onboarding-title">
-      <section className="onboarding-card">
+      <form className="onboarding-card" onSubmit={submit}>
         <header className="onboarding-hero">
           <div className="onboarding-brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="onboarding-mark" src="/assets/brand/muchi-logo.png" alt="뮤키" width={56} height={56} decoding="async" />
             <p className="onboarding-brand-name">뮤키</p>
           </div>
-          <p className="onboarding-greeting">{greeting}</p>
-          <p className="entry-eyebrow">YOUR FIRST CHAPTER</p>
-          <h1 id="onboarding-title">챕터로 쌓아 올린<br />나만의 음악 세계</h1>
+          <p className="entry-eyebrow">WELCOME TO MUCHI</p>
+          <h1 id="onboarding-title">뮤키에서 사용할<br />이름을 정해 주세요</h1>
           <p className="onboarding-description">
-            좋아한 음악에 그때의 기억을 더해,<br />오직 나다운 세계를 만들어 보세요.
+            탐색에 챕터를 공개하면 다른 뮤커에게<br />이 닉네임으로 보여요.
           </p>
         </header>
-        <ol className="onboarding-journey" aria-label="뮤키 시작 흐름">
-          <li><span>01</span><div><strong>곡을 기록해요</strong><p>지금 마음에 남은 음악부터.</p></div></li>
-          <li><span>02</span><div><strong>챕터로 쌓아요</strong><p>태그와 메모로 나만의 장면을 더해요.</p></div></li>
-          <li><span>03</span><div><strong>뮤커와 나눠요</strong><p>원하면 공개 탐색으로 이어져요.</p></div></li>
-        </ol>
+        <section className="onboarding-profile" aria-labelledby="nickname-label">
+          <div className="onboarding-google-profile">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="Google 프로필" width={64} height={64} referrerPolicy="no-referrer" />
+            ) : (
+              <span aria-hidden="true">{displayName.trim().slice(0, 1) || "뮤"}</span>
+            )}
+            <div><strong>Google 계정으로 연결됨</strong><small>프로필 사진은 닉네임 설정에만 표시돼요.</small></div>
+          </div>
+          <label className="field onboarding-nickname" htmlFor="onboarding-nickname">
+            <span id="nickname-label">닉네임</span>
+            <input
+              id="onboarding-nickname"
+              className="input"
+              value={nickname}
+              onChange={(event) => {
+                setNickname(event.target.value);
+                setValidationError(null);
+              }}
+              minLength={2}
+              maxLength={NICKNAME_MAX_LENGTH}
+              placeholder="예: 새벽산책"
+              autoComplete="nickname"
+              autoFocus
+              required
+              aria-describedby="nickname-rules"
+              aria-invalid={Boolean(validationError)}
+            />
+            <small id="nickname-rules">한글·영문·숫자·띄어쓰기만 사용 · {nicknameLength}/{NICKNAME_MAX_LENGTH}</small>
+          </label>
+        </section>
         <footer className="onboarding-action">
           <button
             className="button button-primary onboarding-start"
-            type="button"
-            onClick={onComplete}
+            type="submit"
             disabled={loading}
             aria-busy={loading}
           >
             {loading ? "시작하는 중…" : "첫 챕터 열기"}
           </button>
-          <p>원할 때는 내 챕터를 뮤커와 나눌 수 있어요.</p>
-          {error ? <p className="onboarding-error" role="alert">{error}</p> : null}
+          <p>닉네임은 공개 챕터의 작성자 이름으로 사용돼요.</p>
+          {validationError || error ? <p className="onboarding-error" role="alert">{validationError ?? error}</p> : null}
         </footer>
-      </section>
+      </form>
     </main>
   );
 }

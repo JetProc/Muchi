@@ -117,7 +117,7 @@ function validState(value: unknown, catalog?: PublicDiscoveryCatalog): Discovery
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const raw = value as Partial<DiscoveryInteractionState>;
   const filterKnown = (ids: unknown, lookup?: Record<string, unknown>) => (
-    Array.isArray(ids) ? uniqueIds(ids.filter((id): id is string => typeof id === "string" && (!lookup || Boolean(lookup[id])))) : []
+    Array.isArray(ids) ? uniqueIds(ids.filter((id): id is string => typeof id === "string" && id.length <= 180 && (!lookup || Boolean(lookup[id])))).slice(0, 500) : []
   );
   const activityLookup = catalog ? Object.fromEntries(catalog.activities.map((activity) => [activity.id, activity])) : undefined;
   return {

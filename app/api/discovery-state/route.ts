@@ -15,7 +15,12 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const body = await request.json().catch(() => null) as { state?: unknown; expectedRevision?: unknown } | null;
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > 256_000) return error("state_too_large", "탐색 상태의 전체 용량이 너무 큽니다.", 413);
+    const body = (() => {
+      try { return JSON.parse(rawBody) as { state?: unknown; expectedRevision?: unknown }; }
+      catch { return null; }
+    })();
     if (!body || !Number.isInteger(body.expectedRevision) || (body.expectedRevision as number) < 0) return error("invalid_state", "저장할 탐색 상태 형식이 올바르지 않습니다.", 400);
     const state = parseDiscoveryInteractionState(JSON.stringify(body.state));
     const { supabase, userId } = await requireAuthenticatedUser();

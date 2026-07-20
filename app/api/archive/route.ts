@@ -20,7 +20,14 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const body = await request.json().catch(() => null) as { payload?: unknown; expectedRevision?: unknown } | null;
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > 4_000_000) {
+      return error("archive_too_large", "음악 기록의 전체 용량이 너무 큽니다.", 413);
+    }
+    const body = (() => {
+      try { return JSON.parse(rawBody) as { payload?: unknown; expectedRevision?: unknown }; }
+      catch { return null; }
+    })();
     const parsed = parseArchive(JSON.stringify(body?.payload));
     if (parsed.status !== "ok" || !Number.isInteger(body?.expectedRevision) || (body?.expectedRevision as number) < 0) {
       return error("invalid_archive", "저장할 음악 기록 형식이 올바르지 않습니다.", 400);
@@ -30,7 +37,11 @@ export async function PUT(request: Request) {
     if (result.status === "conflict") {
       return error("conflict", "다른 기기에서 먼저 변경됐어요.", 409, result.value);
     }
-    await syncPublishedChapters(supabase, userId, result.value.archive);
+    try {
+      await syncPublishedChapters(supabase, userId, result.value.archive);
+    } catch (cause) {
+      console.error("[api/archive] public discovery sync failed", cause);
+    }
     return Response.json(result.value, { headers: { "Cache-Control": "private, no-store" } });
   } catch (cause) {
     if (cause instanceof ApiAuthError) return error("unauthenticated", cause.message, 401);

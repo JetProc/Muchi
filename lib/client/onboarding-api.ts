@@ -1,6 +1,7 @@
 export type OnboardingStatus = {
   completed: boolean;
   displayName: string;
+  avatarUrl: string | null;
 };
 
 export class OnboardingApiError extends Error {
@@ -9,10 +10,15 @@ export class OnboardingApiError extends Error {
   }
 }
 
-async function request(method: "GET" | "PUT"): Promise<OnboardingStatus> {
+async function request(method: "GET" | "PUT", nickname?: string): Promise<OnboardingStatus> {
   let response: Response;
   try {
-    response = await fetch("/api/onboarding", { method, cache: "no-store" });
+    response = await fetch("/api/onboarding", {
+      method,
+      cache: "no-store",
+      headers: method === "PUT" ? { "Content-Type": "application/json" } : undefined,
+      body: method === "PUT" ? JSON.stringify({ nickname }) : undefined,
+    });
   } catch {
     throw new OnboardingApiError("unavailable", "서버와 연결하지 못했어요. 네트워크를 확인해 주세요.");
   }
@@ -24,16 +30,20 @@ async function request(method: "GET" | "PUT"): Promise<OnboardingStatus> {
   if (!response.ok) {
     throw new OnboardingApiError(body.code ?? "unavailable", body.message ?? "온보딩 정보를 처리하지 못했어요.");
   }
-  if (typeof body.completed !== "boolean" || typeof body.displayName !== "string") {
+  if (
+    typeof body.completed !== "boolean"
+    || typeof body.displayName !== "string"
+    || !(body.avatarUrl === null || typeof body.avatarUrl === "string")
+  ) {
     throw new OnboardingApiError("invalid_response", "서버가 올바르지 않은 온보딩 정보를 반환했습니다.");
   }
-  return { completed: body.completed, displayName: body.displayName };
+  return { completed: body.completed, displayName: body.displayName, avatarUrl: body.avatarUrl };
 }
 
 export function fetchOnboardingStatus(): Promise<OnboardingStatus> {
   return request("GET");
 }
 
-export function saveOnboardingComplete(): Promise<OnboardingStatus> {
-  return request("PUT");
+export function saveOnboardingComplete(nickname: string): Promise<OnboardingStatus> {
+  return request("PUT", nickname);
 }

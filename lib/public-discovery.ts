@@ -1,6 +1,5 @@
 import type { ArchiveEnvelopeV1, SpaceLayoutId, SpaceThemeId, TrackId, TrackReference } from "./archive";
 
-export const DISCOVERY_STORAGE_KEY = "music-world:public-discovery:v1";
 
 export type PublicRecordVisibility = "public" | "private";
 

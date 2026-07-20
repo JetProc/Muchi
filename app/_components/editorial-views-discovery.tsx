@@ -1,19 +1,9 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type CSSProperties,
-} from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ChevronRight, X } from "lucide-react";
 import {
-  removeSeedData,
-  restoreSeedData,
-  resetArchive,
-  parseArchive,
+  createEmptyArchive,
   searchArchive,
   selectRecap,
   serializeArchive,
@@ -35,8 +25,6 @@ import {
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { TagPicker } from "./editorial-tag-picker";
-
-const LAST_BACKUP_AT_KEY = "music-world:last-backup-at:v1";
 
 function SearchResultLine({
   result,
@@ -374,29 +362,11 @@ export function Settings({
   archive,
   commit,
   notify,
-  storageBlocked,
-  setStorageBlocked,
 }: {
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
   notify: Notify;
-  storageBlocked: string | null;
-  setStorageBlocked: (value: string | null) => void;
 }) {
-  const importInputRef = useRef<HTMLInputElement>(null);
-  const [lastBackupAt, setLastBackupAt] = useState<string | null>(null);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      try {
-        setLastBackupAt(window.localStorage.getItem(LAST_BACKUP_AT_KEY));
-      } catch {
-        // Backup status is helpful but not required to use the archive.
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
   function setMotion(motion: MotionPreference) {
     commit({
       ...archive,
@@ -427,51 +397,17 @@ export function Settings({
     anchor.download = `mumu-backup-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-    const exportedAt = new Date().toISOString();
-    try {
-      window.localStorage.setItem(LAST_BACKUP_AT_KEY, exportedAt);
-      setLastBackupAt(exportedAt);
-    } catch {
-      // The backup file was already created even if status storage fails.
-    }
     notify("현재 음악 기록을 JSON 파일로 백업했어요.");
   }
 
-  function importData(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    file.text().then((raw) => {
-      try {
-        const parsed = parseArchive(raw);
-        if (parsed.status === "future-version") throw new Error(`더 새로운 MUMU 백업(v${parsed.schemaVersion})은 이 버전에서 열 수 없습니다.`);
-        if (parsed.status !== "ok") throw new Error("MUMU 백업 파일 형식이 아니거나 손상되었습니다.");
-        if (window.confirm("현재 기록을 이 백업으로 교체할까요? 이 작업은 되돌릴 수 없습니다.")) {
-          commit(parsed.archive, parsed.migrated ? "이전 형식의 백업을 안전하게 변환해 복원했어요." : "백업한 음악 기록을 복원했어요.", true);
-        }
-      } catch (error) {
-        notify(error instanceof Error ? error.message : "백업 파일을 읽지 못했어요.");
-      }
-    }).catch(() => notify("백업 파일을 읽지 못했어요."));
-    event.target.value = "";
-  }
-
-  function replace(mode: "seed" | "empty") {
-    const message = mode === "seed"
-      ? "현재 기록을 지우고 샘플 아카이브로 초기화할까요?"
-      : "모든 기록을 지우고 빈 아카이브로 시작할까요?";
-    if (!window.confirm(message)) return;
-    commit(
-      resetArchive(mode),
-      mode === "seed" ? "샘플 기록을 복원했어요." : "빈 아카이브로 초기화했어요.",
-      true,
-    );
-    setStorageBlocked(null);
+  function replace() {
+    if (!window.confirm("모든 음악 기록을 지우고 빈 아카이브로 시작할까요? 이 작업은 되돌릴 수 없습니다.")) return;
+    commit(createEmptyArchive(), "빈 아카이브로 초기화했어요.", true);
   }
 
   return (
     <div className="page-content settings-view">
       <PageHeader eyebrow="설정" title="내 음악 아카이브" />
-      {storageBlocked ? <div className="notice notice-danger" style={{ marginBottom: 18 }}>저장소 보호 모드가 켜져 있습니다. 백업할 수 있다면 먼저 원본 브라우저 데이터를 보존한 뒤 초기화하세요.</div> : null}
       <section className="settings-group" aria-labelledby="settings-display-title">
         <h2 id="settings-display-title">표시</h2>
         <div className="panel settings-list">
@@ -481,17 +417,17 @@ export function Settings({
       </section>
       <section className="settings-group" aria-labelledby="settings-data-title">
         <h2 id="settings-data-title">데이터</h2>
-        <div className="notice notice-warning settings-storage-notice"><span aria-hidden="true">!</span><div><strong>현재 기록은 이 브라우저에만 저장됩니다.</strong><br />기기 변경이나 브라우저 데이터 삭제 전에 JSON 백업을 보관해 주세요.</div></div>
+        <div className="notice notice-warning settings-storage-notice"><span aria-hidden="true">!</span><div><strong>현재 기록은 로그인한 계정에 저장됩니다.</strong><br />필요하면 JSON 파일로 별도 백업을 보관할 수 있어요.</div></div>
         <div className="panel settings-list">
           <div className="setting-row"><h3>태그 관리</h3><Link className="button" href="/tags" intent="tab">{Object.keys(archive.data.tags).length}개 보기</Link></div>
-          <div className="setting-row"><div><h3>내 기록 백업</h3><p>{lastBackupAt ? `마지막 백업 · ${new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeZone: "Asia/Seoul" }).format(new Date(lastBackupAt))}` : "아직 백업한 기록이 없어요."}</p></div><div className="track-actions"><button className="button" type="button" onClick={exportData}>내보내기</button><button className="button" type="button" onClick={() => importInputRef.current?.click()}>불러오기</button><input ref={importInputRef} className="sr-only" id="backup-import" type="file" accept="application/json,.json" onChange={importData} tabIndex={-1} /></div></div>
-          <div className="setting-row"><h3>샘플 기록</h3><div className="track-actions"><button className="button" type="button" onClick={() => commit(restoreSeedData(archive, new Date().toISOString(), true), "새 샘플 기록을 추가했어요.", true)}>샘플 다시 추가</button><button className="button" type="button" onClick={() => commit(removeSeedData(archive), "샘플 기록을 제거했어요.", true)}>샘플만 제거</button></div></div>
+          <div className="setting-row"><div><h3>내 기록 백업</h3><p>현재 서버에 저장된 기록을 JSON 파일로 내려받습니다.</p></div><div className="track-actions"><button className="button" type="button" onClick={exportData}>내보내기</button></div></div>
         </div>
       </section>
       <section className="settings-group settings-danger" aria-labelledby="settings-danger-title">
         <h2 id="settings-danger-title">위험 영역</h2>
         <div className="panel settings-list">
-          <div className="setting-row"><div><h3>아카이브 초기화</h3><p>현재 기록을 다른 데이터로 교체합니다.</p></div><div className="track-actions"><button className="button" type="button" onClick={() => replace("seed")}>샘플로 초기화</button><button className="button button-danger" type="button" onClick={() => replace("empty")}>모든 기록 지우기</button></div></div>
+          <div className="setting-row"><div><h3>아카이브 초기화</h3><p>서버에 저장된 모든 기록을 비웁니다.</p></div><div className="track-actions"><button className="button button-danger" type="button" onClick={replace}>모든 기록 지우기</button></div></div>
+          <div className="setting-row"><div><h3>로그아웃</h3><p>이 기기에서 Google 계정 세션을 종료합니다.</p></div><form action="/auth/signout" method="post"><button className="button" type="submit">로그아웃</button></form></div>
         </div>
       </section>
     </div>

@@ -9,28 +9,29 @@ import {
   useState,
 } from "react";
 import {
-  ARCHIVE_STORAGE_KEY,
   createEmptyArchive,
-  createSeedArchive,
-  parseArchive,
-  serializeArchive,
   type ArchiveEnvelopeV1,
   type TrackId,
   type TrackReference,
 } from "@/lib/archive";
 import {
-  DISCOVERY_STORAGE_KEY,
   createDiscoveryInteractionState,
   createPublicDiscoveryCatalog,
   getPublicChapter,
   markActivityRead,
-  parseDiscoveryInteractionState,
-  serializeDiscoveryInteractionState,
   toPlaylistSource,
   toggleFollow,
   toggleLike,
   type DiscoveryInteractionState,
 } from "@/lib/public-discovery";
+import { ArchiveApiError, fetchArchive, saveArchive } from "@/lib/client/archive-api";
+import { fetchDiscoveryState, saveDiscoveryState } from "@/lib/client/discovery-state-api";
+import {
+  fetchOnboardingStatus,
+  OnboardingApiError,
+  saveOnboardingComplete,
+  type OnboardingStatus,
+} from "@/lib/client/onboarding-api";
 import {
   EditorialShell,
   type ContextBackAction,
@@ -71,28 +72,24 @@ import {
   PublicProfileDetail,
 } from "./editorial-views-public-discovery";
 import type { AppView, ToastMessage } from "./editorial-types";
+import { AuthGate } from "./auth-gate";
+import { OnboardingScreen } from "./onboarding-screen";
 
 export type { AppView } from "./editorial-types";
-
-const ONBOARDING_KEY = "music-world:onboarding:v1";
-
-type ClientSessionCache = {
-  archive: ArchiveEnvelopeV1;
-  discoveryState: DiscoveryInteractionState;
-  showWelcome: boolean;
-};
-
-let clientSessionCache: ClientSessionCache | null = null;
 
 export function MusicWorldApp({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
   const router = useMotionRouter();
-  const [archive, setArchive] = useState<ArchiveEnvelopeV1>(() => clientSessionCache?.archive ?? createSeedArchive());
+  const [archive, setArchive] = useState<ArchiveEnvelopeV1>(() => createEmptyArchive());
   const catalog = useMemo(() => createPublicDiscoveryCatalog(), []);
-  const [discoveryState, setDiscoveryState] = useState<DiscoveryInteractionState>(() => clientSessionCache?.discoveryState ?? createDiscoveryInteractionState());
-  const [hydrated, setHydrated] = useState(() => clientSessionCache !== null);
-  const [storageBlocked, setStorageBlocked] = useState<string | null>(null);
-  const [showWelcome, setShowWelcome] = useState(() => clientSessionCache?.showWelcome ?? false);
+  const [discoveryState, setDiscoveryState] = useState<DiscoveryInteractionState>(() => createDiscoveryInteractionState());
+  const [hydrated, setHydrated] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  const [onboardingSaving, setOnboardingSaving] = useState(false);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [online, setOnline] = useState(true);
   const [systemReduce, setSystemReduce] = useState(false);
@@ -107,6 +104,10 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   );
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const archiveRevisionRef = useRef(0);
+  const discoveryRevisionRef = useRef(0);
+  const savingArchiveRef = useRef(false);
+  const savingDiscoveryRef = useRef(false);
 
   const inboxEntries = useMemo(
     () => Object.values(archive.data.inbox)
@@ -222,22 +223,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     const updateOnline = () => setOnline(window.navigator.onLine);
     window.addEventListener("online", updateOnline);
     window.addEventListener("offline", updateOnline);
-    const syncArchive = (event: StorageEvent) => {
-      if (!event.newValue) return;
-      if (event.key === ARCHIVE_STORAGE_KEY) {
-        const parsed = parseArchive(event.newValue);
-        if (parsed.status !== "ok") return;
-        if (clientSessionCache) clientSessionCache = { ...clientSessionCache, archive: parsed.archive };
-        setArchive(parsed.archive);
-        notify("다른 탭에서 바뀐 음악 기록을 불러왔어요.");
-      }
-      if (event.key === DISCOVERY_STORAGE_KEY) {
-        const nextDiscoveryState = parseDiscoveryInteractionState(event.newValue, catalog);
-        if (clientSessionCache) clientSessionCache = { ...clientSessionCache, discoveryState: nextDiscoveryState };
-        setDiscoveryState(nextDiscoveryState);
-      }
-    };
-    window.addEventListener("storage", syncArchive);
     if ("serviceWorker" in navigator) {
       const localDevelopment = window.location.hostname === "localhost"
         || window.location.hostname === "127.0.0.1";
@@ -250,64 +235,29 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       }
     }
     const hydrationTimer = window.setTimeout(() => {
-      if (clientSessionCache) {
-        setOnline(window.navigator.onLine);
-        setSystemReduce(media.matches);
-        setHydrated(true);
-        return;
-      }
-      let rawArchive: string | null = null;
-      let onboardingDone = false;
-      let nextDiscoveryState = createDiscoveryInteractionState();
-      try {
-        rawArchive = window.localStorage.getItem(ARCHIVE_STORAGE_KEY);
-        nextDiscoveryState = parseDiscoveryInteractionState(window.localStorage.getItem(DISCOVERY_STORAGE_KEY), catalog);
-        onboardingDone = window.localStorage.getItem(ONBOARDING_KEY) === "done";
-      } catch {
-        setStorageBlocked("기기 저장소 접근이 차단되어 변경 사항을 저장하지 않는 보호 모드로 열었어요.");
-      }
-      const parsed = parseArchive(rawArchive);
-      let nextArchive = createSeedArchive();
-      if (parsed.status === "ok") {
-        nextArchive = parsed.archive;
-        setArchive(nextArchive);
-      } else if (parsed.status === "empty") {
-        const seed = createSeedArchive();
-        nextArchive = seed;
-        setArchive(nextArchive);
-        try {
-          window.localStorage.setItem(ARCHIVE_STORAGE_KEY, serializeArchive(seed));
-        } catch {
-          setStorageBlocked("기기 저장소를 사용할 수 없어 변경 사항을 저장하지 않는 보호 모드로 열었어요.");
-        }
-      } else {
-        setStorageBlocked(
-          parsed.status === "future-version"
-            ? `더 새로운 저장 형식(v${parsed.schemaVersion})을 발견했어요. 초기화 전에는 변경하지 않습니다.`
-            : "저장된 데이터를 읽을 수 없어 보호 모드로 열었어요.",
-        );
-      }
-      const nextShowWelcome = !onboardingDone;
-      clientSessionCache = { archive: nextArchive, discoveryState: nextDiscoveryState, showWelcome: nextShowWelcome };
-      setDiscoveryState(nextDiscoveryState);
-      setShowWelcome(nextShowWelcome);
-      setOnline(window.navigator.onLine);
-      setSystemReduce(media.matches);
-      setHydrated(true);
+      Promise.all([fetchArchive(), fetchDiscoveryState(), fetchOnboardingStatus()])
+        .then(([archiveResult, discoveryResult, onboardingResult]) => {
+          archiveRevisionRef.current = archiveResult.revision;
+          discoveryRevisionRef.current = discoveryResult.revision;
+          setArchive(archiveResult.archive);
+          setDiscoveryState(discoveryResult.state);
+          setOnboarding(onboardingResult);
+          setOnline(window.navigator.onLine);
+          setSystemReduce(media.matches);
+          setHydrated(true);
+        })
+        .catch((cause) => {
+          if (cause instanceof ArchiveApiError && cause.code === "unauthenticated") setAuthRequired(true);
+          else setRemoteError(cause instanceof Error ? cause.message : "음악 기록을 불러오지 못했어요.");
+        });
     }, 0);
     return () => {
       window.clearTimeout(hydrationTimer);
       media.removeEventListener("change", updateMotion);
       window.removeEventListener("online", updateOnline);
       window.removeEventListener("offline", updateOnline);
-      window.removeEventListener("storage", syncArchive);
     };
   }, [catalog, notify]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    clientSessionCache = { archive, discoveryState, showWelcome };
-  }, [archive, discoveryState, hydrated, showWelcome]);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = reduceMotion ? "true" : "false";
@@ -333,49 +283,60 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     message?: ToastMessage,
     force = false,
   ): boolean {
-    if (storageBlocked && !force) {
-      notify("보호 모드에서는 먼저 설정에서 데이터를 초기화해 주세요.");
+    if (savingArchiveRef.current && !force) {
+      notify("이전 저장을 처리하고 있어요. 잠시 후 다시 시도해 주세요.");
       return false;
     }
-    try {
-      const stored = parseArchive(window.localStorage.getItem(ARCHIVE_STORAGE_KEY));
-      if (!force && stored.status === "ok" && stored.archive.updatedAt !== archive.updatedAt) {
-        if (clientSessionCache) clientSessionCache = { ...clientSessionCache, archive: stored.archive };
-        setArchive(stored.archive);
-        notify("다른 탭의 최신 변경을 먼저 불러왔어요. 확인한 뒤 다시 저장해 주세요.");
-        return false;
-      }
-      window.localStorage.setItem(ARCHIVE_STORAGE_KEY, serializeArchive(next));
-      if (clientSessionCache) clientSessionCache = { ...clientSessionCache, archive: next };
-      setArchive(next);
-      setStorageBlocked(null);
-      if (message) notify(message);
-      return true;
-    } catch {
-      notify("기기 저장 공간 때문에 변경사항을 저장하지 못했어요.");
-      return false;
-    }
+    savingArchiveRef.current = true;
+    setArchive(next);
+    void saveArchive(next, archiveRevisionRef.current)
+      .then((result) => {
+        archiveRevisionRef.current = result.revision;
+        setArchive(result.archive);
+        if (message) notify(message);
+      })
+      .catch((cause) => {
+        if (cause instanceof ArchiveApiError && cause.code === "conflict" && cause.latest) {
+          archiveRevisionRef.current = cause.latest.revision;
+          setArchive(cause.latest.archive);
+          notify("다른 기기에서 변경됐어요. 최신 기록을 불러왔습니다.");
+        } else if (cause instanceof ArchiveApiError && cause.code === "unauthenticated") {
+          setAuthRequired(true);
+        } else notify(cause instanceof Error ? cause.message : "음악 기록을 저장하지 못했어요.");
+      })
+      .finally(() => { savingArchiveRef.current = false; });
+    return true;
   }
 
   function setOnboardingDone() {
-    try {
-      window.localStorage.setItem(ONBOARDING_KEY, "done");
-    } catch {
-      notify("이 브라우저에서는 시작 안내 상태를 저장하지 못했어요.");
-    }
-    if (clientSessionCache) clientSessionCache = { ...clientSessionCache, showWelcome: false };
     setShowWelcome(false);
   }
 
-  function commitDiscovery(next: DiscoveryInteractionState, message: string) {
-    if (clientSessionCache) clientSessionCache = { ...clientSessionCache, discoveryState: next };
-    setDiscoveryState(next);
+  async function handleOnboardingComplete() {
+    setOnboardingSaving(true);
+    setOnboardingError(null);
     try {
-      window.localStorage.setItem(DISCOVERY_STORAGE_KEY, serializeDiscoveryInteractionState(next));
-      if (message) notify(message);
-    } catch {
-      notify("이 브라우저에서는 탐색 활동을 저장하지 못했어요.");
+      setOnboarding(await saveOnboardingComplete());
+    } catch (cause) {
+      if (cause instanceof OnboardingApiError && cause.code === "unauthenticated") {
+        setHydrated(false);
+        setAuthRequired(true);
+      } else {
+        setOnboardingError(cause instanceof Error ? cause.message : "온보딩을 완료하지 못했어요.");
+      }
+    } finally {
+      setOnboardingSaving(false);
     }
+  }
+
+  function commitDiscovery(next: DiscoveryInteractionState, message: string) {
+    if (savingDiscoveryRef.current) return;
+    savingDiscoveryRef.current = true;
+    setDiscoveryState(next);
+    void saveDiscoveryState(next, discoveryRevisionRef.current)
+      .then((result) => { discoveryRevisionRef.current = result.revision; setDiscoveryState(result.state); if (message) notify(message); })
+      .catch((cause) => notify(cause instanceof Error ? cause.message : "탐색 상태를 저장하지 못했어요."))
+      .finally(() => { savingDiscoveryRef.current = false; });
   }
 
   function handleToggleFollow(profileId: string) {
@@ -450,6 +411,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   };
 
   if (!hydrated) {
+    if (authRequired) return <AuthGate />;
+    if (remoteError) return <AuthGate message={remoteError} />;
     return (
       <MotionProvider>
         <EditorialShell
@@ -465,12 +428,23 @@ export function MusicWorldApp({ view }: { view: AppView }) {
             <div className="archive-boot" role="status" aria-live="polite">
               <div>
                 <strong>나의 음악 기록을 펼치고 있어요</strong>
-                <span>이 브라우저에 저장된 챕터와 기억을 확인하는 중입니다.</span>
+                <span>내 계정에 저장된 챕터와 기억을 확인하는 중입니다.</span>
               </div>
             </div>
           </div>
         </EditorialShell>
       </MotionProvider>
+    );
+  }
+
+  if (onboarding && !onboarding.completed) {
+    return (
+      <OnboardingScreen
+        displayName={onboarding.displayName}
+        loading={onboardingSaving}
+        error={onboardingError}
+        onComplete={() => { void handleOnboardingComplete(); }}
+      />
     );
   }
 
@@ -527,7 +501,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "recap":
         return <Recap archive={archive} />;
       case "settings":
-        return <Settings archive={archive} commit={commit} notify={notify} storageBlocked={storageBlocked} setStorageBlocked={setStorageBlocked} />;
+        return <Settings archive={archive} commit={commit} notify={notify} />;
       case "tags":
         return <TagManager archive={archive} commit={commit} notify={notify} />;
       default:
@@ -546,15 +520,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         scrollReady={hydrated}
         backAction={contextBackAction}
       >
-      {storageBlocked ? (
-        <div
-          className="notice notice-danger"
-          style={{ margin: "18px clamp(18px, 4cqw, 24px) 0" }}
-          role="alert"
-        >
-          <div><strong>저장 데이터 보호 모드</strong><br />{storageBlocked}</div>
-        </div>
-      ) : null}
       {!online ? (
         <div
           className="notice notice-warning"

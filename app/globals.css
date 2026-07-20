@@ -107,6 +107,81 @@ img {
   background: var(--oxblood);
 }
 
+.auth-gate { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--paper); }
+.auth-gate-card { width: min(100%, 390px); padding: 32px 24px; border: 1px solid rgba(23, 19, 15, .12); background: var(--paper-soft); text-align: center; }
+.auth-gate-mark { display: block; margin-bottom: 28px; font-size: 12px; font-weight: 700; letter-spacing: .16em; }
+.auth-gate-card h1 { margin: 0; font: 400 32px/1.14 var(--font-serif); }
+.auth-gate-card p { margin: 16px 0 24px; color: var(--dust-text); }
+.auth-google-button { width: 100%; min-height: 48px; }
+.auth-gate-error { color: #a43c25; }
+
+.onboarding-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.onboarding-card {
+  width: min(100%, 390px);
+  padding: 36px 24px 28px;
+  border: 1px solid rgba(23, 19, 15, .12);
+  background: var(--paper-soft);
+  text-align: center;
+}
+
+.onboarding-mark {
+  display: block;
+  margin-bottom: 38px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+
+.onboarding-greeting {
+  margin: 0 0 10px;
+  color: var(--dust-text);
+  font-size: 14px;
+}
+
+.onboarding-card h1 {
+  margin: 0;
+  font: 400 34px/1.16 var(--font-serif);
+}
+
+.onboarding-description {
+  margin: 18px 0 24px;
+  color: var(--dust-text);
+  line-height: 1.65;
+}
+
+.onboarding-features {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.onboarding-features span {
+  padding: 7px 10px;
+  border: 1px solid rgba(23, 19, 15, .12);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.onboarding-start {
+  width: 100%;
+  min-height: 48px;
+}
+
+.onboarding-error {
+  margin: 14px 0 0;
+  color: #a43c25;
+  font-size: 13px;
+}
+
 :focus-visible {
   outline: 2px solid var(--oxblood);
   outline-offset: 4px;

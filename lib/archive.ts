@@ -1,6 +1,5 @@
 export const ARCHIVE_SCHEMA_VERSION = 8 as const;
 export const ARCHIVE_SEED_VERSION = 2 as const;
-export const ARCHIVE_STORAGE_KEY = "music-world:archive:v1";
 
 export const ARCHIVE_LIMITS = {
   cubeName: 40,

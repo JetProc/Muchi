@@ -254,9 +254,10 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.doesNotMatch(motionSource, /return \{ viewTransitionName:/);
   assert.doesNotMatch(motionSource, /window\.matchMedia\("\(max-width: 479px\)"\)\.matches/);
   assert.match(motionSource, /return Boolean\(transitionDocument\.startViewTransition\);/);
-  assert.match(appSource, /let clientSessionCache: ClientSessionCache \| null = null;/);
-  assert.match(appSource, /useState<ArchiveEnvelopeV1>\(\(\) => clientSessionCache\?\.archive \?\? createSeedArchive\(\)\)/);
-  assert.match(appSource, /clientSessionCache = \{ archive: nextArchive, discoveryState: nextDiscoveryState, showWelcome: nextShowWelcome \}/);
+  assert.match(appSource, /useState<ArchiveEnvelopeV1>\(\(\) => createEmptyArchive\(\)\)/);
+  assert.match(appSource, /Promise\.all\(\[fetchArchive\(\), fetchDiscoveryState\(\), fetchOnboardingStatus\(\)\]\)/);
+  assert.match(appSource, /saveArchive\(next, archiveRevisionRef\.current\)/);
+  assert.doesNotMatch(appSource, /window\.localStorage/);
   assert.doesNotMatch(globalStyles, /@keyframes route-enter\s*\{\s*from \{ opacity: 0;/s);
   assert.match(mediaSource, /data-shared-transition-id=\{sharedArtworkKey\(sharedId\)\}/);
   assert.match(mediaSource, /data-shared-transition-id=\{sharedArtworkKey\(coverId\)\}/);
@@ -269,6 +270,24 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.match(globalStyles, /::view-transition-old\(root\),[\s\S]*?::view-transition-new\(root\)\s*\{[^}]*animation:\s*none;/s);
   assert.match(globalStyles, /::view-transition-new\(route-content\)\s*\{[^}]*animation:\s*page-in/s);
   assert.match(globalStyles, /html\[data-motion-intent="tab"\] \.route-stage\s*\{[^}]*animation:\s*none;/s);
+});
+
+test("shows onboarding only until the signed-in profile completes it", async () => {
+  const [appSource, onboardingSource, routeSource, repositorySource, migrationSource] = await Promise.all([
+    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/onboarding-screen.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/onboarding/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/server/profile-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/202607200001_create_mumu_user_state.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(appSource, /onboarding && !onboarding\.completed/);
+  assert.match(appSource, /saveOnboardingComplete\(\)/);
+  assert.match(onboardingSource, /MUMU 시작하기/);
+  assert.match(routeSource, /requireAuthenticatedUser\(\)/);
+  assert.match(repositorySource, /\.upsert\(\{ id: userId, onboarding_completed: true \}/);
+  assert.match(migrationSource, /onboarding_completed boolean not null default false/);
+  assert.match(migrationSource, /profiles are private to their owner/);
 });
 
 test("keeps mobile archive controls legible, aligned, and touch friendly", async () => {
@@ -937,7 +956,7 @@ test("removes redundant helper copy and keeps preview controls compact outside m
   assert.doesNotMatch(source, /완벽하게 정리하지 않아도 괜찮아요/);
   assert.doesNotMatch(source, /welcome-steps/);
   assert.match(source, /다른 챕터의 같은 곡과 기억은 그대로 남습니다/);
-  assert.match(source, /브라우저에만 저장됩니다/);
+  assert.match(source, /로그인한 계정에 저장됩니다/);
   assert.doesNotMatch(chapterSource, /ITUNES_PREVIEW_USAGE_NOTICE|미리듣기는 홍보 목적으로만/);
   assert.doesNotMatch(itunesSource, /ITUNES_PREVIEW_USAGE_NOTICE|미리듣기는 홍보 목적으로만/);
   assert.match(mediaSource, /className="play-button preview-icon-button"/);
@@ -1531,8 +1550,8 @@ test("keeps interview-driven capture paths while simplifying memory completion",
   assert.match(appSource, /searchParams\.get\("url"\) \?\? searchParams\.get\("text"\)/);
   assert.match(manifestSource, /share_target:/);
   assert.match(manifestSource, /action: "\/capture"/);
-  assert.match(discoverySource, /parseArchive\(raw\)/);
-  assert.match(discoverySource, /마지막 백업/);
+  assert.doesNotMatch(discoverySource, /window\.localStorage/);
+  assert.match(discoverySource, /현재 서버에 저장된 기록/);
   assert.match(pickerSource, /빠른 선택/);
   assert.match(pickerSource, /비슷한 기존 태그/);
 });
@@ -2576,7 +2595,7 @@ test("uses shared chapter components for public discovery details and playlist e
   assert.match(shellSource, /discoverPlaylist = view === "playlist" && searchParams\.get\("source"\) === "discover"/);
   assert.match(appSource, /case "discover":/);
   assert.match(appSource, /case "discoverChapter":/);
-  assert.match(appSource, /DISCOVERY_STORAGE_KEY/);
+  assert.match(appSource, /fetchDiscoveryState/);
   assert.match(discoverySource, /기록이 비공개입니다/);
   assert.match(discoverySource, /ChapterDetailHero/);
   assert.match(discoverySource, /ChapterTrackSection/);

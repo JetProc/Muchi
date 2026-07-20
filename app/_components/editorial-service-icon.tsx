@@ -1,8 +1,7 @@
-export type MusicServiceId = "apple" | "spotify" | "youtube";
+export type MusicServiceId = "apple" | "youtube";
 
 const SERVICE_ICON_PATH: Record<MusicServiceId, string> = {
   apple: "/assets/services/apple-music.svg",
-  spotify: "/assets/services/spotify.svg",
   youtube: "/assets/services/youtube-music.svg",
 };
 

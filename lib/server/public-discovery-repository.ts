@@ -12,6 +12,7 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type PublishedChapterRow = {
+  chapter_id: string;
   author_id: string;
   author_name: string;
   payload: unknown;
@@ -43,10 +44,11 @@ function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ 
 async function readAuthorName(supabase: SupabaseClient, userId: string): Promise<string> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("display_name, profile_setup_completed")
     .eq("id", userId)
     .maybeSingle();
   if (error) throw error;
+  if (!data?.profile_setup_completed) throw new Error("프로필 설정을 먼저 완료해 주세요.");
   return typeof data?.display_name === "string" && data.display_name.trim()
     ? data.display_name.trim().slice(0, 80)
     : "뮤키 사용자";
@@ -58,26 +60,44 @@ export async function syncPublishedChapters(
   archive: ArchiveEnvelopeV1,
 ): Promise<void> {
   const chapters = toPublicChapter(userId, archive);
-  const authorName = await readAuthorName(supabase, userId);
   const { data: existing, error: existingError } = await supabase
     .from("published_chapters")
-    .select("chapter_id")
+    .select("chapter_id, author_name, payload")
     .eq("author_id", userId);
   if (existingError) throw existingError;
 
-  if (chapters.length) {
-    const { error } = await supabase.from("published_chapters").upsert(
-      chapters.map(({ chapterId, payload }) => ({
-        author_id: userId,
-        chapter_id: chapterId,
-        author_name: authorName,
-        payload,
-        published_at: payload.createdAt,
-      })),
-      { onConflict: "author_id,chapter_id" },
-    );
+  if (!chapters.length) {
+    if (!(existing ?? []).length) return;
+    const { error } = await supabase
+      .from("published_chapters")
+      .delete()
+      .eq("author_id", userId);
     if (error) throw error;
+    return;
   }
+
+  const authorName = await readAuthorName(supabase, userId);
+  const existingByChapterId = new Map(
+    ((existing ?? []) as PublishedChapterRow[]).map((row) => [row.chapter_id, row]),
+  );
+  const publicProjectionUnchanged = existingByChapterId.size === chapters.length
+    && chapters.every(({ chapterId, payload }) => {
+      const row = existingByChapterId.get(chapterId);
+      return row?.author_name === authorName && JSON.stringify(row.payload) === JSON.stringify(payload);
+    });
+  if (publicProjectionUnchanged) return;
+
+  const { error } = await supabase.from("published_chapters").upsert(
+    chapters.map(({ chapterId, payload }) => ({
+      author_id: userId,
+      chapter_id: chapterId,
+      author_name: authorName,
+      payload,
+      published_at: payload.createdAt,
+    })),
+    { onConflict: "author_id,chapter_id" },
+  );
+  if (error) throw error;
 
   const currentIds = new Set(chapters.map(({ chapterId }) => chapterId));
   const removedIds = (existing ?? [])

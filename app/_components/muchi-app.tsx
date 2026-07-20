@@ -9,32 +9,15 @@ import {
   useState,
 } from "react";
 import {
-  createEmptyArchive,
   type ArchiveEnvelopeV1,
   type TrackId,
   type TrackReference,
 } from "@/lib/archive";
 import {
-  createDiscoveryInteractionState,
-  createEmptyPublicDiscoveryCatalog,
   getPublicChapter,
-  markActivityRead,
   toPlaylistSource,
   toggleFollow,
-  toggleLike,
-  type DiscoveryInteractionState,
-  type PublicDiscoveryCatalog,
 } from "@/lib/public-discovery";
-import { ArchiveApiError, fetchArchive, saveArchive, type VersionedArchive } from "@/lib/client/archive-api";
-import { fetchDiscoveryState, saveDiscoveryState, type VersionedDiscoveryState } from "@/lib/client/discovery-state-api";
-import { fetchPublicDiscoveryCatalog, PublicDiscoveryApiError } from "@/lib/client/public-discovery-api";
-import {
-  fetchOnboardingStatus,
-  OnboardingApiError,
-  saveOnboardingComplete,
-  type OnboardingStatus,
-} from "@/lib/client/onboarding-api";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   EditorialShell,
   type ContextBackAction,
@@ -76,6 +59,7 @@ import {
 import type { AppView, ToastMessage } from "./editorial-types";
 import { AuthGate } from "./auth-gate";
 import { OnboardingScreen } from "./onboarding-screen";
+import { useMuchiData } from "./muchi-data-provider";
 
 export type { AppView } from "./editorial-types";
 
@@ -257,17 +241,24 @@ function ArchiveLoadingState({ view }: { view: AppView }) {
 export function MusicWorldApp({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
   const router = useMotionRouter();
-  const [archive, setArchive] = useState<ArchiveEnvelopeV1>(() => createEmptyArchive());
-  const [catalog, setCatalog] = useState(() => createEmptyPublicDiscoveryCatalog());
-  const [discoveryState, setDiscoveryState] = useState<DiscoveryInteractionState>(() => createDiscoveryInteractionState());
-  const [hydrated, setHydrated] = useState(false);
-  const [authRequired, setAuthRequired] = useState(false);
-  const [remoteError, setRemoteError] = useState<string | null>(null);
-  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
-  const [onboardingSaving, setOnboardingSaving] = useState(false);
-  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const {
+    archive,
+    archiveReady: hydrated,
+    authRequired,
+    remoteError,
+    catalog,
+    discoveryState,
+    discoveryReady,
+    onboarding,
+    onboardingSaving,
+    onboardingError,
+    online,
+    ensureDiscoveryData,
+    saveArchive: saveArchiveState,
+    saveDiscovery: saveDiscoveryState,
+    completeOnboarding,
+  } = useMuchiData();
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [online, setOnline] = useState(true);
   const [systemReduce, setSystemReduce] = useState(false);
   const [previewState, setPreviewState] = useState<PreviewState | null>(null);
   const [playlistProgress, setPlaylistProgress] = useState<{
@@ -276,10 +267,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   }>({ routeKey: "", step: 1 });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
-  const archiveRevisionRef = useRef(0);
-  const discoveryRevisionRef = useRef(0);
-  const savingArchiveRef = useRef(false);
-  const savingDiscoveryRef = useRef(false);
 
   const inboxEntries = useMemo(
     () => Object.values(archive.data.inbox)
@@ -391,60 +378,30 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const updateMotion = () => setSystemReduce(media.matches);
+    updateMotion();
     media.addEventListener("change", updateMotion);
-    const updateOnline = () => setOnline(window.navigator.onLine);
-    window.addEventListener("online", updateOnline);
-    window.addEventListener("offline", updateOnline);
-    if ("serviceWorker" in navigator) {
-      const localDevelopment = window.location.hostname === "localhost"
-        || window.location.hostname === "127.0.0.1";
-      if (localDevelopment) {
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          registrations.forEach((registration) => registration.unregister().catch(() => false));
-        }).catch(() => undefined);
-      } else {
-        navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
-      }
-    }
-    const hydrationTimer = window.setTimeout(() => {
-      async function hydrateFromRemote() {
-        const { data } = await createSupabaseBrowserClient().auth.getSession() as {
-          data: { session: unknown };
-        };
-        if (!data.session) {
-          setAuthRequired(true);
-          return;
-        }
-        const [archiveResult, catalogResult, discoveryResult, onboardingResult]: [
-          VersionedArchive,
-          PublicDiscoveryCatalog,
-          VersionedDiscoveryState,
-          OnboardingStatus,
-        ] = await Promise.all([fetchArchive(), fetchPublicDiscoveryCatalog(), fetchDiscoveryState(), fetchOnboardingStatus()]);
-        archiveRevisionRef.current = archiveResult.revision;
-        discoveryRevisionRef.current = discoveryResult.revision;
-        setArchive(archiveResult.archive);
-        setCatalog(catalogResult);
-        setDiscoveryState(discoveryResult.state);
-        setOnboarding(onboardingResult);
-        setOnline(window.navigator.onLine);
-        setSystemReduce(media.matches);
-        setHydrated(true);
-      }
-      hydrateFromRemote().catch((cause: unknown) => {
-          if (
-            cause instanceof ArchiveApiError && cause.code === "unauthenticated"
-            || cause instanceof PublicDiscoveryApiError && cause.code === "unauthenticated"
-          ) setAuthRequired(true);
-          else setRemoteError(cause instanceof Error ? cause.message : "음악 기록을 불러오지 못했어요.");
-        });
-    }, 0);
     return () => {
-      window.clearTimeout(hydrationTimer);
       media.removeEventListener("change", updateMotion);
-      window.removeEventListener("online", updateOnline);
-      window.removeEventListener("offline", updateOnline);
     };
+  }, []);
+
+  const discoveryRoute = view === "discover"
+    || view === "discoverChapter"
+    || view === "discoverProfile"
+    || (view === "playlist" && searchParams.get("source") === "discover");
+
+  useEffect(() => {
+    if (!hydrated || !discoveryRoute) return;
+    void ensureDiscoveryData().catch(() => undefined);
+  }, [discoveryRoute, ensureDiscoveryData, hydrated]);
+
+  useEffect(() => {
+    const handleSaveNotice = (event: Event) => {
+      const message = (event as CustomEvent<ToastMessage>).detail;
+      if (message) notify(message);
+    };
+    window.addEventListener("muchi:save-notice", handleSaveNotice);
+    return () => window.removeEventListener("muchi:save-notice", handleSaveNotice);
   }, [notify]);
 
   useEffect(() => {
@@ -469,78 +426,17 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   function commit(
     next: ArchiveEnvelopeV1,
     message?: ToastMessage,
-    force = false,
   ): boolean {
-    if (savingArchiveRef.current && !force) {
-      notify("이전 저장을 처리하고 있어요. 잠시 후 다시 시도해 주세요.");
-      return false;
-    }
-    savingArchiveRef.current = true;
-    setArchive(next);
-    void saveArchive(next, archiveRevisionRef.current)
-      .then((result) => {
-        archiveRevisionRef.current = result.revision;
-        setArchive(result.archive);
-        if (message) notify(message);
-      })
-      .catch((cause) => {
-        if (cause instanceof ArchiveApiError && cause.code === "conflict" && cause.latest) {
-          archiveRevisionRef.current = cause.latest.revision;
-          setArchive(cause.latest.archive);
-          notify("다른 기기에서 변경됐어요. 최신 기록을 불러왔습니다.");
-        } else if (cause instanceof ArchiveApiError && cause.code === "unauthenticated") {
-          setAuthRequired(true);
-        } else notify(cause instanceof Error ? cause.message : "음악 기록을 저장하지 못했어요.");
-      })
-      .finally(() => { savingArchiveRef.current = false; });
-    return true;
-  }
-
-  async function handleOnboardingComplete() {
-    setOnboardingSaving(true);
-    setOnboardingError(null);
-    try {
-      setOnboarding(await saveOnboardingComplete());
-    } catch (cause) {
-      if (cause instanceof OnboardingApiError && cause.code === "unauthenticated") {
-        setHydrated(false);
-        setAuthRequired(true);
-      } else {
-        setOnboardingError(cause instanceof Error ? cause.message : "온보딩을 완료하지 못했어요.");
-      }
-    } finally {
-      setOnboardingSaving(false);
-    }
-  }
-
-  function commitDiscovery(next: DiscoveryInteractionState, message: string) {
-    if (savingDiscoveryRef.current) return;
-    savingDiscoveryRef.current = true;
-    setDiscoveryState(next);
-    void saveDiscoveryState(next, discoveryRevisionRef.current)
-      .then((result) => { discoveryRevisionRef.current = result.revision; setDiscoveryState(result.state); if (message) notify(message); })
-      .catch((cause) => notify(cause instanceof Error ? cause.message : "탐색 상태를 저장하지 못했어요."))
-      .finally(() => { savingDiscoveryRef.current = false; });
+    return saveArchiveState(next, message);
   }
 
   function handleToggleFollow(profileId: string) {
     const following = discoveryState.followedProfileIds.includes(profileId);
-    commitDiscovery(toggleFollow(discoveryState, profileId), following ? "팔로우를 취소했어요." : "새 챕터 소식을 받아볼게요.");
-  }
-
-  function handleToggleLike(chapterId: string) {
-    const liked = discoveryState.likedChapterIds.includes(chapterId);
-    commitDiscovery(toggleLike(discoveryState, chapterId), liked ? "좋아요를 취소했어요." : "이 챕터를 좋아해요.");
-  }
-
-  function handleActivityRead(activityId: string) {
-    commitDiscovery(markActivityRead(discoveryState, activityId), "");
+    saveDiscoveryState(toggleFollow(discoveryState, profileId), following ? "팔로우를 취소했어요." : "새 챕터 소식을 받아볼게요.");
   }
 
   const discoveryActions = {
     onToggleFollow: handleToggleFollow,
-    onToggleLike: handleToggleLike,
-    onActivityRead: handleActivityRead,
   };
 
   const preview: PreviewControls = {
@@ -618,9 +514,10 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     return (
       <OnboardingScreen
         displayName={onboarding.displayName}
+        avatarUrl={onboarding.avatarUrl}
         loading={onboardingSaving}
         error={onboardingError}
-        onComplete={() => { void handleOnboardingComplete(); }}
+        onComplete={(nickname) => { void completeOnboarding(nickname); }}
       />
     );
   }
@@ -648,6 +545,9 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         }
         return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} recordMode={recordMode} openChapterMove={searchParams.get("move") === "chapter"} router={router} />;
       case "playlist":
+        if (searchParams.get("source") === "discover" && !discoveryReady) {
+          return <LoadingSpinner label="공개 챕터를 불러오는 중입니다." />;
+        }
         return (
           <PlaylistBuilder
             archive={archive}
@@ -659,10 +559,13 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           />
         );
       case "discover":
-        return <Discover archive={archive} catalog={catalog} state={discoveryState} activityOnly={searchParams.get("activity") === "1"} actions={discoveryActions} />;
+        if (!discoveryReady) return <DiscoverLoadingSkeleton />;
+        return <Discover archive={archive} catalog={catalog} state={discoveryState} activityOnly={searchParams.get("activity") === "1"} />;
       case "discoverChapter":
-        return <PublicChapterDetail catalog={catalog} state={discoveryState} chapterId={queryId} actions={discoveryActions} />;
+        if (!discoveryReady) return <DiscoverLoadingSkeleton />;
+        return <PublicChapterDetail catalog={catalog} chapterId={queryId} />;
       case "discoverProfile":
+        if (!discoveryReady) return <DiscoverLoadingSkeleton />;
         return <PublicProfileDetail catalog={catalog} state={discoveryState} profileId={queryId} showAll={searchParams.get("view") === "all"} actions={discoveryActions} />;
       case "search":
         return (

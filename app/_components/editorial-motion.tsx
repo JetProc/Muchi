@@ -330,10 +330,16 @@ export function MotionLink({
   intent = "forward",
   sharedId,
   onClick,
+  onPointerEnter,
+  onTouchStart,
   target,
   ...props
 }: MotionLinkProps) {
   const router = useRouter();
+
+  function prefetchDestination() {
+    if (href.startsWith("/")) router.prefetch(href);
+  }
 
   function handleClick(event: MouseEvent<HTMLAnchorElement>) {
     onClick?.(event);
@@ -349,7 +355,20 @@ export function MotionLink({
   }
 
   return (
-    <a {...props} href={href} target={target} onClick={handleClick}>
+    <a
+      {...props}
+      href={href}
+      target={target}
+      onClick={handleClick}
+      onPointerEnter={(event) => {
+        onPointerEnter?.(event);
+        prefetchDestination();
+      }}
+      onTouchStart={(event) => {
+        onTouchStart?.(event);
+        prefetchDestination();
+      }}
+    >
       {children}
     </a>
   );

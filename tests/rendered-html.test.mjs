@@ -71,6 +71,17 @@ async function loadPublicDiscoveryDomain() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
+async function loadProfileDomain() {
+  const source = await readFile(new URL("../lib/profile.ts", import.meta.url), "utf8");
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
+}
+
 test("server-renders a deterministic MUCHI editorial archive shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
@@ -217,7 +228,7 @@ test("loads the Apple gallery theme after the legacy structural stylesheet", asy
 });
 
 test("locks every viewport to the mobile device frame", async () => {
-  const [shellSource, accessibilitySource, offlineSource, globalStyles, appleTheme, motionSource, mediaSource, appSource] = await Promise.all([
+  const [shellSource, accessibilitySource, offlineSource, globalStyles, appleTheme, motionSource, mediaSource, appSource, layoutSource, dataProviderSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-accessibility.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/offline/page.tsx", import.meta.url), "utf8"),
@@ -226,6 +237,8 @@ test("locks every viewport to the mobile device frame", async () => {
     readFile(new URL("../app/_components/editorial-motion.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-media.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(shellSource, /className="device-stage"/);
@@ -254,10 +267,12 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.doesNotMatch(motionSource, /return \{ viewTransitionName:/);
   assert.doesNotMatch(motionSource, /window\.matchMedia\("\(max-width: 479px\)"\)\.matches/);
   assert.match(motionSource, /return Boolean\(transitionDocument\.startViewTransition\);/);
-  assert.match(appSource, /useState<ArchiveEnvelopeV1>\(\(\) => createEmptyArchive\(\)\)/);
-  assert.match(appSource, /Promise\.all\(\[fetchArchive\(\), fetchPublicDiscoveryCatalog\(\), fetchDiscoveryState\(\), fetchOnboardingStatus\(\)\]\)/);
-  assert.match(appSource, /saveArchive\(next, archiveRevisionRef\.current\)/);
-  assert.doesNotMatch(appSource, /window\.localStorage/);
+  assert.match(layoutSource, /<MuchiDataProvider>\{children\}<\/MuchiDataProvider>/);
+  assert.match(dataProviderSource, /useState<ArchiveEnvelopeV1>\(\(\) => createEmptyArchive\(\)\)/);
+  assert.match(dataProviderSource, /Promise\.all\(\[\s*fetchArchive\(\),\s*fetchOnboardingStatus\(\),\s*\]\)/s);
+  assert.match(dataProviderSource, /ensureDiscoveryData[\s\S]*?Promise\.all\(\[fetchPublicDiscoveryCatalog\(\), fetchDiscoveryState\(\)\]\)/s);
+  assert.match(dataProviderSource, /saveArchiveRemote\(pending\.archive, archiveRevisionRef\.current\)/);
+  assert.doesNotMatch(`${appSource}\n${dataProviderSource}`, /window\.localStorage/);
   assert.doesNotMatch(globalStyles, /@keyframes route-enter\s*\{\s*from \{ opacity: 0;/s);
   assert.match(mediaSource, /data-shared-transition-id=\{sharedArtworkKey\(sharedId\)\}/);
   assert.match(mediaSource, /data-shared-transition-id=\{sharedArtworkKey\(coverId\)\}/);
@@ -272,30 +287,41 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.match(globalStyles, /html\[data-motion-intent="tab"\] \.route-stage\s*\{[^}]*animation:\s*none;/s);
 });
 
-test("shows onboarding only until the signed-in profile completes it", async () => {
-  const [appSource, authSource, onboardingSource, routeSource, repositorySource, migrationSource] = await Promise.all([
+test("collects a validated nickname and Google avatar before onboarding completes", async () => {
+  const [appSource, dataProviderSource, authSource, onboardingSource, routeSource, repositorySource, baseMigrationSource, profileMigrationSource, profileDomain] = await Promise.all([
     readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/auth-gate.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/onboarding-screen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/onboarding/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/server/profile-repository.ts", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/202607200001_create_muchi_user_state.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260720070836_profile_setup_security_hardening.sql", import.meta.url), "utf8"),
+    loadProfileDomain(),
   ]);
 
   assert.match(appSource, /onboarding && !onboarding\.completed/);
-  assert.match(appSource, /saveOnboardingComplete\(\)/);
+  assert.match(dataProviderSource, /saveOnboardingComplete\(nickname\)/);
   assert.match(authSource, /className="auth-gate-brand"[^>]*aria-label="뮤키"[\s\S]*?<strong>뮤키<\/strong>/s);
   assert.match(authSource, /function GoogleMark\(\)[\s\S]*?#4285F4[\s\S]*?#EA4335/s);
   assert.match(authSource, /<GoogleMark \/>Google로 시작하기/);
   assert.match(onboardingSource, /className="onboarding-mark" src="\/assets\/brand\/muchi-logo\.png" alt="뮤키"/);
   assert.match(onboardingSource, /className="onboarding-brand-name">뮤키<\/p>/);
   assert.doesNotMatch(onboardingSource, /className="onboarding-mark">MUCHI<\/span>/);
-  assert.match(onboardingSource, /챕터로 쌓아 올린[\s\S]*?나만의 음악 세계/);
+  assert.match(onboardingSource, /Google 프로필/);
+  assert.match(onboardingSource, /id="onboarding-nickname"/);
+  assert.match(onboardingSource, /NICKNAME_MAX_LENGTH/);
+  assert.match(onboardingSource, /한글·영문·숫자·띄어쓰기만 사용/);
   assert.match(onboardingSource, /첫 챕터 열기/);
   assert.match(routeSource, /requireAuthenticatedUser\(\)/);
-  assert.match(repositorySource, /\.upsert\(\{ id: userId, onboarding_completed: true \}/);
-  assert.match(migrationSource, /onboarding_completed boolean not null default false/);
-  assert.match(migrationSource, /profiles are private to their owner/);
+  assert.match(routeSource, /validateNickname\(body\.nickname\)/);
+  assert.match(repositorySource, /profile_setup_completed: true/);
+  assert.match(baseMigrationSource, /onboarding_completed boolean not null default false/);
+  assert.match(profileMigrationSource, /profile_setup_completed boolean not null default false/);
+  assert.match(profileMigrationSource, /revoke execute on function public\.handle_new_user\(\) from public, anon, authenticated/);
+  assert.deepEqual(profileDomain.validateNickname("  새벽   산책  "), { ok: true, nickname: "새벽 산책" });
+  assert.equal(profileDomain.validateNickname("a").ok, false);
+  assert.equal(profileDomain.validateNickname("뮤키✨").ok, false);
   assert.doesNotMatch(appSource, /showWelcome|빈 아카이브|샘플 보기/);
 });
 
@@ -325,6 +351,22 @@ test("keeps the app shell visible and matches archive loading states to each pri
   assert.match(css, /\.archive-skeleton-shape::after\s*\{[^}]*animation:\s*archive-skeleton-shimmer/s);
   assert.match(css, /\.loading-spinner-screen\s*\{[^}]*place-items:\s*center/s);
   assert.match(css, /@keyframes archive-skeleton-shimmer/);
+});
+
+test("keeps app data in memory across routes and skips unchanged public sync writes", async () => {
+  const [providerSource, publicRepositorySource, motionSource] = await Promise.all([
+    readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/server/public-discovery-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-motion.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(providerSource, /const STALE_AFTER_MS = 60_000;/);
+  assert.match(providerSource, /pendingArchiveRef\.current = \{ archive: next, message \}/);
+  assert.match(providerSource, /while \(pendingArchiveRef\.current\)/);
+  assert.match(providerSource, /if \(discoveryPromiseRef\.current\) return discoveryPromiseRef\.current;/);
+  assert.doesNotMatch(providerSource, /window\.(?:localStorage|sessionStorage)/);
+  assert.match(publicRepositorySource, /const publicProjectionUnchanged =[\s\S]*?if \(publicProjectionUnchanged\) return;/s);
+  assert.match(motionSource, /router\.prefetch\(href\)/);
 });
 
 test("keeps mobile archive controls legible, aligned, and touch friendly", async () => {
@@ -1168,7 +1210,7 @@ test("builds a mobile playlist creation UI without streaming side effects", asyn
   assert.match(appleTheme, /\.chapter-detail-utilities\.is-inline \.chapter-service-grid\s*\{[^}]*display:\s*flex;/s);
   assert.match(appleTheme, /\.chapter-detail-utilities\.is-inline \.chapter-service-link\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/s);
   assert.doesNotMatch(appleTheme, /\.public-chapter-detail \.chapter-actions\s*\{/);
-  assert.match(appleTheme, /\.public-chapter-detail \.public-like-button\s*\{[^}]*min-height:\s*32px;/s);
+  assert.doesNotMatch(playlistSource, /실제 서비스 연동 완료/);
 });
 
 test("redirects legacy presentation routes to the chapter archive", async () => {
@@ -2318,6 +2360,11 @@ test("stores a custom chapter cover while keeping the album collage as the null 
   );
 });
 
+test("makes a custom chapter cover fill the full artwork area", async () => {
+  const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
+  assert.match(css, /\.chapter-artwork-custom \.chapter-custom-cover\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;[^}]*grid-row:\s*1\s*\/\s*-1;[^}]*object-fit:\s*cover;/s);
+});
+
 test("keeps canonical monthly id collisions visible and creates one collision-safe monthly index", async () => {
   const archiveDomain = await loadArchiveDomain();
   const empty = archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z");
@@ -2669,10 +2716,11 @@ test("builds a published public discovery catalog with explainable similarity an
 });
 
 test("uses shared chapter components for public discovery details and playlist export", async () => {
-  const [typesSource, shellSource, appSource, discoverySource, chapterSource, playlistSource, css] = await Promise.all([
+  const [typesSource, shellSource, appSource, dataProviderSource, discoverySource, chapterSource, playlistSource, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-types.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-public-discovery.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),
@@ -2686,9 +2734,9 @@ test("uses shared chapter components for public discovery details and playlist e
   assert.match(shellSource, /discoverPlaylist = view === "playlist" && searchParams\.get\("source"\) === "discover"/);
   assert.match(appSource, /case "discover":/);
   assert.match(appSource, /case "discoverChapter":/);
-  assert.match(appSource, /fetchDiscoveryState/);
-  assert.match(appSource, /fetchPublicDiscoveryCatalog/);
-  assert.match(appSource, /setCatalog\(catalogResult\)/);
+  assert.match(dataProviderSource, /fetchDiscoveryState/);
+  assert.match(dataProviderSource, /fetchPublicDiscoveryCatalog/);
+  assert.match(dataProviderSource, /setCatalog\(catalogResult\)/);
   assert.match(discoverySource, /기록이 비공개입니다/);
   assert.match(discoverySource, /ChapterDetailHero/);
   assert.match(discoverySource, /ChapterTrackSection/);
@@ -2703,8 +2751,7 @@ test("uses shared chapter components for public discovery details and playlist e
     discoverySource.indexOf("export function PublicProfileDetail("),
   );
   const publicProfileSource = discoverySource.slice(discoverySource.indexOf("export function PublicProfileDetail("));
-  assert.match(publicChapterSource, /<LikeButton/);
-  assert.match(publicChapterSource, /actionsOutsideCopy/);
+  assert.doesNotMatch(publicChapterSource, /LikeButton|좋아요|public-like-button/);
   assert.doesNotMatch(publicChapterSource, /utilitiesOutsideCopy/);
   assert.match(publicChapterSource, /meta=\{`\$\{chapter\.tracks\.length\}곡`\}/);
   assert.doesNotMatch(publicChapterSource, /공개 챕터 ·|공개 기록/);
@@ -2716,6 +2763,8 @@ test("uses shared chapter components for public discovery details and playlist e
   assert.doesNotMatch(publicChapterSource, /leading=\{/);
   assert.doesNotMatch(publicChapterSource, /FollowButton/);
   assert.match(publicProfileSource, /<FollowButton/);
+  assert.match(discoverySource, /팔로잉 새 글/);
+  assert.doesNotMatch(discoverySource, /Bell|새 활동|읽지 않음/);
   assert.match(publicProfileSource, /<MusicRoomFrame/);
   assert.match(publicProfileSource, /profile\.space\.featuredChapterIds/);
   assert.match(publicProfileSource, /전체 챕터 보기/);

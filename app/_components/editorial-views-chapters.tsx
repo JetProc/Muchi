@@ -250,10 +250,10 @@ export function ChapterPlaylistActions({
   return (
     <nav className="chapter-service-actions" aria-label="플레이리스트로 내보내기">
       <div className="chapter-service-grid">
-        <Link className="chapter-service-link is-apple" href={playlistHref("apple")} intent="modal" aria-label="Apple Music으로 내보내기">
+        <button className="chapter-service-link is-apple" type="button" disabled aria-label="Apple Music 내보내기 준비 중">
           <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="apple" /></span>
-          <span>Apple Music</span>
-        </Link>
+          <span>Apple Music 준비 중</span>
+        </button>
         <Link className="chapter-service-link is-youtube" href={playlistHref("youtube")} intent="modal" aria-label="YouTube Music으로 내보내기">
           <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="youtube" /></span>
           <span>YouTube Music</span>

@@ -1,5 +1,5 @@
 /* ========================================================================== */
-/* MUMU APPLE GALLERY — final theme                                           */
+/* MUCHI APPLE GALLERY — final theme                                           */
 /* ========================================================================== */
 
 :root {
@@ -169,7 +169,7 @@ p {
   border: 0;
   color: var(--apple-ink);
   background: var(--apple-canvas-parchment);
-  container-name: mumu-app;
+  container-name: muchi-app;
   container-type: inline-size;
   contain: layout paint;
   overflow: hidden;
@@ -4219,7 +4219,7 @@ button.tag {
 
 /* Responsive ------------------------------------------------------------- */
 
-@container mumu-app (max-width: 430px) {
+@container muchi-app (max-width: 430px) {
   .memory-layout {
     grid-template-columns: 1fr;
   }
@@ -4492,7 +4492,7 @@ button.tag {
 
 }
 
-@container mumu-app (max-width: 419px) {
+@container muchi-app (max-width: 419px) {
   h1 {
     font-size: 26px;
   }
@@ -4562,7 +4562,7 @@ button.tag {
 
 }
 
-@container mumu-app (max-width: 430px) {
+@container muchi-app (max-width: 430px) {
   .inbox-chapter-sheet {
     padding: 0;
   }
@@ -4835,7 +4835,7 @@ button.tag {
 .visitor-space-track-list em { font-size: 11px; font-style: normal; opacity: .62; }
 .visitor-space-track-list p { margin: 0; font-size: 12px; line-height: 1.45; }
 
-@container mumu-app (max-width: 390px) {
+@container muchi-app (max-width: 390px) {
   .personal-space-view { padding-top: 24px; }
   .personal-space-shelf { gap: 7px; padding-right: 7px; padding-left: 7px; }
   .personal-space-chapter-copy strong { font-size: 12px; }

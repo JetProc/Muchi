@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { MusicWorldApp } from "./_components/music-world-app";
+import { MusicWorldApp } from "./_components/muchi-app";
 
 export default function Home() {
   return (

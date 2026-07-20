@@ -16,13 +16,13 @@ export function OnboardingScreen({
   return (
     <main className="onboarding-screen" aria-labelledby="onboarding-title">
       <section className="onboarding-card">
-        <span className="onboarding-mark">MUMU</span>
+        <span className="onboarding-mark">MUCHI</span>
         <p className="onboarding-greeting">{greeting}</p>
         <h1 id="onboarding-title">좋아한 음악을<br />나만의 기억으로.</h1>
         <p className="onboarding-description">
           곡을 담고, 태그와 메모를 더해<br />나만의 음악 아카이브를 만들어 보세요.
         </p>
-        <div className="onboarding-features" aria-label="MUMU 주요 기능">
+        <div className="onboarding-features" aria-label="뮤키 주요 기능">
           <span>곡 기록</span>
           <span>챕터 정리</span>
           <span>기억 회고</span>
@@ -33,7 +33,7 @@ export function OnboardingScreen({
           onClick={onComplete}
           disabled={loading}
         >
-          {loading ? "시작하는 중…" : "MUMU 시작하기"}
+          {loading ? "시작하는 중…" : "뮤키 시작하기"}
         </button>
         {error ? <p className="onboarding-error" role="alert">{error}</p> : null}
       </section>

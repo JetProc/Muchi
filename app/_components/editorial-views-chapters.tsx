@@ -908,7 +908,7 @@ export function Memory({
       setEditingNoteId(null);
       setPendingTags([]);
       try {
-        const raw = window.sessionStorage.getItem(`music-world:memory-draft:v1:${cubeTrack.id}`);
+        const raw = window.sessionStorage.getItem(`muchi:memory-draft:v1:${cubeTrack.id}`);
         if (raw) {
           const draft = JSON.parse(raw) as Partial<{
             selectedTagIds: string[];
@@ -956,7 +956,7 @@ export function Memory({
     if (!cubeTrackId || !draftReady.current) return;
     const saveTimer = window.setTimeout(() => {
       try {
-        window.sessionStorage.setItem(`music-world:memory-draft:v1:${cubeTrackId}`, JSON.stringify({
+        window.sessionStorage.setItem(`muchi:memory-draft:v1:${cubeTrackId}`, JSON.stringify({
           selectedTagIds,
           noteDate,
           noteBody,
@@ -1030,7 +1030,7 @@ export function Memory({
 
   function clearDraft() {
     try {
-      window.sessionStorage.removeItem(`music-world:memory-draft:v1:${activeCubeTrack.id}`);
+      window.sessionStorage.removeItem(`muchi:memory-draft:v1:${activeCubeTrack.id}`);
     } catch {
       // Best effort.
     }

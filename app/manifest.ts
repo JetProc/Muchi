@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MUMU — 음악 기억 아카이브",
-    short_name: "MUMU",
+    name: "MUCHI — 음악 기억 아카이브",
+    short_name: "MUCHI",
     description:
       "좋아했던 음악에 태그와 기억을 더해 나만의 챕터로 보존하는 음악 아카이브",
     start_url: "/",

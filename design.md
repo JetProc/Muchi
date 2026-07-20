@@ -8,9 +8,9 @@ Density is unusually low even by contemporary SaaS standards. Each tile occupies
 
 Store and shop surfaces retain the same chassis but switch modes. The product configurator introduces a tight grid of white utility cards at `{rounded.lg}` (18px) radius with a thin border, paired with a persistent thin sub-nav strip. Across all surfaces the typographic system, spacing rhythm, and the single blue accent are consistent — this is one design language expressed at different volumes.
 
-## MUMU Mobile Product Contract
+## MUCHI Mobile Product Contract
 
-MUMU is a mobile-only product. Every product view is designed and tested within a canvas no wider than 430px; there is no desktop-specific page composition. On a real phone the canvas fills `100vw × 100dvh`. At browser widths of 480px or more, the same mobile canvas is centered with a 16px outer inset, a 28px frame radius, and a neutral surrounding field. The wide viewport must never change content density, type scale, navigation, or component arrangement.
+MUCHI is a mobile-only product. Every product view is designed and tested within a canvas no wider than 430px; there is no desktop-specific page composition. On a real phone the canvas fills `100vw × 100dvh`. At browser widths of 480px or more, the same mobile canvas is centered with a 16px outer inset, a 28px frame radius, and a neutral surrounding field. The wide viewport must never change content density, type scale, navigation, or component arrangement.
 
 - App canvas: `min(100vw, 430px)` with a maximum width of 430px.
 - Shell rows: 44px header, internally scrolling content, and 70px bottom navigation plus the safe-area inset.
@@ -306,12 +306,12 @@ The browser viewport is not a product breakpoint. Layout decisions use the app c
 5. Display headlines stay SF Pro Display/system 600 with negative tracking. Body stays SF Pro Text/system 400 at 17px.
 6. The single drop-shadow is reserved for product or album photography only.
 7. When emphasis is unclear, alternate the surface before adding chrome.
-8. For MUMU, album artwork is the product photography. Let it carry visual weight while interface chrome recedes.
+8. For MUCHI, album artwork is the product photography. Let it carry visual weight while interface chrome recedes.
 
 ## Known Gaps
 
 - Detailed form-validation/error colors were not surfaced; use accessible copy, Action Blue focus, and semantic system messaging without inventing a decorative accent.
 - Embedded player interiors are platform-like utility surfaces; keep them black/near-black and minimal.
 - Dark-mode variants for every utility card are not defined; the application remains daytime/light-dominant.
-- Atmospheric photography is content, not a token. MUMU should use actual album artwork and the supplied LP asset instead of decorative CSS substitutes.
+- Atmospheric photography is content, not a token. MUCHI should use actual album artwork and the supplied LP asset instead of decorative CSS substitutes.
 - Backdrop blur may vary by platform; `saturate(180%) blur(20px)` is the baseline.

@@ -60,7 +60,7 @@ import {
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 
-const CAPTURE_DRAFT_KEY = "music-world:capture-draft:v1";
+const CAPTURE_DRAFT_KEY = "muchi:capture-draft:v1";
 const SEARCH_RESULT_BATCH_SIZE = 10;
 const SEARCH_RESULT_REVEAL_DELAY_MS = 240;
 
@@ -514,8 +514,8 @@ export function Capture({
       setResultSource(null);
       resetRecordDialog();
     };
-    window.addEventListener("music-world:reset-capture", resetCapture);
-    return () => window.removeEventListener("music-world:reset-capture", resetCapture);
+    window.addEventListener("muchi:reset-capture", resetCapture);
+    return () => window.removeEventListener("muchi:reset-capture", resetCapture);
   }, []);
 
   useEffect(() => {

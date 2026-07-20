@@ -1,4 +1,4 @@
-const CACHE_PREFIX = "music-world-shell";
+const CACHE_PREFIX = "muchi-shell";
 const CACHE_VERSION = "v3-editorial";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";

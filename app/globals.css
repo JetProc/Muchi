@@ -1,5 +1,5 @@
 @font-face {
-  font-family: "Mumu Serif";
+  font-family: "Muchi Serif";
   src: url("/fonts/dm-serif-display.woff2") format("woff2");
   font-display: swap;
   font-style: normal;
@@ -23,7 +23,7 @@
   --shadow-surface: 0 2px 5px rgba(23, 19, 15, 0.08), 0 10px 24px rgba(23, 19, 15, 0.05);
   --shadow-floating: 0 8px 22px rgba(23, 19, 15, 0.16), 0 24px 56px rgba(23, 19, 15, 0.12);
   --font-sans: "Pretendard Variable", Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
-  --font-serif: "Mumu Serif", "Iowan Old Style", "AppleMyungjo", "Batang", serif;
+  --font-serif: "Muchi Serif", "Iowan Old Style", "AppleMyungjo", "Batang", serif;
   --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-close: cubic-bezier(0.32, 0, 0.67, 0);
   color-scheme: light;
@@ -2039,7 +2039,7 @@ button.tag {
   to { transform: translateX(72%); }
 }
 
-@container mumu-app (max-width: 430px) {
+@container muchi-app (max-width: 430px) {
   html,
   body {
     min-width: 0;
@@ -2760,7 +2760,7 @@ button.tag {
   cursor: default;
 }
 
-@container mumu-app (max-width: 419px) {
+@container muchi-app (max-width: 419px) {
   .chapter-detail-compact {
     padding: 12px 16px 104px;
   }

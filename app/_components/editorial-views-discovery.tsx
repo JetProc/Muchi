@@ -277,7 +277,7 @@ function RecapLine({
   }[entry.reason];
   const dateContext = entry.note.listenedOn
     ? `감상 날짜 · ${formatCalendarDate(entry.note.listenedOn)}`
-    : `MUMU 최초 기록 · ${formatDate(entry.cubeTrack.createdAt)}`;
+    : `MUCHI 최초 기록 · ${formatDate(entry.cubeTrack.createdAt)}`;
   return (
     <TrackLine
       track={entry.track}
@@ -394,7 +394,7 @@ export function Settings({
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `mumu-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.download = `muchi-backup-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
     notify("현재 음악 기록을 JSON 파일로 백업했어요.");

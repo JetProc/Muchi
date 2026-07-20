@@ -1,4 +1,4 @@
-# MUMU 모바일 전용 레이아웃 QA
+# MUCHI 모바일 전용 레이아웃 QA
 
 검증일: 2026-07-15
 기준 URL: `http://localhost:3001`

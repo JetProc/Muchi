@@ -4,7 +4,7 @@ import test from "node:test";
 import ts from "typescript";
 
 const projectRoot = new URL("../", import.meta.url);
-const appleThemeMarker = "MUMU APPLE GALLERY — final theme";
+const appleThemeMarker = "MUCHI APPLE GALLERY — final theme";
 
 function getAppleTheme(css) {
   const markerIndex = css.lastIndexOf(appleThemeMarker);
@@ -71,14 +71,14 @@ async function loadPublicDiscoveryDomain() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
-test("server-renders a deterministic MUMU editorial archive shell", async () => {
+test("server-renders a deterministic MUCHI editorial archive shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, /<html lang="ko">/);
-  assert.match(html, /<title>MUMU — 나만의 음악 매거진<\/title>/);
+  assert.match(html, /<title>MUCHI — 나만의 음악 매거진<\/title>/);
   assert.match(html, /좋아했던 음악에 태그와 기억을 더해/);
   assert.match(html, /개인 음악 아카이브/);
   assert.match(html, /href="\/capture"/);
@@ -115,7 +115,7 @@ test("renders every primary chapter archive destination with its stable shell", 
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
     const html = await response.text();
-    assert.match(html, /<title>MUMU — 나만의 음악 매거진<\/title>/, pathname);
+    assert.match(html, /<title>MUCHI — 나만의 음악 매거진<\/title>/, pathname);
     assert.match(html, /id="main-content" tabindex="-1"/, pathname);
     assert.doesNotMatch(html, /큐브|음악 세계|캐릭터/, pathname);
   }
@@ -192,7 +192,7 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(appleTheme, /\.capture-track-row\s*\{[^}]*grid-template-columns:\s*52px minmax\(0, 1fr\) 44px;/s);
   assert.match(appleTheme, /\.capture-track-select\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*border-radius:\s*50% !important;/s);
   assert.match(appleTheme, /\.capture-floating-action\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*calc\(70px \+ 12px \+ env\(safe-area-inset-bottom\)\);/s);
-  assert.match(source, /music-world:reset-capture/);
+  assert.match(source, /muchi:reset-capture/);
   assert.match(source, /className="dialog record-dialog"/);
   assert.match(source, /className="record-dialog-track"/);
   assert.match(source, /보관함에 우선 저장/);
@@ -225,7 +225,7 @@ test("locks every viewport to the mobile device frame", async () => {
     readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-motion.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-media.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(shellSource, /className="device-stage"/);
@@ -274,16 +274,16 @@ test("locks every viewport to the mobile device frame", async () => {
 
 test("shows onboarding only until the signed-in profile completes it", async () => {
   const [appSource, onboardingSource, routeSource, repositorySource, migrationSource] = await Promise.all([
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/onboarding-screen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/onboarding/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/server/profile-repository.ts", import.meta.url), "utf8"),
-    readFile(new URL("../supabase/migrations/202607200001_create_mumu_user_state.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/202607200001_create_muchi_user_state.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(appSource, /onboarding && !onboarding\.completed/);
   assert.match(appSource, /saveOnboardingComplete\(\)/);
-  assert.match(onboardingSource, /MUMU 시작하기/);
+  assert.match(onboardingSource, /뮤키 시작하기/);
   assert.match(routeSource, /requireAuthenticatedUser\(\)/);
   assert.match(repositorySource, /\.upsert\(\{ id: userId, onboarding_completed: true \}/);
   assert.match(migrationSource, /onboarding_completed boolean not null default false/);
@@ -339,7 +339,7 @@ test("uses Apple typography, whitespace, and flat mobile surfaces", async () => 
   assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*44px;[^}]*background:\s*var\(--apple-surface-black\);/s);
   assert.match(appleTheme, /\.page-content\s*\{[^}]*padding:\s*var\(--apple-space-6\) var\(--apple-page-gutter\)/s);
   assert.match(appleTheme, /\.panel,[\s\S]*?\.search-empty\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);[^}]*border-radius:\s*var\(--apple-radius-lg\) !important;[^}]*box-shadow:\s*none !important;/s);
-  assert.match(appleTheme, /@container mumu-app \(max-width:\s*419px\)[\s\S]*?h1\s*\{[^}]*font-size:\s*26px;/s);
+  assert.match(appleTheme, /@container muchi-app \(max-width:\s*419px\)[\s\S]*?h1\s*\{[^}]*font-size:\s*26px;/s);
 });
 
 test("keeps toast messages compact below the fixed mobile header", async () => {
@@ -391,7 +391,7 @@ test("uses an accessible settings icon in the editorial header", async () => {
 test("keeps the global header stable and places contextual back actions inside secondary content", async () => {
   const [shellSource, appSource, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
   ]);
 
@@ -509,7 +509,7 @@ test("keeps dialog semantics on the focused surface instead of the backdrop", as
     "editorial-views-chapters.tsx",
     "editorial-views-discovery.tsx",
     "editorial-views-tags.tsx",
-    "music-world-app.tsx",
+    "muchi-app.tsx",
   ];
   const sources = await Promise.all(paths.map((name) => readFile(
     new URL(`../app/_components/${name}`, import.meta.url),
@@ -584,7 +584,7 @@ test("offers nested chapter creation and navigation inside chapter detail", asyn
   );
   assert.match(css, /\.child-chapter-dialog\s*\{[^}]*scroll-padding-bottom:\s*calc\(88px \+ env\(safe-area-inset-bottom\)\);/s);
   assert.match(css, /\.child-chapter-dialog \.dialog-actions\s*\{[^}]*padding:\s*12px var\(--apple-space-2\) env\(safe-area-inset-bottom\);/s);
-  assert.match(css, /@container mumu-app \(max-width:\s*430px\)[\s\S]*?\.child-chapter-dialog\s*\{[^}]*padding-bottom:\s*var\(--apple-space-5\);/s);
+  assert.match(css, /@container muchi-app \(max-width:\s*430px\)[\s\S]*?\.child-chapter-dialog\s*\{[^}]*padding-bottom:\s*var\(--apple-space-5\);/s);
 });
 
 test("keeps chapter actions compact and puts playlist import before the track list", async () => {
@@ -812,7 +812,7 @@ test("keeps the archive-first mobile flow free of duplicate navigation and dead 
   const [shellSource, accessibilitySource, appSource, uiSource, chapterSource, playlistSource, primarySource, discoverySource, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-accessibility.ts", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-ui.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),
@@ -901,9 +901,9 @@ test("uses a compact swipe-first mobile home without primary playback", async ()
   assert.match(source, /className="chapter-preview-art"[\s\S]*?<ChapterCover archive=\{archive\} chapter=\{chapter\} \/>/);
   const appleTheme = getAppleTheme(css);
   assert.match(appleTheme, /\.editorial-header\s*\{[^}]*position:\s*relative;[^}]*height:\s*44px;/s);
-  assert.match(appleTheme, /@container mumu-app \(max-width: 430px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\);/s);
-  assert.match(appleTheme, /@container mumu-app \(max-width: 419px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*112px minmax\(0, 1fr\);/s);
-  assert.match(appleTheme, /@container mumu-app \(max-width: 419px\)[\s\S]*?\.track-list-unified \.track-line\s*\{[^}]*--track-cover-size:\s*60px;/s);
+  assert.match(appleTheme, /@container muchi-app \(max-width: 430px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\);/s);
+  assert.match(appleTheme, /@container muchi-app \(max-width: 419px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*112px minmax\(0, 1fr\);/s);
+  assert.match(appleTheme, /@container muchi-app \(max-width: 419px\)[\s\S]*?\.track-list-unified \.track-line\s*\{[^}]*--track-cover-size:\s*60px;/s);
   assert.match(appleTheme, /\.hero-carousel-controls button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
 });
 
@@ -912,7 +912,7 @@ test("keeps automatic monthly chapters readable but out of manual assignment and
     readFile(new URL("../app/_components/editorial-format.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(formatSource, /export function isAssignableChapter/);
@@ -933,7 +933,7 @@ test("removes redundant helper copy and keeps preview controls compact outside m
     "editorial-views-chapters.tsx",
     "editorial-views-discovery.tsx",
     "editorial-views-tags.tsx",
-    "music-world-app.tsx",
+    "muchi-app.tsx",
     "editorial-chapter-delete-dialog.tsx",
   ];
   const [componentSources, itunesSource, css] = await Promise.all([
@@ -1017,7 +1017,7 @@ test("keeps archive search compact with the shared tag picker", async () => {
   assert.match(pickerSource, /className="tag-picker-open"/);
   assert.match(pickerSource, /aria-label="태그 목록"/);
   assert.doesNotMatch(pickerSource, /TAG_PICKER_CATEGORIES|CATEGORY_LABEL|role="tablist"|"frequent"/);
-  assert.match(css, /@container mumu-app \(max-width:\s*430px\)[\s\S]*?\.tag-picker-panel\s*\{[^}]*bottom:\s*0;/s);
+  assert.match(css, /@container muchi-app \(max-width:\s*430px\)[\s\S]*?\.tag-picker-panel\s*\{[^}]*bottom:\s*0;/s);
   assert.match(css, /\.tag-picker-open\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);/s);
   assert.match(css, /\.tag-picker-options\s*\{[^}]*flex:\s*1 1 auto;[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/s);
   assert.match(css, /\.tag-picker-option\s*\{[^}]*width:\s*fit-content;[^}]*min-height:\s*36px;/s);
@@ -1028,7 +1028,7 @@ test("keeps archive search compact with the shared tag picker", async () => {
   assert.match(css, /\.archive-find-title\s*\{[^}]*font-size:\s*20px;/s);
   assert.match(css, /\.archive-find-results \.search-results-head h2\s*\{[^}]*font-size:\s*20px;/s);
   assert.match(css, /\.tag-manager-copy \.tag\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*normal;/s);
-  assert.match(css, /@container mumu-app \(max-width:\s*430px\)[\s\S]*?\.album-hero\s*\{[^}]*min-height:\s*clamp\(360px, 54dvh, 400px\);/s);
+  assert.match(css, /@container muchi-app \(max-width:\s*430px\)[\s\S]*?\.album-hero\s*\{[^}]*min-height:\s*clamp\(360px, 54dvh, 400px\);/s);
   assert.match(css, /\.album-memory-reveal\s*\{[^}]*max-height:\s*0;/s);
   assert.match(css, /\.album-hero\.is-expanded \.album-memory-reveal\s*\{[^}]*max-height:\s*none;/s);
   assert.match(css, /\.track-info \.tag-row\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/s);
@@ -1040,7 +1040,7 @@ test("builds a mobile playlist creation UI without streaming side effects", asyn
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-service-icon.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-types.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/playlist/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
@@ -1077,7 +1077,7 @@ test("builds a mobile playlist creation UI without streaming side effects", asyn
   assert.match(playlistSource, /매칭 확인/);
   assert.match(playlistSource, /플레이리스트 내보내기 준비 완료/);
   assert.match(playlistSource, /현재 매칭 결과는 실제 서비스 연동 전 미리보기예요/);
-  assert.doesNotMatch(playlistSource, /MUMU의 챕터와 기억은 바뀌지 않아요|플레이리스트를 만들 음악 서비스를 선택하세요/);
+  assert.doesNotMatch(playlistSource, /MUCHI의 챕터와 기억은 바뀌지 않아요|플레이리스트를 만들 음악 서비스를 선택하세요/);
   assert.match(playlistSource, /selectable[\s\S]*?showAlbum=\{false\}[\s\S]*?showIndex=\{false\}[\s\S]*?onRowClick=\{\(\) => toggleTrack\(entry\.track\.id\)\}/s);
   assert.doesNotMatch(playlistSource, /playlist-track-toggle|service\.description|ChevronRight/);
   assert.match(playlistSource, /selectedService\.id === "spotify" \? "로" : "으로"/);
@@ -1532,7 +1532,7 @@ test("keeps interview-driven capture paths while simplifying memory completion",
   const [primarySource, chapterSource, appSource, discoverySource, pickerSource, manifestSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-tag-picker.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/manifest.ts", import.meta.url), "utf8"),
@@ -1546,7 +1546,7 @@ test("keeps interview-driven capture paths while simplifying memory completion",
   assert.doesNotMatch(chapterSource, /기록 이미지 만들기 · 실험/);
   assert.doesNotMatch(chapterSource, /기록하고 \{providerName\}으로 돌아가기/);
   assert.match(chapterSource, /className="button button-primary memory-record-submit"/);
-  assert.match(chapterSource, /music-world:memory-draft:v1/);
+  assert.match(chapterSource, /muchi:memory-draft:v1/);
   assert.match(appSource, /searchParams\.get\("url"\) \?\? searchParams\.get\("text"\)/);
   assert.match(manifestSource, /share_target:/);
   assert.match(manifestSource, /action: "\/capture"/);
@@ -2441,7 +2441,7 @@ test("keeps the memory form focused on tags, an optional dated memo, and one com
     readFile(new URL("../lib/archive.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-tag-link.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
   ]);
   const memoryPanelSource = sliceBetween(
     chapterSource,
@@ -2581,7 +2581,7 @@ test("uses shared chapter components for public discovery details and playlist e
   const [typesSource, shellSource, appSource, discoverySource, chapterSource, playlistSource, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-types.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/_components/music-world-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-public-discovery.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),

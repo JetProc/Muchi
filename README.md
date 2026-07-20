@@ -1,8 +1,8 @@
-# MUMU
+# MUCHI
 
 좋아했던 음악에 경험 태그와 기억을 더해 나만의 챕터로 엮는 모바일 개인 음악 아카이브입니다.
 
-MUMU는 플레이리스트 제목과 곡 목록만으로는 남기기 어려운 음악의 성격, 들었던 시기와 장면을 기록합니다. `운동할 때`, `과거에 좋아했던 재즈`처럼 사용자의 경험을 짧은 문장으로 태그하고, 같은 곡도 서로 다른 챕터에 담으면 각 챕터의 태그와 기억을 독립적으로 유지합니다.
+MUCHI는 플레이리스트 제목과 곡 목록만으로는 남기기 어려운 음악의 성격, 들었던 시기와 장면을 기록합니다. `운동할 때`, `과거에 좋아했던 재즈`처럼 사용자의 경험을 짧은 문장으로 태그하고, 같은 곡도 서로 다른 챕터에 담으면 각 챕터의 태그와 기억을 독립적으로 유지합니다.
 
 현재 버전은 Supabase와 Google 로그인 기반의 개인 음악 아카이브입니다. 음악 기록은 로그인한 계정에 저장되며, 브라우저 `localStorage`를 영구 데이터 원본으로 사용하지 않습니다.
 
@@ -30,9 +30,9 @@ MUMU는 플레이리스트 제목과 곡 목록만으로는 남기기 어려운 
 
 ## 문서
 
-- [제품 기획서](docs/MUMU_PRODUCT_PLAN.md)
-- [서비스·사용 설명서](docs/MUMU_SERVICE_GUIDE.md)
-- [11인 사용자 인터뷰 분석](docs/MUMU_INTERVIEW_ANALYSIS_11.md)
+- [제품 기획서](docs/MUCHI_PRODUCT_PLAN.md)
+- [서비스·사용 설명서](docs/MUCHI_SERVICE_GUIDE.md)
+- [11인 사용자 인터뷰 분석](docs/MUCHI_INTERVIEW_ANALYSIS_11.md)
 - [작업 인수인계 문서](docs/HANDOFF_CONTEXT.md)
 - [디자인 기준](design.md)
 - [모바일 QA 기록](design-qa.md)
@@ -50,7 +50,7 @@ npm run dev
 
 1. Supabase 프로젝트를 만들고 Google provider를 활성화합니다.
 2. `.env.example`을 참고해 `.env.local`에 프로젝트 URL과 publishable key를 넣습니다.
-3. 로컬 Supabase를 사용할 때는 먼저 `npx supabase init` 후 migration을 적용합니다. 원격 프로젝트만 사용할 때는 Supabase SQL Editor로 `supabase/migrations/202607200001_create_mumu_user_state.sql`을 실행합니다.
+3. 로컬 Supabase를 사용할 때는 먼저 `npx supabase init` 후 migration을 적용합니다. 원격 프로젝트만 사용할 때는 Supabase SQL Editor로 `supabase/migrations/202607200001_create_muchi_user_state.sql`을 실행합니다.
 4. Google Cloud OAuth client에 운영/개발 origin과 Supabase Dashboard에 표시되는 callback URL을 등록합니다.
 5. Supabase Auth의 Redirect URL allow list에 `http://localhost:<dev-port>/auth/callback` 및 운영 도메인의 `/auth/callback`을 추가합니다.
 

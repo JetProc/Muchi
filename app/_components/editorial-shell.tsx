@@ -126,8 +126,8 @@ export function TextNavigation({ view }: { view: AppView }) {
             aria-label={item === "capture" ? "새 음악 기록" : item === "search" ? "내 기록 찾기" : meta.label}
             aria-current={active ? "page" : undefined}
             onClick={item === "capture" ? () => {
-              window.sessionStorage.removeItem("music-world:capture-draft:v1");
-              window.dispatchEvent(new Event("music-world:reset-capture"));
+              window.sessionStorage.removeItem("muchi:capture-draft:v1");
+              window.dispatchEvent(new Event("muchi:reset-capture"));
             } : undefined}
           >
             <Icon aria-hidden="true" size={24} strokeWidth={1.8} />
@@ -358,8 +358,8 @@ export function EditorialShell({
         <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
         <header className="editorial-header">
           <div className="header-leading">
-            <Link className="brand-lockup" href="/" intent="tab" aria-label="MUMU 홈">
-              <strong>MUMU</strong>
+            <Link className="brand-lockup" href="/" intent="tab" aria-label="MUCHI 홈">
+              <strong>MUCHI</strong>
               <span>PERSONAL MUSIC ARCHIVE</span>
             </Link>
           </div>

@@ -2400,7 +2400,7 @@ export type VisitorSpaceChapter = {
 
 export function getVisitorSpaceChapters(archive: ArchiveEnvelopeV1): VisitorSpaceChapter[] {
   const normalized = withPersonalSpaceDefaults(archive);
-  return getRootCubes(normalized)
+  return getUserVisibleChapters(normalized)
     .filter((chapter) => chapter.visibility === "public")
     .map((chapter) => ({
       chapter,
@@ -2410,6 +2410,25 @@ export function getVisitorSpaceChapters(archive: ArchiveEnvelopeV1): VisitorSpac
         privateRecord: entry.cubeTrack.recordVisibility !== "public",
       })),
     }));
+}
+
+/** A stable public-only snapshot used to avoid syncing the discovery feed for private edits. */
+export function publicProjectionSignature(archive: ArchiveEnvelopeV1): string {
+  return JSON.stringify(getVisitorSpaceChapters(archive).map(({ chapter, tracks }) => ({
+    id: chapter.id,
+    name: chapter.name,
+    description: chapter.description,
+    color: chapter.color,
+    coverImageUrl: chapter.coverImageUrl,
+    createdAt: chapter.createdAt,
+    tracks: tracks.map(({ cubeTrack, track, tags, privateRecord }) => ({
+      id: cubeTrack.id,
+      track,
+      visibility: privateRecord ? "private" : "public",
+      note: privateRecord ? null : getLatestCubeTrackNote(cubeTrack)?.body ?? null,
+      tags: privateRecord ? [] : tags.map((tag) => tag.label),
+    })),
+  })));
 }
 
 export function getCaptureCube(archive: ArchiveEnvelopeV1): Cube | null {

@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createEmptyArchive, type ArchiveEnvelopeV1 } from "@/lib/archive";
+import { createEmptyArchive, publicProjectionSignature, type ArchiveEnvelopeV1 } from "@/lib/archive";
 import {
   createDiscoveryInteractionState,
   createEmptyPublicDiscoveryCatalog,
@@ -32,7 +32,7 @@ import type { ToastMessage } from "./editorial-types";
 
 const STALE_AFTER_MS = 60_000;
 
-type PendingArchive = { archive: ArchiveEnvelopeV1; message?: ToastMessage };
+type PendingArchive = { archive: ArchiveEnvelopeV1; message?: ToastMessage; syncPublicProjection: boolean };
 type PendingDiscovery = { state: DiscoveryInteractionState; message?: ToastMessage };
 
 type MuchiDataContextValue = {
@@ -49,7 +49,7 @@ type MuchiDataContextValue = {
   onboardingSaving: boolean;
   onboardingError: string | null;
   online: boolean;
-  ensureDiscoveryData: () => Promise<void>;
+  ensureDiscoveryData: (force?: boolean) => Promise<void>;
   saveArchive: (next: ArchiveEnvelopeV1, message?: ToastMessage) => boolean;
   saveDiscovery: (next: DiscoveryInteractionState, message?: ToastMessage) => boolean;
   completeOnboarding: (nickname: string) => Promise<void>;
@@ -163,9 +163,9 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
   }, []);
 
-  const ensureDiscoveryData = useCallback((): Promise<void> => {
+  const ensureDiscoveryData = useCallback((force = false): Promise<void> => {
     if (discoveryPromiseRef.current) return discoveryPromiseRef.current;
-    if (discoveryReady && Date.now() - discoveryUpdatedAtRef.current < STALE_AFTER_MS) return Promise.resolve();
+    if (!force && discoveryReady && Date.now() - discoveryUpdatedAtRef.current < STALE_AFTER_MS) return Promise.resolve();
     const initialLoad = !discoveryReady;
     if (initialLoad) setDiscoveryLoading(true);
     setDiscoveryError(null);
@@ -193,7 +193,8 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
 
   const saveArchive = useCallback((next: ArchiveEnvelopeV1, message?: ToastMessage) => {
     if (!archiveReady || authRequired) return false;
-    pendingArchiveRef.current = { archive: next, message };
+    const syncPublicProjection = publicProjectionSignature(archive) !== publicProjectionSignature(next);
+    pendingArchiveRef.current = { archive: next, message, syncPublicProjection };
     setArchive(next);
     if (writingArchiveRef.current) return true;
 
@@ -203,28 +204,33 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
         const pending = pendingArchiveRef.current;
         pendingArchiveRef.current = null;
         try {
-          const result = await saveArchiveRemote(pending.archive, archiveRevisionRef.current);
+          const result = await saveArchiveRemote(pending.archive, archiveRevisionRef.current, pending.syncPublicProjection);
           archiveRevisionRef.current = result.revision;
           confirmedArchiveRef.current = result.archive;
           archiveUpdatedAtRef.current = Date.now();
           if (!pendingArchiveRef.current) setArchive(result.archive);
           if (pending.message) publishNotice(pending.message);
         } catch (cause) {
-          pendingArchiveRef.current = null;
-          const confirmed = confirmedArchiveRef.current;
           if (cause instanceof ArchiveApiError && cause.code === "conflict" && cause.latest) {
             archiveRevisionRef.current = cause.latest.revision;
             confirmedArchiveRef.current = cause.latest.archive;
-            setArchive(cause.latest.archive);
-            publishNotice("다른 기기에서 변경됐어요. 최신 기록을 불러왔습니다.");
+            if (pendingArchiveRef.current) {
+              publishNotice("최신 기록 위에 변경사항을 다시 저장할게요.");
+            } else {
+              setArchive(cause.latest.archive);
+              publishNotice("다른 기기에서 변경됐어요. 최신 기록을 불러왔습니다.");
+            }
           } else if (cause instanceof ArchiveApiError && cause.code === "unauthenticated") {
+            pendingArchiveRef.current = null;
             setAuthRequired(true);
-            if (confirmed) setArchive(confirmed);
           } else {
-            if (confirmed) setArchive(confirmed);
+            pendingArchiveRef.current ??= pending;
             publishNotice(cause instanceof Error
-              ? `${cause.message} 변경사항을 이전 상태로 되돌렸어요.`
-              : "음악 기록을 저장하지 못해 변경사항을 이전 상태로 되돌렸어요.");
+              ? `${cause.message} 변경사항을 보존하고 다시 저장할게요.`
+              : "음악 기록 변경사항을 보존하고 다시 저장할게요.");
+            writingArchiveRef.current = false;
+            window.setTimeout(() => { if (!writingArchiveRef.current && pendingArchiveRef.current) void drain(); }, 3_000);
+            return;
           }
         }
       }
@@ -232,7 +238,7 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     };
     void drain();
     return true;
-  }, [archiveReady, authRequired, publishNotice]);
+  }, [archive, archiveReady, authRequired, publishNotice]);
 
   const saveDiscovery = useCallback((next: DiscoveryInteractionState, message?: ToastMessage) => {
     if (!discoveryReady) return false;

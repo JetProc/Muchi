@@ -46,8 +46,8 @@ import {
   updateCubeTrackNoteBody,
   type ArchiveEnvelopeV1,
   type Cube,
-  type CubeColor,
   type CubeTrack,
+  type ChapterVisibility,
   type MemoryNote,
   type TagDefinition,
   type TrackId,
@@ -302,6 +302,7 @@ export function Chapters({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<ChapterVisibility>("private");
   const [deleteTarget, setDeleteTarget] = useState<Cube | null>(null);
   const createDialogRef = useModalFocus<HTMLFormElement>(
     showForm || Boolean(pendingTrack),
@@ -318,7 +319,7 @@ export function Chapters({
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      const result = createCube(archive, { name, description, coverImageUrl });
+      const result = createCube(archive, { name, description, coverImageUrl, visibility });
       const linked = pendingTrack
         ? (result.archive.data.inbox[pendingTrack.id]
           ? moveInboxTrackToCube(result.archive, pendingTrack.id, result.cube.id)
@@ -334,6 +335,7 @@ export function Chapters({
         setName("");
         setDescription("");
         setCoverImageUrl(null);
+        setVisibility("private");
         setShowForm(false);
         if (linked) {
           router.push(
@@ -437,7 +439,9 @@ export function Chapters({
               coverImageUrl={coverImageUrl}
               onCoverImageChange={setCoverImageUrl}
               onNameChange={setName}
+              onVisibilityChange={setVisibility}
               showDescription={false}
+              visibility={visibility}
             />
             <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={closeCreateDialog}>취소</button><button className="button button-primary" type="submit">{pendingTrack ? "챕터 만들고 기록하기" : "챕터 만들기"}</button></div>
           </form>
@@ -481,7 +485,7 @@ export function ChapterDetail({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
-  const [color, setColor] = useState<CubeColor>("violet");
+  const [visibility, setVisibility] = useState<ChapterVisibility>("private");
   const [managing, setManaging] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deletingCurrent, setDeletingCurrent] = useState(false);
@@ -489,6 +493,7 @@ export function ChapterDetail({
   const [childName, setChildName] = useState("");
   const [childDescription, setChildDescription] = useState("");
   const [childCoverImageUrl, setChildCoverImageUrl] = useState<string | null>(null);
+  const [childVisibility, setChildVisibility] = useState<ChapterVisibility>("private");
   const menuRef = useRef<HTMLDivElement>(null);
   const editDialogRef = useModalFocus<HTMLFormElement>(
     editing,
@@ -528,7 +533,7 @@ export function ChapterDetail({
   function saveChapter(event: FormEvent) {
     event.preventDefault();
     try {
-      const next = updateCube(archive, activeChapter.id, { name, description, color, coverImageUrl });
+      const next = updateCube(archive, activeChapter.id, { name, description, coverImageUrl, visibility });
       if (commit(next, "챕터 분위기를 수정했어요.")) setEditing(false);
     } catch (error) {
       notify(error instanceof Error ? error.message : "챕터를 수정하지 못했어요.");
@@ -538,8 +543,8 @@ export function ChapterDetail({
   function openEditor() {
     setName(activeChapter.name);
     setDescription(activeChapter.description);
-    setColor(activeChapter.color);
     setCoverImageUrl(activeChapter.coverImageUrl);
+    setVisibility(activeChapter.visibility);
     setEditing(true);
     setMenuOpen(false);
   }
@@ -548,14 +553,8 @@ export function ChapterDetail({
     setChildName("");
     setChildDescription("");
     setChildCoverImageUrl(null);
+    setChildVisibility("private");
     setCreatingChild(true);
-  }
-
-  function toggleChapterVisibility() {
-    const nextVisibility = activeChapter.visibility === "public" ? "private" : "public";
-    if (commit(updateCube(archive, activeChapter.id, { visibility: nextVisibility }), nextVisibility === "public" ? "탐색에 게시했어요." : "탐색에서 내렸어요.")) {
-      setMenuOpen(false);
-    }
   }
 
   function submitChildChapter(event: FormEvent) {
@@ -567,6 +566,7 @@ export function ChapterDetail({
         coverImageUrl: childCoverImageUrl,
         color: activeChapter.color,
         parentId: activeChapter.id,
+        visibility: childVisibility,
       });
       if (commit(result.archive, `‘${result.cube.name}’ 하위 챕터를 만들었어요.`)) {
         setCreatingChild(false);
@@ -651,7 +651,6 @@ export function ChapterDetail({
                   {managing ? "곡 순서 변경 완료" : "곡 순서 변경"}
                 </button>
                 <button role="menuitem" type="button" onClick={openEditor}>챕터 정보 수정</button>
-                <button role="menuitem" type="button" onClick={toggleChapterVisibility}>{activeChapter.visibility === "public" ? "탐색에서 내리기" : "탐색에 공개하기"}</button>
                 <button role="menuitem" type="button" className="is-danger" onClick={() => { setDeletingCurrent(true); setMenuOpen(false); }}>챕터 삭제</button>
               </div>
             ) : null}
@@ -720,20 +719,19 @@ export function ChapterDetail({
         <div className="dialog-backdrop" role="presentation" onClick={() => setEditing(false)}>
           <form ref={editDialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="edit-chapter-title" onSubmit={saveChapter} onClick={(event) => event.stopPropagation()}>
             <span className="section-label">챕터 수정</span>
-            <h2 id="edit-chapter-title">챕터의 분위기</h2>
+            <h2 id="edit-chapter-title">챕터 정보</h2>
             <ChapterFields
-              color={color}
-              colorLabel="색상"
               description={description}
               descriptionLabel="설명"
               idPrefix="edit"
               name={name}
               nameLabel="이름"
-              onColorChange={setColor}
               onDescriptionChange={setDescription}
               onNameChange={setName}
               coverImageUrl={coverImageUrl}
               onCoverImageChange={setCoverImageUrl}
+              onVisibilityChange={setVisibility}
+              visibility={visibility}
             />
             <div className="dialog-actions"><button className="button" type="button" onClick={() => setEditing(false)}>취소</button><button className="button button-primary" type="submit">완료</button></div>
           </form>
@@ -755,6 +753,8 @@ export function ChapterDetail({
               coverImageUrl={childCoverImageUrl}
               onCoverImageChange={setChildCoverImageUrl}
               showDescription={false}
+              onVisibilityChange={setChildVisibility}
+              visibility={childVisibility}
             />
             <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={() => setCreatingChild(false)}>취소</button><button className="button button-primary" type="submit">하위 챕터 만들기</button></div>
           </form>

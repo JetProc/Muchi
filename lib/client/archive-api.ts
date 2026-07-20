@@ -37,9 +37,13 @@ export async function fetchArchive(): Promise<VersionedArchive> {
   return decode(await request("/api/archive", { cache: "no-store" }));
 }
 
-export async function saveArchive(payload: ArchiveEnvelopeV1, expectedRevision: number): Promise<VersionedArchive> {
+export async function saveArchive(
+  payload: ArchiveEnvelopeV1,
+  expectedRevision: number,
+  syncPublicProjection: boolean,
+): Promise<VersionedArchive> {
   return decode(await request("/api/archive", {
     method: "PUT",
-    body: JSON.stringify({ payload, expectedRevision }),
+    body: JSON.stringify({ payload, expectedRevision, syncPublicProjection }),
   }));
 }

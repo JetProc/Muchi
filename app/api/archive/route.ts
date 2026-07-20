@@ -25,7 +25,7 @@ export async function PUT(request: Request) {
       return error("archive_too_large", "음악 기록의 전체 용량이 너무 큽니다.", 413);
     }
     const body = (() => {
-      try { return JSON.parse(rawBody) as { payload?: unknown; expectedRevision?: unknown }; }
+      try { return JSON.parse(rawBody) as { payload?: unknown; expectedRevision?: unknown; syncPublicProjection?: unknown }; }
       catch { return null; }
     })();
     const parsed = parseArchive(JSON.stringify(body?.payload));
@@ -37,10 +37,8 @@ export async function PUT(request: Request) {
     if (result.status === "conflict") {
       return error("conflict", "다른 기기에서 먼저 변경됐어요.", 409, result.value);
     }
-    try {
+    if (body?.syncPublicProjection === true) {
       await syncPublishedChapters(supabase, userId, result.value.archive);
-    } catch (cause) {
-      console.error("[api/archive] public discovery sync failed", cause);
     }
     return Response.json(result.value, { headers: { "Cache-Control": "private, no-store" } });
   } catch (cause) {

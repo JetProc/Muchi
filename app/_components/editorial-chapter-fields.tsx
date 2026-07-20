@@ -1,15 +1,11 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
+import { Lock, Unlock } from "lucide-react";
 import {
   ARCHIVE_LIMITS,
-  CUBE_COLORS,
-  type CubeColor,
+  type ChapterVisibility,
 } from "@/lib/archive";
-import {
-  COLOR_HEX,
-  COLOR_LABEL,
-} from "./editorial-format";
 
 async function prepareCoverImage(file: File): Promise<string> {
   if (!/^image\/(?:jpeg|png|webp)$/.test(file.type)) {
@@ -55,34 +51,32 @@ export function ChapterFields({
   idPrefix,
   name,
   description,
-  color,
   coverImageUrl,
   nameLabel = "챕터 이름 *",
   descriptionLabel = "짧은 설명",
-  colorLabel = "분위기 색상",
   showDescription = true,
   namePlaceholder,
   descriptionPlaceholder,
   onNameChange,
   onDescriptionChange,
-  onColorChange,
   onCoverImageChange,
+  visibility,
+  onVisibilityChange,
 }: {
   idPrefix: string;
   name: string;
   description: string;
-  color?: CubeColor;
   coverImageUrl?: string | null;
   nameLabel?: string;
   descriptionLabel?: string;
-  colorLabel?: string;
   showDescription?: boolean;
   namePlaceholder?: string;
   descriptionPlaceholder?: string;
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
-  onColorChange?: (value: CubeColor) => void;
   onCoverImageChange?: (value: string | null) => void;
+  visibility?: ChapterVisibility;
+  onVisibilityChange?: (value: ChapterVisibility) => void;
 }) {
   const [coverError, setCoverError] = useState<string | null>(null);
   const [coverLoading, setCoverLoading] = useState(false);
@@ -156,23 +150,20 @@ export function ChapterFields({
           {coverError ? <p className="field-error" role="alert">{coverError}</p> : null}
         </div>
       ) : null}
-      {color && onColorChange ? (
+      {visibility && onVisibilityChange ? (
         <div className="field">
-          <span className="field-label">{colorLabel}</span>
-          <div className="filter-row">
-            {CUBE_COLORS.map((item) => (
-              <button
-                aria-pressed={color === item}
-                className={`tag${color === item ? " is-selected" : ""}`}
-                key={item}
-                onClick={() => onColorChange(item)}
-                style={{ borderColor: COLOR_HEX[item] }}
-                type="button"
-              >
-                {COLOR_LABEL[item]}
-              </button>
-            ))}
-          </div>
+          <span className="field-label">챕터 공개 상태</span>
+          <button
+            aria-label={`챕터 ${visibility === "public" ? "공개" : "비공개"}`}
+            aria-pressed={visibility === "public"}
+            className={`text-button memory-record-visibility ${visibility === "public" ? "is-public" : "is-private"}`}
+            onClick={() => onVisibilityChange(visibility === "public" ? "private" : "public")}
+            type="button"
+          >
+            {visibility === "public" ? <Unlock size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+            <span>{visibility === "public" ? "공개" : "비공개"}</span>
+          </button>
+          <p className="field-hint">공개하면 탐색과 내 공간 방문자 보기에서 볼 수 있어요.</p>
         </div>
       ) : null}
     </div>

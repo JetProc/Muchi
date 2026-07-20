@@ -359,6 +359,8 @@ export function EditorialShell({
         <header className="editorial-header">
           <div className="header-leading">
             <Link className="brand-lockup" href="/" intent="tab" aria-label="뮤키 홈">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="brand-lockup-mark" src="/assets/brand/muchi-logo.png" alt="" width={28} height={28} decoding="async" />
               <strong>뮤키</strong>
               <span>PERSONAL MUSIC ARCHIVE</span>
             </Link>

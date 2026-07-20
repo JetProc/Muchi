@@ -230,8 +230,18 @@ p {
   min-width: 0;
   min-height: 44px;
   align-items: center;
+  gap: 7px;
   color: var(--apple-body-on-dark);
   text-decoration: none;
+}
+
+.brand-lockup-mark {
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .brand-lockup strong {

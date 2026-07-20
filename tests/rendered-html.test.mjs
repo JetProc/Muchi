@@ -78,7 +78,7 @@ test("server-renders a deterministic MUCHI editorial archive shell", async () =>
 
   const html = await response.text();
   assert.match(html, /<html lang="ko">/);
-  assert.match(html, /<title>MUCHI — 나만의 음악 매거진<\/title>/);
+  assert.match(html, /<title>뮤키<\/title>/);
   assert.match(html, /좋아했던 음악에 태그와 기억을 더해/);
   assert.match(html, /개인 음악 아카이브/);
   assert.match(html, /href="\/capture"/);
@@ -115,7 +115,7 @@ test("renders every primary chapter archive destination with its stable shell", 
     const response = await render(pathname);
     assert.equal(response.status, 200, pathname);
     const html = await response.text();
-    assert.match(html, /<title>MUCHI — 나만의 음악 매거진<\/title>/, pathname);
+    assert.match(html, /<title>뮤키<\/title>/, pathname);
     assert.match(html, /id="main-content" tabindex="-1"/, pathname);
     assert.doesNotMatch(html, /큐브|음악 세계|캐릭터/, pathname);
   }
@@ -273,8 +273,9 @@ test("locks every viewport to the mobile device frame", async () => {
 });
 
 test("shows onboarding only until the signed-in profile completes it", async () => {
-  const [appSource, onboardingSource, routeSource, repositorySource, migrationSource] = await Promise.all([
+  const [appSource, authSource, onboardingSource, routeSource, repositorySource, migrationSource] = await Promise.all([
     readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/auth-gate.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/onboarding-screen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/onboarding/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/server/profile-repository.ts", import.meta.url), "utf8"),
@@ -283,7 +284,14 @@ test("shows onboarding only until the signed-in profile completes it", async () 
 
   assert.match(appSource, /onboarding && !onboarding\.completed/);
   assert.match(appSource, /saveOnboardingComplete\(\)/);
-  assert.match(onboardingSource, /뮤키 시작하기/);
+  assert.match(authSource, /className="auth-gate-brand"[^>]*aria-label="뮤키"[\s\S]*?<strong>뮤키<\/strong>/s);
+  assert.match(authSource, /function GoogleMark\(\)[\s\S]*?#4285F4[\s\S]*?#EA4335/s);
+  assert.match(authSource, /<GoogleMark \/>Google로 시작하기/);
+  assert.match(onboardingSource, /className="onboarding-mark" src="\/assets\/brand\/muchi-logo\.png" alt="뮤키"/);
+  assert.match(onboardingSource, /className="onboarding-brand-name">뮤키<\/p>/);
+  assert.doesNotMatch(onboardingSource, /className="onboarding-mark">MUCHI<\/span>/);
+  assert.match(onboardingSource, /챕터로 쌓아 올린[\s\S]*?나만의 음악 세계/);
+  assert.match(onboardingSource, /첫 챕터 열기/);
   assert.match(routeSource, /requireAuthenticatedUser\(\)/);
   assert.match(repositorySource, /\.upsert\(\{ id: userId, onboarding_completed: true \}/);
   assert.match(migrationSource, /onboarding_completed boolean not null default false/);

@@ -1179,7 +1179,7 @@ test("keeps archive search compact with the shared tag picker", async () => {
   assert.match(css, /\.search-view \.track-info em,[\s\S]*?\.recap-view \.track-info em\s*\{[^}]*-webkit-line-clamp:\s*2;/s);
 });
 
-test("builds a mobile playlist export UI with Apple Music and YouTube Music connections", async () => {
+test("builds a mobile playlist export UI with Apple Music pending and YouTube Music connected", async () => {
   const [chapterSource, playlistSource, serviceIconSource, appSource, typesSource, routeSource, css, appleIcon, youtubeIcon, appleRoute, youtubeRoute] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),
@@ -1196,10 +1196,10 @@ test("builds a mobile playlist export UI with Apple Music and YouTube Music conn
   const appleTheme = getAppleTheme(css);
 
   assert.match(chapterSource, /className="chapter-service-grid"/);
-  assert.match(chapterSource, /playlistHref\("apple"\)/);
   assert.match(chapterSource, /playlistHref\("youtube"\)/);
   assert.match(chapterSource, /className="chapter-service-actions" aria-label="플레이리스트로 내보내기"/);
-  assert.match(chapterSource, /Apple Music으로 내보내기/);
+  assert.match(chapterSource, /Apple Music 내보내기 준비 중/);
+  assert.match(chapterSource, /Apple Music 준비 중/);
   assert.match(chapterSource, /YouTube Music으로 내보내기/);
   assert.doesNotMatch(chapterSource, /Spotify/);
   assert.match(playlistSource, /Apple Music/);
@@ -1217,7 +1217,11 @@ test("builds a mobile playlist export UI with Apple Music and YouTube Music conn
   assert.match(playlistSource, /플레이리스트 만들기 완료/);
   assert.match(playlistSource, /서비스를 연결해 곡을 실제로 찾아볼게요/);
   assert.match(playlistSource, /\/api\/playlist\/\$\{serviceId\}/);
-  assert.match(playlistSource, /MusicKit/);
+  assert.match(playlistSource, /Apple Music 내보내기는 준비 중이에요/);
+  assert.match(playlistSource, /status:\s*"soon"/);
+  assert.match(playlistSource, /disabled=\{service\.status === "soon"\}/);
+  assert.doesNotMatch(playlistSource, /MusicKit/);
+  assert.doesNotMatch(playlistSource, /music\.apple\.com\/musickit/);
   assert.match(playlistSource, /https:\/\/www\.googleapis\.com\/auth\/youtube/);
   assert.match(playlistSource, /selectable[\s\S]*?showAlbum=\{false\}[\s\S]*?showIndex=\{false\}[\s\S]*?onRowClick=\{\(\) => toggleTrack\(entry\.track\.id\)\}/s);
   assert.doesNotMatch(playlistSource, /playlist-track-toggle|service\.description|ChevronRight/);
@@ -1230,6 +1234,7 @@ test("builds a mobile playlist export UI with Apple Music and YouTube Music conn
   assert.match(routeSource, /<MusicWorldApp view="playlist" \/>/);
   assert.match(appleTheme, /\.playlist-stepper\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/s);
   assert.match(appleTheme, /\.playlist-service-list\s*\{[^}]*display:\s*grid;/s);
+  assert.match(appleTheme, /\.chapter-service-link:disabled,[\s\S]*?\.playlist-service-row:disabled\s*\{[^}]*cursor:\s*not-allowed;/s);
   assert.match(appleTheme, /\.playlist-builder-actions\s*\{[^}]*position:\s*sticky;/s);
   assert.match(appleTheme, /\.music-service-mark\s*\{[^}]*object-fit:\s*contain;/s);
   assert.match(appleTheme, /\.playlist-simulation-note\s*\{[^}]*margin:\s*0 0 var\(--apple-space-3\);/s);

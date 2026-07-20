@@ -16,6 +16,7 @@ type PublishedChapterRow = {
   author_id: string;
   author_name: string;
   payload: unknown;
+  like_count?: number;
 };
 
 function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ chapterId: string; payload: PublicChapter }> {
@@ -30,6 +31,7 @@ function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ 
       artworkUrl: chapter.coverImageUrl,
       createdAt: chapter.createdAt,
       likeCount: 0,
+      likedByViewer: false,
       tracks: tracks.map(({ cubeTrack, track, tags, privateRecord }) => ({
         id: cubeTrack.id,
         track,
@@ -113,17 +115,42 @@ export async function syncPublishedChapters(
   }
 }
 
-export async function readPublicDiscoveryCatalog(supabase: SupabaseClient): Promise<PublicDiscoveryCatalog> {
+export async function readPublicDiscoveryCatalog(supabase: SupabaseClient, userId: string): Promise<PublicDiscoveryCatalog> {
   const { data, error } = await supabase
     .from("published_chapters")
-    .select("author_id, author_name, payload")
+    .select("author_id, chapter_id, author_name, payload, like_count")
     .order("published_at", { ascending: false })
     .limit(60);
   if (error) throw error;
-  const rows: PublicDiscoveryRow[] = ((data ?? []) as PublishedChapterRow[]).map((row) => ({
+  const published = (data ?? []) as PublishedChapterRow[];
+  const { data: likes, error: likesError } = await supabase
+    .from("chapter_likes")
+    .select("author_id, chapter_id")
+    .eq("user_id", userId);
+  if (likesError) throw likesError;
+  const liked = new Set((likes ?? []).map((like) => `${like.author_id}:${like.chapter_id}`));
+  const rows: PublicDiscoveryRow[] = published.map((row) => ({
     authorId: row.author_id,
     authorName: row.author_name,
-    payload: row.payload as PublicChapter,
+    payload: {
+      ...(row.payload as PublicChapter),
+      likeCount: typeof row.like_count === "number" ? row.like_count : 0,
+      likedByViewer: liked.has(`${row.author_id}:${row.chapter_id}`),
+    },
   }));
   return createPublicDiscoveryCatalog(rows);
+}
+
+export async function setChapterLike(
+  supabase: SupabaseClient,
+  userId: string,
+  authorId: string,
+  chapterId: string,
+  liked: boolean,
+): Promise<void> {
+  const query = liked
+    ? supabase.from("chapter_likes").insert({ author_id: authorId, chapter_id: chapterId, user_id: userId })
+    : supabase.from("chapter_likes").delete().eq("author_id", authorId).eq("chapter_id", chapterId).eq("user_id", userId);
+  const { error } = await query;
+  if (error && !(liked && error.code === "23505")) throw error;
 }

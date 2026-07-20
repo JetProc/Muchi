@@ -26,3 +26,15 @@ export async function fetchPublicDiscoveryCatalog(): Promise<PublicDiscoveryCata
   }
   return body as PublicDiscoveryCatalog;
 }
+
+export async function saveChapterLike(authorId: string, chapterId: string, liked: boolean): Promise<void> {
+  const response = await fetch("/api/public-discovery", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ authorId, chapterId, liked }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { message?: string } | null;
+    throw new PublicDiscoveryApiError("unavailable", body?.message ?? "좋아요를 저장하지 못했어요.");
+  }
+}

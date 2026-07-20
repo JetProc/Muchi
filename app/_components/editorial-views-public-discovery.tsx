@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, UserPlus, Users, X } from "lucide-react";
+import { Bell, ChevronRight, Heart, UserPlus, Users, X } from "lucide-react";
 import {
   getFollowingActivities,
   getProfileChapters,
@@ -27,6 +27,8 @@ import { chapterColorStyle, formatDate } from "./editorial-format";
 
 type DiscoveryActions = {
   onToggleFollow: (profileId: string) => void;
+  onToggleLike: (chapterId: string) => void;
+  onMarkActivityRead: (activityId: string) => void;
 };
 
 function initials(profile: PublicProfile): string {
@@ -84,10 +86,11 @@ function ChapterFeedLine({ item, index }: { item: RankedPublicChapter; index: nu
 
 function ActivityFeed({
   catalog,
-  state,
+  state, actions,
 }: {
   catalog: PublicDiscoveryCatalog;
   state: DiscoveryInteractionState;
+  actions: DiscoveryActions;
 }) {
   const activities = getFollowingActivities(catalog, state);
   if (!activities.length) {
@@ -106,9 +109,11 @@ function ActivityFeed({
             intent="shared"
             sharedId={chapter.id}
             key={activity.id}
+            onClick={() => actions.onMarkActivityRead(activity.id)}
           >
             <ProfileStamp profile={profile} />
             <span><strong>{chapter.name}</strong><small>팔로잉 새 글</small></span>
+            {!state.readActivityIds.includes(activity.id) ? <Bell size={14} aria-label="읽지 않은 알림" /> : null}
           </Link>
         );
       })}
@@ -121,13 +126,15 @@ export function Discover({
   catalog,
   state,
   activityOnly,
+  actions,
 }: {
   archive: ArchiveEnvelopeV1;
   catalog: PublicDiscoveryCatalog;
   state: DiscoveryInteractionState;
   activityOnly: boolean;
+  actions: DiscoveryActions;
 }) {
-  const ranked = rankPublicChapters(archive, catalog, state);
+  const ranked = rankPublicChapters(archive, catalog);
   return (
     <div className="page-content discover-view">
       <PageHeader
@@ -144,7 +151,7 @@ export function Discover({
           </Link>
         )}
       />
-      {activityOnly ? <ActivityFeed catalog={catalog} state={state} /> : (
+      {activityOnly ? <ActivityFeed catalog={catalog} state={state} actions={actions} /> : (
         <section className="public-chapter-feed" aria-label="추천 공개 챕터">
           {ranked.slice(0, 18).map((item, index) => <ChapterFeedLine item={item} index={index} key={item.chapter.id} />)}
         </section>
@@ -173,9 +180,11 @@ function FollowButton({
 export function PublicChapterDetail({
   catalog,
   chapterId,
+  actions,
 }: {
   catalog: PublicDiscoveryCatalog;
   chapterId: string | null;
+  actions: DiscoveryActions;
 }) {
   const chapter = getPublicChapter(catalog, chapterId);
   const profile = chapter ? catalog.profiles[chapter.profileId] : null;
@@ -210,6 +219,7 @@ export function PublicChapterDetail({
         description={chapter.description}
         meta={`${chapter.tracks.length}곡`}
         utilities={<ChapterPlaylistActions chapterId={chapter.id} source="discover" />}
+        actions={<button className={`public-like-button${chapter.likedByViewer ? " is-liked" : ""}`} type="button" onClick={() => actions.onToggleLike(chapter.id)} aria-pressed={chapter.likedByViewer}><Heart size={15} aria-hidden="true" />좋아요 {chapter.likeCount}</button>}
         style={chapterColorStyle("violet")}
       />
       <ChapterTrackSection items={trackItems} label={`${chapter.tracks.length}곡`} title="수록곡" />

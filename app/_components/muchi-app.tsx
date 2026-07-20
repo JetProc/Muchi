@@ -17,7 +17,9 @@ import {
   getPublicChapter,
   toPlaylistSource,
   toggleFollow,
+  markActivityRead,
 } from "@/lib/public-discovery";
+import { saveChapterLike } from "@/lib/client/public-discovery-api";
 import {
   EditorialShell,
   type ContextBackAction,
@@ -435,8 +437,24 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     saveDiscoveryState(toggleFollow(discoveryState, profileId), following ? "팔로우를 취소했어요." : "새 챕터 소식을 받아볼게요.");
   }
 
+  function handleToggleLike(chapterId: string) {
+    const chapter = getPublicChapter(catalog, chapterId);
+    if (!chapter) return;
+    const liked = chapter.likedByViewer;
+    void saveChapterLike(chapter.profileId, chapterId.replace(`public:${chapter.profileId}:`, ""), !liked)
+      .then(() => void ensureDiscoveryData(true))
+      .catch((error: unknown) => notify(error instanceof Error ? error.message : "좋아요를 저장하지 못했어요."));
+  }
+
+  function handleMarkActivityRead(activityId: string) {
+    if (discoveryState.readActivityIds.includes(activityId)) return;
+    saveDiscoveryState(markActivityRead(discoveryState, activityId));
+  }
+
   const discoveryActions = {
     onToggleFollow: handleToggleFollow,
+    onToggleLike: handleToggleLike,
+    onMarkActivityRead: handleMarkActivityRead,
   };
 
   const preview: PreviewControls = {
@@ -560,10 +578,10 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         );
       case "discover":
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
-        return <Discover archive={archive} catalog={catalog} state={discoveryState} activityOnly={searchParams.get("activity") === "1"} />;
+        return <Discover archive={archive} catalog={catalog} state={discoveryState} activityOnly={searchParams.get("activity") === "1"} actions={discoveryActions} />;
       case "discoverChapter":
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
-        return <PublicChapterDetail catalog={catalog} chapterId={queryId} />;
+        return <PublicChapterDetail catalog={catalog} chapterId={queryId} actions={discoveryActions} />;
       case "discoverProfile":
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
         return <PublicProfileDetail catalog={catalog} state={discoveryState} profileId={queryId} showAll={searchParams.get("view") === "all"} actions={discoveryActions} />;

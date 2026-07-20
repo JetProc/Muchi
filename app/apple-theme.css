@@ -5031,3 +5031,22 @@ button.tag {
   .personal-space-shelf { gap: 7px; padding-right: 7px; padding-left: 7px; }
   .personal-space-chapter-copy strong { font-size: 12px; }
 }
+.public-like-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--apple-line);
+  border-radius: 999px;
+  color: var(--apple-body-muted);
+  background: var(--apple-canvas);
+  font: inherit;
+  font-size: 12px;
+}
+
+.public-like-button.is-liked {
+  border-color: color-mix(in srgb, var(--apple-primary) 30%, var(--apple-line));
+  color: var(--apple-primary);
+  background: color-mix(in srgb, var(--apple-primary) 8%, var(--apple-canvas));
+}

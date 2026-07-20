@@ -271,7 +271,9 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.match(dataProviderSource, /useState<ArchiveEnvelopeV1>\(\(\) => createEmptyArchive\(\)\)/);
   assert.match(dataProviderSource, /Promise\.all\(\[\s*fetchArchive\(\),\s*fetchOnboardingStatus\(\),\s*\]\)/s);
   assert.match(dataProviderSource, /ensureDiscoveryData[\s\S]*?Promise\.all\(\[fetchPublicDiscoveryCatalog\(\), fetchDiscoveryState\(\)\]\)/s);
-  assert.match(dataProviderSource, /saveArchiveRemote\(pending\.archive, archiveRevisionRef\.current\)/);
+  assert.match(dataProviderSource, /saveArchiveRemote\(pending\.archive, archiveRevisionRef\.current, pending\.syncPublicProjection\)/);
+  assert.match(dataProviderSource, /publicProjectionSignature\(archive\) !== publicProjectionSignature\(next\)/);
+  assert.match(dataProviderSource, /변경사항을 보존하고 다시 저장할게요/);
   assert.doesNotMatch(`${appSource}\n${dataProviderSource}`, /window\.localStorage/);
   assert.doesNotMatch(globalStyles, /@keyframes route-enter\s*\{\s*from \{ opacity: 0;/s);
   assert.match(mediaSource, /data-shared-transition-id=\{sharedArtworkKey\(sharedId\)\}/);
@@ -354,18 +356,17 @@ test("keeps the app shell visible and matches archive loading states to each pri
 });
 
 test("keeps app data in memory across routes and skips unchanged public sync writes", async () => {
-  const [providerSource, publicRepositorySource, motionSource] = await Promise.all([
+  const [providerSource, motionSource] = await Promise.all([
     readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../lib/server/public-discovery-repository.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-motion.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(providerSource, /const STALE_AFTER_MS = 60_000;/);
-  assert.match(providerSource, /pendingArchiveRef\.current = \{ archive: next, message \}/);
+  assert.match(providerSource, /pendingArchiveRef\.current = \{ archive: next, message, syncPublicProjection \}/);
   assert.match(providerSource, /while \(pendingArchiveRef\.current\)/);
   assert.match(providerSource, /if \(discoveryPromiseRef\.current\) return discoveryPromiseRef\.current;/);
   assert.doesNotMatch(providerSource, /window\.(?:localStorage|sessionStorage)/);
-  assert.match(publicRepositorySource, /const publicProjectionUnchanged =[\s\S]*?if \(publicProjectionUnchanged\) return;/s);
+  assert.match(providerSource, /publicProjectionSignature\(archive\) !== publicProjectionSignature\(next\)/);
   assert.match(motionSource, /router\.prefetch\(href\)/);
 });
 
@@ -732,7 +733,7 @@ test("shares chapter hierarchy choices, fields, and delete confirmation across f
   assert.doesNotMatch(`${primarySource}\n${chapterSource}`, /chapterPathLabel|className="chapter-choice"/);
   assert.match(fieldsSource, /ARCHIVE_LIMITS\.cubeName/);
   assert.match(fieldsSource, /ARCHIVE_LIMITS\.cubeDescription/);
-  assert.match(fieldsSource, /aria-pressed=\{color === item\}/);
+  assert.doesNotMatch(fieldsSource, /onColorChange|CUBE_COLORS|COLOR_HEX|COLOR_LABEL/);
   assert.match(fieldsSource, /accept="image\/jpeg,image\/png,image\/webp"/);
   assert.match(fieldsSource, /prepareCoverImage/);
   assert.match(fieldsSource, /onCoverImageChange\(await prepareCoverImage\(file\)\)/);
@@ -806,10 +807,21 @@ test("does not ask for a visual color while creating chapters", async () => {
 
   assert.doesNotMatch(rootCreateDialog, /color=|onColorChange=/);
   assert.doesNotMatch(childCreateDialog, /color=|onColorChange=/);
-  assert.match(chapterSource, /createCube\(archive, \{ name, description, coverImageUrl \}\)/);
+  const editChapterDialog = sliceBetween(
+    chapterSource,
+    'aria-labelledby="edit-chapter-title"',
+    '{creatingChild ? (',
+    "chapter edit dialog",
+  );
+  assert.doesNotMatch(editChapterDialog, /color=|onColorChange=/);
+  assert.match(editChapterDialog, /<h2 id="edit-chapter-title">챕터 정보<\/h2>/);
+  assert.match(chapterSource, /createCube\(archive, \{ name, description, coverImageUrl, visibility \}\)/);
   assert.match(chapterSource, /color: activeChapter\.color,/);
   assert.match(rootCreateDialog, /onCoverImageChange=\{setCoverImageUrl\}/);
   assert.match(childCreateDialog, /onCoverImageChange=\{setChildCoverImageUrl\}/);
+  assert.match(rootCreateDialog, /onVisibilityChange=\{setVisibility\}/);
+  assert.match(childCreateDialog, /onVisibilityChange=\{setChildVisibility\}/);
+  assert.doesNotMatch(chapterSource, /탐색에서 내리기|탐색에 공개하기/);
 });
 
 test("removes selectors for retired chapter, community, and tag interfaces", async () => {
@@ -2344,6 +2356,15 @@ test("keeps personal space private by default and strips private records from vi
   assert.deepEqual(space.data.space.featuredCubeIds, [chapter.cube.id]);
 });
 
+test("includes public child chapters in visitor projections", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const parent = archiveDomain.createCube(archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z"), { name: "상위 챕터" });
+  const child = archiveDomain.createCube(parent.archive, { name: "공개 하위 챕터", parentId: parent.cube.id, visibility: "public" });
+  const projection = archiveDomain.getVisitorSpaceChapters(child.archive);
+  assert.equal(projection.length, 1);
+  assert.equal(projection[0].chapter.id, child.cube.id);
+});
+
 test("stores a custom chapter cover while keeping the album collage as the null default", async () => {
   const archiveDomain = await loadArchiveDomain();
   const image = "data:image/png;base64,aA==";
@@ -2689,7 +2710,7 @@ test("builds a published public discovery catalog with explainable similarity an
   assert.ok(profiles.every((profile) => profile.space.featuredChapterIds.every((chapterId) => catalog.chapters[chapterId]?.profileId === profile.id)));
   assert.ok(chapters.every((chapter) => chapter.tracks.length === 2));
 
-  const ranked = discoveryDomain.rankPublicChapters(archive, catalog, state);
+  const ranked = discoveryDomain.rankPublicChapters(archive, catalog);
   assert.ok(ranked.length > 0);
   assert.ok(ranked[0].sharedTrackCount > 0);
   assert.match(ranked[0].reason, /겹치는 곡/);
@@ -2700,15 +2721,12 @@ test("builds a published public discovery catalog with explainable similarity an
   assert.deepEqual(privateRecord.tags, []);
 
   const profileId = profiles[0].id;
-  const chapterId = chapters[0].id;
   const followed = discoveryDomain.toggleFollow(state, profileId);
-  const liked = discoveryDomain.toggleLike(followed, chapterId);
-  assert.ok(liked.followedProfileIds.includes(profileId));
-  assert.ok(liked.likedChapterIds.includes(chapterId));
+  assert.ok(followed.followedProfileIds.includes(profileId));
   assert.deepEqual(discoveryDomain.parseDiscoveryInteractionState(
-    discoveryDomain.serializeDiscoveryInteractionState(liked),
+    discoveryDomain.serializeDiscoveryInteractionState(followed),
     catalog,
-  ), liked);
+  ), followed);
 
   assert.deepEqual(discoveryDomain.createEmptyPublicDiscoveryCatalog(), {
     profiles: {}, chapters: {}, activities: [],
@@ -2751,7 +2769,8 @@ test("uses shared chapter components for public discovery details and playlist e
     discoverySource.indexOf("export function PublicProfileDetail("),
   );
   const publicProfileSource = discoverySource.slice(discoverySource.indexOf("export function PublicProfileDetail("));
-  assert.doesNotMatch(publicChapterSource, /LikeButton|좋아요|public-like-button/);
+  assert.match(publicChapterSource, /public-like-button/);
+  assert.match(publicChapterSource, /좋아요 \{chapter\.likeCount\}/);
   assert.doesNotMatch(publicChapterSource, /utilitiesOutsideCopy/);
   assert.match(publicChapterSource, /meta=\{`\$\{chapter\.tracks\.length\}곡`\}/);
   assert.doesNotMatch(publicChapterSource, /공개 챕터 ·|공개 기록/);
@@ -2764,7 +2783,7 @@ test("uses shared chapter components for public discovery details and playlist e
   assert.doesNotMatch(publicChapterSource, /FollowButton/);
   assert.match(publicProfileSource, /<FollowButton/);
   assert.match(discoverySource, /팔로잉 새 글/);
-  assert.doesNotMatch(discoverySource, /Bell|새 활동|읽지 않음/);
+  assert.match(discoverySource, /Bell/);
   assert.match(publicProfileSource, /<MusicRoomFrame/);
   assert.match(publicProfileSource, /profile\.space\.featuredChapterIds/);
   assert.match(publicProfileSource, /전체 챕터 보기/);

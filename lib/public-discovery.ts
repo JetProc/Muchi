@@ -35,6 +35,7 @@ export type PublicChapter = {
   artworkUrl: string | null;
   createdAt: string;
   likeCount: number;
+  likedByViewer: boolean;
   tracks: PublicChapterTrack[];
 };
 
@@ -53,7 +54,6 @@ export type PublicDiscoveryCatalog = {
 
 export type DiscoveryInteractionState = {
   followedProfileIds: string[];
-  likedChapterIds: string[];
   readActivityIds: string[];
 };
 
@@ -106,7 +106,7 @@ export function createPublicDiscoveryCatalog(rows: PublicDiscoveryRow[]): Public
 }
 
 export function createDiscoveryInteractionState(): DiscoveryInteractionState {
-  return { followedProfileIds: [], likedChapterIds: [], readActivityIds: [] };
+  return { followedProfileIds: [], readActivityIds: [] };
 }
 
 function uniqueIds(ids: string[]): string[] {
@@ -122,7 +122,6 @@ function validState(value: unknown, catalog?: PublicDiscoveryCatalog): Discovery
   const activityLookup = catalog ? Object.fromEntries(catalog.activities.map((activity) => [activity.id, activity])) : undefined;
   return {
     followedProfileIds: filterKnown(raw.followedProfileIds, catalog?.profiles),
-    likedChapterIds: filterKnown(raw.likedChapterIds, catalog?.chapters),
     readActivityIds: filterKnown(raw.readActivityIds, activityLookup),
   };
 }
@@ -130,7 +129,6 @@ function validState(value: unknown, catalog?: PublicDiscoveryCatalog): Discovery
 export function serializeDiscoveryInteractionState(state: DiscoveryInteractionState): string {
   return JSON.stringify({
     followedProfileIds: uniqueIds(state.followedProfileIds),
-    likedChapterIds: uniqueIds(state.likedChapterIds),
     readActivityIds: uniqueIds(state.readActivityIds),
   });
 }
@@ -153,10 +151,6 @@ function toggled(ids: string[], id: string): string[] {
 
 export function toggleFollow(state: DiscoveryInteractionState, profileId: string): DiscoveryInteractionState {
   return { ...state, followedProfileIds: toggled(state.followedProfileIds, profileId) };
-}
-
-export function toggleLike(state: DiscoveryInteractionState, chapterId: string): DiscoveryInteractionState {
-  return { ...state, likedChapterIds: toggled(state.likedChapterIds, chapterId) };
 }
 
 export function markActivityRead(state: DiscoveryInteractionState, activityId: string): DiscoveryInteractionState {
@@ -192,7 +186,6 @@ export function getFollowingActivities(
 export function rankPublicChapters(
   archive: ArchiveEnvelopeV1,
   catalog: PublicDiscoveryCatalog,
-  state: DiscoveryInteractionState,
 ): RankedPublicChapter[] {
   const userTrackIds = new Set(Object.keys(archive.data.tracks));
   return Object.values(catalog.chapters)
@@ -200,8 +193,7 @@ export function rankPublicChapters(
       const profile = catalog.profiles[chapter.profileId];
       const sharedTrackCount = chapter.tracks.filter(({ track }) => userTrackIds.has(track.id)).length;
       const sharedTrackDensity = chapter.tracks.length ? sharedTrackCount / chapter.tracks.length : 0;
-      const liked = state.likedChapterIds.includes(chapter.id) ? 1 : 0;
-      const score = sharedTrackCount * 10_000 + sharedTrackDensity * 1_000 + liked * 10 + chapter.likeCount / 1_000;
+      const score = sharedTrackCount * 10_000 + sharedTrackDensity * 1_000 + chapter.likeCount / 1_000;
       return {
         chapter,
         profile,

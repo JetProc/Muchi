@@ -2768,7 +2768,11 @@ test("keeps the memory form focused on tags, an optional dated memo, and one com
   assert.match(memoryFormSource, /className="memory-note-date-row"/);
   assert.match(memorySource, /id="memory-note-body"/);
   assert.match(memorySource, /getCubeTrackNotes\(activeCubeTrack\)/);
+  assert.match(memorySource, /function deleteCurrentMemory\(\)/);
+  assert.match(memorySource, /removeCubeTrack\(archive, activeCubeTrack\.id\)/);
+  assert.match(memorySource, /router\.push\(\s*activeCube\.kind === "capture" \? "\/inbox" : `\/chapter\?id=\$\{encodeURIComponent\(activeCube\.id\)\}`/s);
   assert.doesNotMatch(memoryFormSource, /자동 저장됨|저장 중…|memory-autosave-status/);
+  assert.match(memoryFormSource, /className="button memory-record-delete"[\s\S]*?곡 기록 삭제/s);
   assert.match(memoryFormSource, /className="button button-primary memory-record-submit"[\s\S]*?기록하기/s);
   assert.match(memoryFormSource, /<h2 id="memory-note-title"(?: className="field-label")?>메모<\/h2>/);
   assert.doesNotMatch(memoryFormSource, /메모 · 선택|한 줄 남기기/);
@@ -2791,6 +2795,8 @@ test("keeps the memory form focused on tags, an optional dated memo, and one com
   assert.match(css, /\.memory-note-date-row\s*\{[^}]*min-height:\s*44px;/s);
   assert.doesNotMatch(css, /\.memory-autosave-status\s*\{/);
   assert.match(css, /\.memory-record-footer\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*calc\(70px \+ 12px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(css, /\.memory-record-footer\s*\{[^}]*grid-template-columns:\s*minmax\(0, 0\.42fr\) minmax\(0, 0\.58fr\);/s);
+  assert.match(css, /\.memory-record-delete\s*\{[^}]*min-height:\s*50px;[^}]*var\(--apple-danger\)/s);
   assert.match(css, /\.memory-record-submit\s*\{[^}]*min-height:\s*50px;/s);
   assert.doesNotMatch(css, /\.memory-details-disclosure|\.memory-period-controls|\.memory-preview-actions/);
 });

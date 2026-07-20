@@ -1132,6 +1132,25 @@ export function Memory({
     }
   }
 
+  function deleteCurrentMemory() {
+    const confirmMessage = activeCube.kind === "capture"
+      ? `‘${activeTrack.title}’ 기록을 삭제하고 보관함으로 되돌릴까요?`
+      : `‘${activeTrack.title}’의 이 챕터 태그와 메모를 삭제할까요? 다른 챕터의 기록은 남습니다.`;
+    if (!window.confirm(confirmMessage)) return;
+    try {
+      if (commit(removeCubeTrack(archive, activeCubeTrack.id), "곡 기록을 삭제했어요.")) {
+        clearDraft();
+        router.push(
+          activeCube.kind === "capture" ? "/inbox" : `/chapter?id=${encodeURIComponent(activeCube.id)}`,
+          "back",
+          activeCube.kind === "capture" ? undefined : activeCube.id,
+        );
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "곡 기록을 삭제하지 못했어요.");
+    }
+  }
+
   function addToOtherChapter(targetChapterId: string) {
     try {
       if (activeCube.kind === "capture") {
@@ -1228,6 +1247,10 @@ export function Memory({
             </section>
           ) : null}
           <div className="memory-record-footer">
+            <button className="button memory-record-delete" type="button" onClick={deleteCurrentMemory}>
+              <Trash2 size={16} aria-hidden="true" />
+              <span>곡 기록 삭제</span>
+            </button>
             <button className="button button-primary memory-record-submit" type="submit">{editingNoteId ? "수정 완료" : "기록하기"}</button>
           </div>
         </form>

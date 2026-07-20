@@ -2762,8 +2762,21 @@ button.tag {
   bottom: calc(70px + 12px + env(safe-area-inset-bottom));
   left: var(--apple-page-gutter);
   display: grid;
-  gap: 4px;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+  gap: 8px;
   pointer-events: none;
+}
+
+.memory-record-delete {
+  width: 100%;
+  min-height: 50px;
+  gap: 6px;
+  border-color: color-mix(in srgb, var(--apple-danger) 20%, var(--apple-hairline));
+  color: color-mix(in srgb, var(--apple-danger) 78%, var(--apple-ink));
+  background: color-mix(in srgb, var(--apple-danger) 7%, var(--apple-canvas));
+  border-radius: var(--apple-radius-pill) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+  pointer-events: auto;
 }
 
 .memory-record-submit {

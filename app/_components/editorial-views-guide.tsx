@@ -8,9 +8,9 @@ const SUPPORTS = [
   ["YouTube Music", "가져오기", "지원"],
   ["Apple Music", "가져오기", "지원"],
   ["Spotify", "가져오기", "미지원"],
-  ["YouTube Music", "내보내기", "지원"],
+  ["YouTube Music", "내보내기", "준비 중"],
   ["Apple Music", "내보내기", "준비 중"],
-  ["Spotify", "내보내기", "미지원"],
+  ["Spotify", "내보내기", "준비 중"],
 ] as const;
 
 export function Guide() {

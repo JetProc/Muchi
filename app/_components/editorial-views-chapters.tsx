@@ -237,18 +237,10 @@ export function ChapterTrackSection({
   );
 }
 
-export function ChapterPlaylistActions({
-  chapterId,
-  source,
-}: {
+export function ChapterPlaylistActions({}: {
   chapterId: string;
   source?: "discover";
 }) {
-  const playlistHref = (service: "apple" | "youtube") => {
-    const params = new URLSearchParams({ id: chapterId, service });
-    if (source) params.set("source", source);
-    return `/playlist?${params.toString()}`;
-  };
   return (
     <nav className="chapter-service-actions" aria-label="플레이리스트로 내보내기">
       <div className="chapter-service-grid">
@@ -256,10 +248,10 @@ export function ChapterPlaylistActions({
           <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="apple" /></span>
           <span>Apple Music 준비 중</span>
         </button>
-        <Link className="chapter-service-link is-youtube" href={playlistHref("youtube")} intent="modal" aria-label="YouTube Music으로 내보내기">
+        <button className="chapter-service-link is-youtube" type="button" disabled aria-label="YouTube Music 내보내기 준비 중">
           <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="youtube" /></span>
-          <span>YouTube Music</span>
-        </Link>
+          <span>YouTube Music 준비 중</span>
+        </button>
       </div>
     </nav>
   );

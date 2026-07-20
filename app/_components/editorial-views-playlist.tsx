@@ -16,7 +16,7 @@ type MusicService = { id: MusicServiceId; name: string; url: string; status?: "s
 
 const MUSIC_SERVICES: MusicService[] = [
   { id: "apple", name: "Apple Music", url: "https://music.apple.com/", status: "soon" },
-  { id: "youtube", name: "YouTube Music", url: "https://music.youtube.com/" },
+  { id: "youtube", name: "YouTube Music", url: "https://music.youtube.com/", status: "soon" },
 ];
 const STEP_LABEL = ["곡 확인", "서비스 선택", "매칭 확인"] as const;
 const YOUTUBE_SCOPE = "https://www.googleapis.com/auth/youtube";

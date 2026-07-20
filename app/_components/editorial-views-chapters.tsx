@@ -553,7 +553,7 @@ export function ChapterDetail({
 
   function toggleChapterVisibility() {
     const nextVisibility = activeChapter.visibility === "public" ? "private" : "public";
-    if (commit(updateCube(archive, activeChapter.id, { visibility: nextVisibility }), nextVisibility === "public" ? "방문자 서재에 진열했어요." : "방문자 서재에서 내렸어요.")) {
+    if (commit(updateCube(archive, activeChapter.id, { visibility: nextVisibility }), nextVisibility === "public" ? "탐색에 게시했어요." : "탐색에서 내렸어요.")) {
       setMenuOpen(false);
     }
   }
@@ -651,7 +651,7 @@ export function ChapterDetail({
                   {managing ? "곡 순서 변경 완료" : "곡 순서 변경"}
                 </button>
                 <button role="menuitem" type="button" onClick={openEditor}>챕터 정보 수정</button>
-                <button role="menuitem" type="button" onClick={toggleChapterVisibility}>{activeChapter.visibility === "public" ? "비공개로 전환" : "공개하기"}</button>
+                <button role="menuitem" type="button" onClick={toggleChapterVisibility}>{activeChapter.visibility === "public" ? "탐색에서 내리기" : "탐색에 공개하기"}</button>
                 <button role="menuitem" type="button" className="is-danger" onClick={() => { setDeletingCurrent(true); setMenuOpen(false); }}>챕터 삭제</button>
               </div>
             ) : null}

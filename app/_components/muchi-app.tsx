@@ -16,22 +16,25 @@ import {
 } from "@/lib/archive";
 import {
   createDiscoveryInteractionState,
-  createPublicDiscoveryCatalog,
+  createEmptyPublicDiscoveryCatalog,
   getPublicChapter,
   markActivityRead,
   toPlaylistSource,
   toggleFollow,
   toggleLike,
   type DiscoveryInteractionState,
+  type PublicDiscoveryCatalog,
 } from "@/lib/public-discovery";
-import { ArchiveApiError, fetchArchive, saveArchive } from "@/lib/client/archive-api";
-import { fetchDiscoveryState, saveDiscoveryState } from "@/lib/client/discovery-state-api";
+import { ArchiveApiError, fetchArchive, saveArchive, type VersionedArchive } from "@/lib/client/archive-api";
+import { fetchDiscoveryState, saveDiscoveryState, type VersionedDiscoveryState } from "@/lib/client/discovery-state-api";
+import { fetchPublicDiscoveryCatalog, PublicDiscoveryApiError } from "@/lib/client/public-discovery-api";
 import {
   fetchOnboardingStatus,
   OnboardingApiError,
   saveOnboardingComplete,
   type OnboardingStatus,
 } from "@/lib/client/onboarding-api";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   EditorialShell,
   type ContextBackAction,
@@ -255,7 +258,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
   const router = useMotionRouter();
   const [archive, setArchive] = useState<ArchiveEnvelopeV1>(() => createEmptyArchive());
-  const catalog = useMemo(() => createPublicDiscoveryCatalog(), []);
+  const [catalog, setCatalog] = useState(() => createEmptyPublicDiscoveryCatalog());
   const [discoveryState, setDiscoveryState] = useState<DiscoveryInteractionState>(() => createDiscoveryInteractionState());
   const [hydrated, setHydrated] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
@@ -404,19 +407,35 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       }
     }
     const hydrationTimer = window.setTimeout(() => {
-      Promise.all([fetchArchive(), fetchDiscoveryState(), fetchOnboardingStatus()])
-        .then(([archiveResult, discoveryResult, onboardingResult]) => {
-          archiveRevisionRef.current = archiveResult.revision;
-          discoveryRevisionRef.current = discoveryResult.revision;
-          setArchive(archiveResult.archive);
-          setDiscoveryState(discoveryResult.state);
-          setOnboarding(onboardingResult);
-          setOnline(window.navigator.onLine);
-          setSystemReduce(media.matches);
-          setHydrated(true);
-        })
-        .catch((cause) => {
-          if (cause instanceof ArchiveApiError && cause.code === "unauthenticated") setAuthRequired(true);
+      async function hydrateFromRemote() {
+        const { data } = await createSupabaseBrowserClient().auth.getSession() as {
+          data: { session: unknown };
+        };
+        if (!data.session) {
+          setAuthRequired(true);
+          return;
+        }
+        const [archiveResult, catalogResult, discoveryResult, onboardingResult]: [
+          VersionedArchive,
+          PublicDiscoveryCatalog,
+          VersionedDiscoveryState,
+          OnboardingStatus,
+        ] = await Promise.all([fetchArchive(), fetchPublicDiscoveryCatalog(), fetchDiscoveryState(), fetchOnboardingStatus()]);
+        archiveRevisionRef.current = archiveResult.revision;
+        discoveryRevisionRef.current = discoveryResult.revision;
+        setArchive(archiveResult.archive);
+        setCatalog(catalogResult);
+        setDiscoveryState(discoveryResult.state);
+        setOnboarding(onboardingResult);
+        setOnline(window.navigator.onLine);
+        setSystemReduce(media.matches);
+        setHydrated(true);
+      }
+      hydrateFromRemote().catch((cause: unknown) => {
+          if (
+            cause instanceof ArchiveApiError && cause.code === "unauthenticated"
+            || cause instanceof PublicDiscoveryApiError && cause.code === "unauthenticated"
+          ) setAuthRequired(true);
           else setRemoteError(cause instanceof Error ? cause.message : "음악 기록을 불러오지 못했어요.");
         });
     }, 0);
@@ -426,7 +445,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       window.removeEventListener("online", updateOnline);
       window.removeEventListener("offline", updateOnline);
     };
-  }, [catalog, notify]);
+  }, [notify]);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = reduceMotion ? "true" : "false";

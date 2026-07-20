@@ -49,7 +49,7 @@ function ProfileStamp({
       <span className="public-profile-avatar" style={{ backgroundColor: profile.avatarTone }} aria-hidden="true">{initials(profile)}</span>
       <span>
         <strong>{profile.name}</strong>
-        {showHandle ? <small>@{profile.handle}</small> : null}
+        {showHandle && profile.handle ? <small>@{profile.handle}</small> : null}
       </span>
     </span>
   );
@@ -95,7 +95,7 @@ function ActivityFeed({
 }) {
   const activities = getFollowingActivities(catalog, state);
   if (!activities.length) {
-    return <EmptyState title="팔로우한 기록이 아직 없어요" action={<p>마음에 드는 아카이버를 팔로우해 보세요.</p>} />;
+    return <EmptyState title="팔로우한 기록이 아직 없어요" action={<p>마음에 드는 뮤커를 팔로우해 보세요.</p>} />;
   }
   return (
     <section className="public-activity-list" aria-label="새 공개 챕터">
@@ -144,7 +144,7 @@ export function Discover({
       <PageHeader
         eyebrow={activityOnly ? "FOLLOWING" : "DISCOVER"}
         title={activityOnly ? "새로 열린 챕터" : "비슷한 결의 기록"}
-        description={activityOnly ? "팔로우한 아카이버의 새 공개 기록" : "곡이 함께 묶인 방식을 따라가 보세요."}
+        description={activityOnly ? "팔로우한 뮤커의 새 공개 기록" : "곡이 함께 묶인 방식을 따라가 보세요."}
         action={activityOnly ? (
           <Link className="discover-activity-button is-active" href="/discover" intent="back" aria-label="팔로잉 활동 닫기">
             <X size={18} aria-hidden="true" />
@@ -269,7 +269,7 @@ export function PublicProfileDetail({
   actions: DiscoveryActions;
 }) {
   const profile = getPublicProfile(catalog, profileId);
-  if (!profile) return <div className="page-content"><EmptyState title="아카이버를 찾지 못했어요" action={<Link className="button" href="/discover">탐색으로 돌아가기</Link>} /></div>;
+  if (!profile) return <div className="page-content"><EmptyState title="뮤커를 찾지 못했어요" action={<Link className="button" href="/discover">탐색으로 돌아가기</Link>} /></div>;
   const chapters = getProfileChapters(catalog, profile.id);
   const followed = state.followedProfileIds.includes(profile.id);
   const featured = profile.space.featuredChapterIds

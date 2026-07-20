@@ -255,7 +255,7 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.doesNotMatch(motionSource, /window\.matchMedia\("\(max-width: 479px\)"\)\.matches/);
   assert.match(motionSource, /return Boolean\(transitionDocument\.startViewTransition\);/);
   assert.match(appSource, /useState<ArchiveEnvelopeV1>\(\(\) => createEmptyArchive\(\)\)/);
-  assert.match(appSource, /Promise\.all\(\[fetchArchive\(\), fetchDiscoveryState\(\), fetchOnboardingStatus\(\)\]\)/);
+  assert.match(appSource, /Promise\.all\(\[fetchArchive\(\), fetchPublicDiscoveryCatalog\(\), fetchDiscoveryState\(\), fetchOnboardingStatus\(\)\]\)/);
   assert.match(appSource, /saveArchive\(next, archiveRevisionRef\.current\)/);
   assert.doesNotMatch(appSource, /window\.localStorage/);
   assert.doesNotMatch(globalStyles, /@keyframes route-enter\s*\{\s*from \{ opacity: 0;/s);
@@ -414,7 +414,7 @@ test("uses an accessible settings icon in the editorial header", async () => {
   assert.match(source, /import\s*\{[^}]*\bSettings\b[^}]*\}\s*from "lucide-react"/s);
   assert.match(source, /className="settings-link"[^>]*aria-label="환경 설정"/s);
   assert.match(source, /<Settings aria-hidden="true"/);
-  assert.match(source, /className="brand-lockup"[^>]*aria-label="뮤키 홈"[\s\S]*?<strong>뮤키<\/strong>/s);
+  assert.match(source, /className="brand-lockup"[^>]*aria-label="뮤키 홈"[\s\S]*?className="brand-lockup-mark" src="\/assets\/brand\/muchi-logo\.png"[\s\S]*?<strong>뮤키<\/strong>/s);
   assert.doesNotMatch(source, /href="\/settings"[^>]*>SETTINGS<\/Link>/s);
 });
 
@@ -2598,24 +2598,41 @@ test("keeps recap creation contextual and modal blur calm", async () => {
   );
 });
 
-test("builds a separate public discovery catalog with explainable similarity and local interactions", async () => {
+test("builds a published public discovery catalog with explainable similarity and local interactions", async () => {
   const [archiveDomain, discoveryDomain] = await Promise.all([
     loadArchiveDomain(),
     loadPublicDiscoveryDomain(),
   ]);
   const archive = archiveDomain.createSeedArchive();
-  const catalog = discoveryDomain.createPublicDiscoveryCatalog();
+  const sharedTrack = Object.values(archive.data.tracks)[0];
+  const catalog = discoveryDomain.createPublicDiscoveryCatalog([{
+    authorId: "user-1",
+    authorName: "뮤키 사용자",
+    payload: {
+      id: "public:user-1:chapter-1",
+      profileId: "user-1",
+      name: "공개한 챕터",
+      description: "실제 사용자 공개 피드 fixture",
+      color: "violet",
+      artworkUrl: null,
+      createdAt: "2026-07-20T12:00:00.000Z",
+      likeCount: 0,
+      tracks: [
+        { id: "record-1", track: sharedTrack, visibility: "public", note: "공개 메모", tags: ["밤 산책"] },
+        { id: "record-2", track: sharedTrack, visibility: "private", note: null, tags: [] },
+      ],
+    },
+  }]);
   const state = discoveryDomain.createDiscoveryInteractionState();
   const profiles = Object.values(catalog.profiles);
   const chapters = Object.values(catalog.chapters);
 
-  assert.ok(profiles.length >= 12);
-  assert.ok(chapters.length >= 36);
-  assert.ok(profiles.every((profile) => chapters.filter((chapter) => chapter.profileId === profile.id).length >= 3));
-  assert.ok(profiles.every((profile) => profile.space.featuredChapterIds.length === 3));
+  assert.equal(profiles.length, 1);
+  assert.equal(chapters.length, 1);
+  assert.ok(profiles.every((profile) => chapters.filter((chapter) => chapter.profileId === profile.id).length === 1));
+  assert.ok(profiles.every((profile) => profile.space.featuredChapterIds.length === 1));
   assert.ok(profiles.every((profile) => profile.space.featuredChapterIds.every((chapterId) => catalog.chapters[chapterId]?.profileId === profile.id)));
-  assert.ok(chapters.every((chapter) => chapter.tracks.length >= 5 && chapter.tracks.length <= 15));
-  assert.ok(chapters.every((chapter) => !/ · \d+$/.test(chapter.name)));
+  assert.ok(chapters.every((chapter) => chapter.tracks.length === 2));
 
   const ranked = discoveryDomain.rankPublicChapters(archive, catalog, state);
   assert.ok(ranked.length > 0);
@@ -2637,6 +2654,10 @@ test("builds a separate public discovery catalog with explainable similarity and
     discoveryDomain.serializeDiscoveryInteractionState(liked),
     catalog,
   ), liked);
+
+  assert.deepEqual(discoveryDomain.createEmptyPublicDiscoveryCatalog(), {
+    profiles: {}, chapters: {}, activities: [],
+  });
 });
 
 test("uses shared chapter components for public discovery details and playlist export", async () => {
@@ -2658,6 +2679,8 @@ test("uses shared chapter components for public discovery details and playlist e
   assert.match(appSource, /case "discover":/);
   assert.match(appSource, /case "discoverChapter":/);
   assert.match(appSource, /fetchDiscoveryState/);
+  assert.match(appSource, /fetchPublicDiscoveryCatalog/);
+  assert.match(appSource, /setCatalog\(catalogResult\)/);
   assert.match(discoverySource, /기록이 비공개입니다/);
   assert.match(discoverySource, /ChapterDetailHero/);
   assert.match(discoverySource, /ChapterTrackSection/);

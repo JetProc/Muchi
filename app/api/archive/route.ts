@@ -1,6 +1,7 @@
 import { parseArchive } from "@/lib/archive";
 import { ApiAuthError, requireAuthenticatedUser } from "@/lib/server/auth";
 import { readArchive, replaceArchive } from "@/lib/server/archive-repository";
+import { syncPublishedChapters } from "@/lib/server/public-discovery-repository";
 
 function error(code: string, message: string, status: number, latest?: { archive: unknown; revision: number }) {
   return Response.json({ code, message, ...latest }, { status, headers: { "Cache-Control": "private, no-store" } });
@@ -29,6 +30,7 @@ export async function PUT(request: Request) {
     if (result.status === "conflict") {
       return error("conflict", "다른 기기에서 먼저 변경됐어요.", 409, result.value);
     }
+    await syncPublishedChapters(supabase, userId, result.value.archive);
     return Response.json(result.value, { headers: { "Cache-Control": "private, no-store" } });
   } catch (cause) {
     if (cause instanceof ApiAuthError) return error("unauthenticated", cause.message, 401);

@@ -17,16 +17,14 @@ MUCHI는 플레이리스트 제목과 곡 목록만으로는 남기기 어려운
 - 곡과 챕터 관계별 성격 문장, 시기, 자유로운 경험 태그, 날짜별 메모
 - 곡·아티스트·챕터·태그·기억 문장 통합 검색과 태그별 곡 그룹
 - 이맘때·타임라인·무작위 방식의 음악 회고
-- 곡 구성이 닿는 가상 아카이버의 공개 챕터 탐색, 기록 열람, 팔로우·좋아요·새 챕터 활동 알림
+- 사용자가 탐색에 공개한 챕터의 피드 탐색, 기록 열람, 팔로우·좋아요·새 챕터 활동 알림
 - 30초 미리듣기와 원본 음악 서비스 연결
 - 태그 라이브러리 관리, JSON 백업·복원
 - 모션 감소, 키보드 포커스, 제한적 오프라인 앱 셸
 
 플레이리스트 내보내기는 현재 사용자 흐름 검증용 시뮬레이션입니다. 실제 Apple Music·Spotify·YouTube Music 계정에 플레이리스트를 생성하지 않습니다.
 
-공개 챕터 탐색도 시드 데이터와 브라우저 로컬 상태로 검증하는 프로토타입입니다. 실제 사용자 계정·서버 동기화·소셜 네트워크는 연결하지 않습니다.
-
-내 공간의 `방문자 보기` 역시 현재 브라우저에 저장된 공개 챕터를 확인하는 로컬 미리보기입니다. 외부에 실제로 게시되지는 않습니다.
+챕터 메뉴의 `탐색에 공개하기`를 선택하면 해당 최상위 챕터가 Supabase 공개 피드에 게시됩니다. 곡별 태그와 메모는 각 곡 기록이 `공개`일 때만 함께 노출됩니다. 탐색 탭은 새로고침 또는 앱 재진입 시 최신 공개 피드를 불러옵니다.
 
 ## 문서
 
@@ -50,7 +48,10 @@ npm run dev
 
 1. Supabase 프로젝트를 만들고 Google provider를 활성화합니다.
 2. `.env.example`을 참고해 `.env.local`에 프로젝트 URL과 publishable key를 넣습니다.
-3. 로컬 Supabase를 사용할 때는 먼저 `npx supabase init` 후 migration을 적용합니다. 원격 프로젝트만 사용할 때는 Supabase SQL Editor로 `supabase/migrations/202607200001_create_muchi_user_state.sql`을 실행합니다.
+3. 로컬 Supabase를 사용할 때는 먼저 `npx supabase init` 후 migration을 적용합니다. 원격 프로젝트만 사용할 때는 Supabase SQL Editor에서 아래 migration을 이름 순서대로 실행합니다.
+
+   - `supabase/migrations/202607200001_create_muchi_user_state.sql`
+   - `supabase/migrations/20260720054510_public_discovery_feed.sql`
 4. Google Cloud OAuth client에 운영/개발 origin과 Supabase Dashboard에 표시되는 callback URL을 등록합니다.
 5. Supabase Auth의 Redirect URL allow list에 `http://localhost:<dev-port>/auth/callback` 및 운영 도메인의 `/auth/callback`을 추가합니다.
 

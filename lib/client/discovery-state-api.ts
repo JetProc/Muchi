@@ -1,13 +1,12 @@
-import { createPublicDiscoveryCatalog, parseDiscoveryInteractionState, type DiscoveryInteractionState } from "@/lib/public-discovery";
+import { parseDiscoveryInteractionState, type DiscoveryInteractionState } from "@/lib/public-discovery";
 import { ArchiveApiError } from "./archive-api";
 
 export type VersionedDiscoveryState = { state: DiscoveryInteractionState; revision: number };
-const catalog = createPublicDiscoveryCatalog();
 
 async function decode(response: Response): Promise<VersionedDiscoveryState> {
   const body = await response.json().catch(() => ({})) as { state?: unknown; revision?: unknown; code?: string; message?: string };
   const value = body.state && typeof body.revision === "number"
-    ? { state: parseDiscoveryInteractionState(JSON.stringify(body.state), catalog), revision: body.revision }
+    ? { state: parseDiscoveryInteractionState(JSON.stringify(body.state)), revision: body.revision }
     : undefined;
   if (!response.ok || !value) throw new ArchiveApiError(body.code ?? "unavailable", body.message ?? "탐색 상태를 불러오지 못했어요.");
   return value;

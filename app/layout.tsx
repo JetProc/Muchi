@@ -4,6 +4,7 @@ import "./apple-theme.css";
 import { MuchiDataProvider } from "./_components/muchi-data-provider";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://muchi-demo.vercel.app"),
   title: {
     default: "뮤키",
     template: "%s · 뮤키",

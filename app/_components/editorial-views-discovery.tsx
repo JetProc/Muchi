@@ -402,7 +402,7 @@ export function Settings({
 
   function replace() {
     if (!window.confirm("모든 음악 기록을 지우고 빈 아카이브로 시작할까요? 이 작업은 되돌릴 수 없습니다.")) return;
-    commit(createEmptyArchive(), "빈 아카이브로 초기화했어요.", true);
+    commit(createEmptyArchive(), "빈 아카이브로 초기화했어요.");
   }
 
   return (

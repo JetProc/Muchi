@@ -927,6 +927,8 @@ button.tag {
 
 .chapter-artwork-custom .chapter-custom-cover {
   display: block;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
   object-fit: cover;
 }
 

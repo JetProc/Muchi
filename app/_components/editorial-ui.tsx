@@ -1,7 +1,9 @@
 "use client";
 
-import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
+import { useState, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Check, Plus, X } from "lucide-react";
 import {
+  ARCHIVE_LIMITS,
   type ArchiveEnvelopeV1,
   type Cube,
   type TagDefinition,
@@ -91,6 +93,42 @@ export function ChapterChoice({
       </span>
       {showSelectionLabel ? <em>선택</em> : null}
     </button>
+  );
+}
+
+export function InlineChapterCreate({
+  onCreate,
+}: {
+  onCreate: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    onCreate(trimmedName);
+    setName("");
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <button className="tag-picker-inline-create-trigger chapter-picker-inline-create-trigger" type="button" onClick={() => setOpen(true)}>
+        <Plus size={15} aria-hidden="true" />
+        <span>새 챕터</span>
+      </button>
+    );
+  }
+
+  return (
+    <form className="tag-picker-inline-create chapter-picker-inline-create" onSubmit={submit}>
+      <label className="sr-only" htmlFor="inline-chapter-name">새 챕터 이름</label>
+      <input id="inline-chapter-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={ARCHIVE_LIMITS.cubeName} placeholder="예: 비 오는 날의 음악" autoFocus />
+      <button type="submit" aria-label="챕터 만들기" disabled={!name.trim()}><Check size={15} aria-hidden="true" /></button>
+      <button type="button" aria-label="챕터 만들기 취소" onClick={() => { setName(""); setOpen(false); }}><X size={15} aria-hidden="true" /></button>
+    </form>
   );
 }
 

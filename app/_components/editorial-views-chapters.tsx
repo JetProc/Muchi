@@ -66,6 +66,7 @@ import {
   ChapterChoice,
   CenteredEmptyMessage,
   EmptyState,
+  InlineChapterCreate,
   PageHeader,
 } from "./editorial-ui";
 import {
@@ -1058,6 +1059,11 @@ export function Memory({
 
   function persist() {
     try {
+      if (activeCube.kind === "capture") {
+        notify("곡 기록을 완료하려면 챕터를 하나 이상 선택해 주세요.");
+        setAssigning(true);
+        return;
+      }
       const selectedExistingTagIds = reconcileTagSelection(
         activeCubeTrack.tagIds.filter((tagId) => Boolean(archive.data.tags[tagId])),
         baselineTagIdsRef.current,
@@ -1094,8 +1100,7 @@ export function Memory({
             : "곡을 기록했어요.";
       if (commit(next, message)) {
         clearDraft();
-        if (activeCube.kind === "capture") router.push("/tags", "back");
-        else router.push(`/chapter?id=${encodeURIComponent(activeCube.id)}`, "back", activeCube.id);
+        router.push(`/chapter?id=${encodeURIComponent(activeCube.id)}`, "back", activeCube.id);
       }
     } catch (error) {
       notify(error instanceof Error ? error.message : "기억을 기록하지 못했어요.");
@@ -1151,10 +1156,10 @@ export function Memory({
     }
   }
 
-  function addToOtherChapter(targetChapterId: string) {
+  function addToOtherChapter(targetChapterId: string, sourceArchive = archive) {
     try {
       if (activeCube.kind === "capture") {
-        const moved = moveCaptureTrackToCube(archive, activeCubeTrack.id, targetChapterId);
+        const moved = moveCaptureTrackToCube(sourceArchive, activeCubeTrack.id, targetChapterId);
         const target = moved.status === "moved" ? moved.cubeTrack : moved.existingCubeTrack;
         const message = moved.status === "moved"
           ? "태그 기록을 챕터로 옮겼어요."
@@ -1165,13 +1170,22 @@ export function Memory({
         }
         return;
       }
-      const result = addIndependentTrackMemory(archive, activeTrack.id, targetChapterId);
+      const result = addIndependentTrackMemory(sourceArchive, activeTrack.id, targetChapterId);
       if (commit(result.archive, result.added ? "같은 곡을 새로운 순간에 담았어요." : "이미 있던 순간을 열었어요.")) {
         setAssigning(false);
         router.push(`/memory?id=${encodeURIComponent(result.cubeTrack.id)}&mode=${recordMode}`, "shared", result.cubeTrack.id);
       }
     } catch (error) {
       notify(error instanceof Error ? error.message : "챕터로 옮기지 못했어요.");
+    }
+  }
+
+  function createChapterAndMove(name: string) {
+    try {
+      const created = createCube(archive, { name });
+      addToOtherChapter(created.cube.id, created.archive);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "챕터를 만들지 못했어요.");
     }
   }
 
@@ -1261,6 +1275,7 @@ export function Memory({
           <div ref={assignDialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="other-chapter-title" onClick={(event) => event.stopPropagation()}>
             <span className="section-label">다른 챕터</span>
             <h2 id="other-chapter-title">새로운 순간을 고르세요</h2>
+            <InlineChapterCreate onCreate={createChapterAndMove} />
             <div className="track-list" style={{ marginTop: 22 }}>
               {getCubesInTreeOrder(archive)
                 .filter((item) => item.id !== cube.id && isVisibleChapter(archive, item) && isAssignableChapter(item))

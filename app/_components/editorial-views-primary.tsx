@@ -10,8 +10,9 @@ import {
 import { Check, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import {
   ARCHIVE_LIMITS,
-  archiveInboxTrackWithTags,
   captureTrackToInbox,
+  createCube,
+  createTags,
   getCubesInTreeOrder,
   getCubeTracks,
   getLatestCubeTrackNote,
@@ -21,6 +22,7 @@ import {
   getUserVisibleChapters,
   moveInboxTrackToCube,
   removeInboxTrack,
+  setCubeTrackTagIds,
   type ArchiveEnvelopeV1,
   type Cube,
   type TrackId,
@@ -47,6 +49,7 @@ import {
 import {
   ChapterChoice,
   EmptyState,
+  InlineChapterCreate,
   PageHeader,
   TrackLine,
 } from "./editorial-ui";
@@ -384,6 +387,7 @@ export function Capture({
   online,
   router,
   sharedUrl,
+  guideMode = false,
 }: {
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
@@ -391,6 +395,7 @@ export function Capture({
   online: boolean;
   router: MotionRouter;
   sharedUrl: string | null;
+  guideMode?: boolean;
 }) {
   const [musicUrl, setMusicUrl] = useState("");
   const [query, setQuery] = useState("");
@@ -404,7 +409,7 @@ export function Capture({
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [assigning, setAssigning] = useState<TrackReference | null>(null);
-  const [recordMode, setRecordMode] = useState<"choose" | "tag" | "complete">("choose");
+  const [recordMode, setRecordMode] = useState<"choose" | "tag" | "chapter" | "complete">("choose");
   const [selectedTagLabels, setSelectedTagLabels] = useState<string[]>([]);
   const [newTagLabel, setNewTagLabel] = useState("");
   const [savedMemoryId, setSavedMemoryId] = useState<string | null>(null);
@@ -413,6 +418,7 @@ export function Capture({
   const [manualArtist, setManualArtist] = useState("");
   const [manualAlbum, setManualAlbum] = useState("");
   const [resultSource, setResultSource] = useState<"link" | "search" | null>(null);
+  const [guideVisible, setGuideVisible] = useState(guideMode);
   const suggestedTags = getTagGroups(archive).slice(0, 5).map((group) => group.tag);
   const draftReady = useRef(false);
   const shareHandled = useRef(false);
@@ -762,17 +768,56 @@ export function Capture({
         if (memoryId) router.push(`/memory?id=${encodeURIComponent(memoryId)}&mode=detail`, "shared", memoryId);
         return;
       }
-      const result = archiveInboxTrackWithTags(captured, assigning.id, labels);
-      if (commit(result.archive, labels.length ? `‘${labels[0]}’ 태그로 기록했어요.` : "곡을 기록했어요.")) {
+      setSelectedTagLabels(labels);
+      setNewTagLabel("");
+      setRecordMode("chapter");
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : "태그를 기록하지 못했어요.");
+    }
+  }
+
+  function recordInChapter(chapterId: string) {
+    if (!assigning) return;
+    try {
+      const captured = captureTrackToInbox(archive, assigning);
+      const moved = moveInboxTrackToCube(captured, assigning.id, chapterId);
+      const created = createTags(moved.archive, selectedTagLabels);
+      const next = setCubeTrackTagIds(
+        created.archive,
+        moved.cubeTrack.id,
+        created.tags.map((tag) => tag.id),
+      );
+      if (commit(next, selectedTagLabels.length ? `‘${selectedTagLabels[0]}’ 태그로 기록했어요.` : "곡을 기록했어요.")) {
         clearCaptureDraft();
         setSelectedResults((current) => current.filter((item) => item.id !== assigning.id));
-        setSelectedTagLabels(labels);
-        setNewTagLabel("");
-        setSavedMemoryId(result.cubeTrack.id);
+        setSavedMemoryId(moved.cubeTrack.id);
         setRecordMode("complete");
       }
     } catch (cause) {
-      notify(cause instanceof Error ? cause.message : "태그를 기록하지 못했어요.");
+      notify(cause instanceof Error ? cause.message : "챕터에 곡을 기록하지 못했어요.");
+    }
+  }
+
+  function createChapterAndRecord(name: string) {
+    if (!assigning) return;
+    try {
+      const created = createCube(archive, { name });
+      const captured = captureTrackToInbox(created.archive, assigning);
+      const moved = moveInboxTrackToCube(captured, assigning.id, created.cube.id);
+      const withTags = createTags(moved.archive, selectedTagLabels);
+      const next = setCubeTrackTagIds(
+        withTags.archive,
+        moved.cubeTrack.id,
+        withTags.tags.map((tag) => tag.id),
+      );
+      if (commit(next, `‘${created.cube.name}’ 챕터에 곡을 기록했어요.`)) {
+        clearCaptureDraft();
+        setSelectedResults((current) => current.filter((item) => item.id !== assigning.id));
+        setSavedMemoryId(moved.cubeTrack.id);
+        setRecordMode("complete");
+      }
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : "챕터를 만들고 곡을 기록하지 못했어요.");
     }
   }
 
@@ -788,6 +833,10 @@ export function Capture({
           <button className="capture-search-submit" type="submit" aria-label="외부 음악 검색" disabled={loading || !online || !query.trim()}>{loading ? <LoadingDots /> : <Search aria-hidden="true" size={20} />}</button>
         </form>
       </section>
+      {guideVisible ? <aside className="capture-mini-guide" aria-label="첫 곡 기록 안내">
+        <div><span>처음 기록한다면</span><strong>곡을 고른 뒤, 태그로 그때의 순간을 남겨 보세요.</strong><p>검색으로 찾거나, YouTube Music·Apple Music 링크를 가져올 수 있어요.</p></div>
+        <button type="button" onClick={() => setGuideVisible(false)} aria-label="기록 안내 닫기"><X aria-hidden="true" size={16} /></button>
+      </aside> : null}
       <div className="capture-link-row">
         <button
           className="capture-link-action"
@@ -902,7 +951,7 @@ export function Capture({
       {assigning ? (
         <div className="dialog-backdrop" role="presentation" onClick={resetRecordDialog}>
           <div ref={assignDialogRef} className="dialog record-dialog" role="dialog" aria-modal="true" aria-labelledby="assign-title" onClick={(event) => event.stopPropagation()}>
-            <h2 id="assign-title">{recordMode === "choose" ? "기록" : recordMode === "tag" ? "태그" : "기록 완료"}</h2>
+            <h2 id="assign-title">{recordMode === "choose" ? "기록" : recordMode === "tag" ? "태그" : recordMode === "chapter" ? "챕터" : "기록 완료"}</h2>
             <div className="record-dialog-track">
               <AlbumArtwork track={assigning} decorative />
               <p><strong>{assigning.title}</strong><span>{assigning.artist}</span></p>
@@ -914,6 +963,7 @@ export function Capture({
               </div>
             ) : recordMode === "tag" ? (
               <form className="form-stack record-tag-form" onSubmit={saveKeywords}>
+                <p className="record-tag-guide">태그는 나중에 이 곡을 다시 찾을 수 있는 나만의 단서예요.</p>
                 {suggestedTags.length ? (
                   <div className="field">
                     <span className="field-label">최근 태그</span>
@@ -952,13 +1002,38 @@ export function Capture({
                   <button className="button button-primary" type="submit">기록하기</button>
                 </div>
               </form>
+            ) : recordMode === "chapter" ? (
+              <div className="record-chapter-step">
+                <p className="record-tag-guide">곡을 기록할 챕터를 하나 이상 선택해 주세요.</p>
+                <InlineChapterCreate onCreate={createChapterAndRecord} />
+                <div className="track-list record-chapter-list">
+                  {getCubesInTreeOrder(archive)
+                    .filter((chapter) => isAssignableChapter(chapter) && isVisibleChapter(archive, chapter))
+                    .map((chapter, index) => (
+                      <ChapterChoice
+                        archive={archive}
+                        chapter={chapter}
+                        detail={`${getCubeTracks(archive, chapter.id).length}곡`}
+                        index={index}
+                        key={chapter.id}
+                        onSelect={recordInChapter}
+                      />
+                    ))}
+                </div>
+                {!getUserVisibleChapters(archive).some((chapter) => isAssignableChapter(chapter) && isVisibleChapter(archive, chapter)) ? (
+                  <p className="record-tag-guide">먼저 챕터를 하나 만들어 주세요.</p>
+                ) : null}
+                <div className="dialog-actions">
+                  <button className="button" type="button" onClick={() => setRecordMode("tag")}>뒤로</button>
+                </div>
+              </div>
             ) : (
               <div className="record-mode-list">
                 <button type="button" onClick={() => savedMemoryId && router.push(`/memory?id=${encodeURIComponent(savedMemoryId)}&mode=detail`, "shared", savedMemoryId)}><strong>기억 더 남기기</strong></button>
-                <button type="button" onClick={() => savedMemoryId && router.push(`/memory?id=${encodeURIComponent(savedMemoryId)}&mode=detail&move=chapter`, "shared", savedMemoryId)}><strong>챕터로 정리</strong></button>
+                <button type="button" onClick={() => savedMemoryId && router.push(`/memory?id=${encodeURIComponent(savedMemoryId)}&mode=detail&move=chapter`, "shared", savedMemoryId)}><strong>다른 챕터에도 담기</strong></button>
               </div>
             )}
-            {recordMode !== "tag" ? <div className="dialog-actions"><button className="button" type="button" onClick={resetRecordDialog}>{recordMode === "complete" ? "완료" : "취소"}</button></div> : null}
+            {recordMode !== "tag" && recordMode !== "chapter" ? <div className="dialog-actions"><button className="button" type="button" onClick={resetRecordDialog}>{recordMode === "complete" ? "완료" : "취소"}</button></div> : null}
           </div>
         </div>
       ) : null}
@@ -1032,10 +1107,10 @@ export function Inbox({
     }
   }
 
-  function assign(chapterId: string) {
+  function assign(chapterId: string, sourceArchive = archive) {
     try {
       if (!assignmentTrackIds.length) return;
-      let next = archive;
+      let next = sourceArchive;
       let lastResult: ReturnType<typeof moveInboxTrackToCube> | null = null;
       let addedCount = 0;
       for (const trackId of assignmentTrackIds) {
@@ -1073,6 +1148,15 @@ export function Inbox({
       }
     } catch (error) {
       notify(error instanceof Error ? error.message : "곡을 이동하지 못했어요.");
+    }
+  }
+
+  function createChapterAndAssign(name: string) {
+    try {
+      const created = createCube(archive, { name });
+      assign(created.cube.id, created.archive);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "챕터를 만들지 못했어요.");
     }
   }
 
@@ -1153,6 +1237,7 @@ export function Inbox({
             ><span /></button>
             <div className="inbox-chapter-sheet-scroll" data-bottom-sheet-scroll="true">
               <h2 id="inbox-assign-title">챕터 선택</h2>
+              <InlineChapterCreate onCreate={createChapterAndAssign} />
               <div className="inbox-chapter-list">
               {chapters.map((chapter, index) => (
                 <ChapterChoice

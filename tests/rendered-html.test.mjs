@@ -288,6 +288,35 @@ test("shows onboarding only until the signed-in profile completes it", async () 
   assert.match(repositorySource, /\.upsert\(\{ id: userId, onboarding_completed: true \}/);
   assert.match(migrationSource, /onboarding_completed boolean not null default false/);
   assert.match(migrationSource, /profiles are private to their owner/);
+  assert.doesNotMatch(appSource, /showWelcome|빈 아카이브|샘플 보기/);
+});
+
+test("keeps the app shell visible and matches archive loading states to each primary tab", async () => {
+  const [appSource, css] = await Promise.all([
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(appSource, /function HomeLoadingSkeleton\(\)/);
+  assert.match(appSource, /function DiscoverLoadingSkeleton\(\)/);
+  assert.match(appSource, /function CaptureLoadingSkeleton\(\)/);
+  assert.match(appSource, /function ChaptersLoadingSkeleton\(\)/);
+  assert.match(appSource, /function SearchLoadingSkeleton\(\)/);
+  assert.match(appSource, /function ArchiveLoadingState\(\{ view \}: \{ view: AppView \}\)/);
+  assert.match(appSource, /case "home":[\s\S]*?return <HomeLoadingSkeleton \/>/);
+  assert.match(appSource, /case "discover":[\s\S]*?return <DiscoverLoadingSkeleton \/>/);
+  assert.match(appSource, /case "capture":[\s\S]*?return <CaptureLoadingSkeleton \/>/);
+  assert.match(appSource, /case "chapters":[\s\S]*?return <ChaptersLoadingSkeleton \/>/);
+  assert.match(appSource, /case "search":[\s\S]*?return <SearchLoadingSkeleton \/>/);
+  assert.match(appSource, /role="status"[\s\S]*?aria-busy="true"/);
+  assert.match(appSource, /<EditorialShell[\s\S]*?<ArchiveLoadingState view=\{view\} \/>/);
+  assert.match(appSource, /function LoadingSpinner\(/);
+  assert.match(appSource, /default:[\s\S]*?return <LoadingSpinner \/>/);
+  assert.doesNotMatch(appSource, /<div className="archive-boot" role="status">/);
+  assert.doesNotMatch(appSource, /나의 음악 기록을 펼치고 있어요/);
+  assert.match(css, /\.archive-skeleton-shape::after\s*\{[^}]*animation:\s*archive-skeleton-shimmer/s);
+  assert.match(css, /\.loading-spinner-screen\s*\{[^}]*place-items:\s*center/s);
+  assert.match(css, /@keyframes archive-skeleton-shimmer/);
 });
 
 test("keeps mobile archive controls legible, aligned, and touch friendly", async () => {
@@ -522,7 +551,7 @@ test("anchors modal backdrops to the mobile app frame", async () => {
   const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
   const appleTheme = getAppleTheme(css);
 
-  assert.match(appleTheme, /\.dialog-backdrop,[\s\S]*?\.welcome-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;/s);
+  assert.match(appleTheme, /\.dialog-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;/s);
   assert.match(appleTheme, /\.dialog,[\s\S]*?\.tag-picker-panel\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);[^}]*border-radius:\s*var\(--apple-radius-lg\) !important;[^}]*box-shadow:\s*none !important;/s);
 });
 
@@ -543,7 +572,7 @@ test("keeps dialog semantics on the focused surface instead of the backdrop", as
 
   assert.doesNotMatch(source, /className="(?:dialog|welcome|player)-backdrop"[^>]*role="(?:dialog|alertdialog)"/);
   assert.match(source, /className="dialog[^"\n]*" role="dialog" aria-modal="true"/);
-  assert.match(source, /className="welcome-card" role="dialog" aria-modal="true"/);
+  assert.doesNotMatch(source, /welcome-backdrop|welcome-card/);
 });
 
 test("keeps track rows flat while reserving elevation for album artwork", async () => {
@@ -2556,7 +2585,7 @@ test("keeps recap creation contextual and modal blur calm", async () => {
   assert.doesNotMatch(recapSource, /2026-06-07 데일리 요약/);
   assert.match(
     appleTheme,
-    /\.dialog-backdrop,[\s\S]*?\.welcome-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*background:\s*rgba\(0, 0, 0, 0\.38\);[^}]*backdrop-filter:\s*saturate\(110%\) blur\(20px\) !important;/s,
+    /\.dialog-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*background:\s*rgba\(0, 0, 0, 0\.38\);[^}]*backdrop-filter:\s*saturate\(110%\) blur\(20px\) !important;/s,
   );
 });
 

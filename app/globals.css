@@ -1781,7 +1781,6 @@ button.tag {
   color: var(--oxblood);
 }
 
-.welcome-backdrop,
 .dialog-backdrop,
 .player-backdrop {
   position: fixed;
@@ -1797,7 +1796,6 @@ button.tag {
   animation: backdrop-in 240ms ease both;
 }
 
-.welcome-card,
 .dialog,
 .full-player {
   width: min(680px, 100%);
@@ -1810,7 +1808,6 @@ button.tag {
   animation: sheet-in 460ms var(--ease-editorial) both;
 }
 
-.welcome-card h2,
 .dialog h2 {
   margin-top: 12px;
   font-size: clamp(38px, 11cqw, 68px);
@@ -2351,20 +2348,17 @@ button.tag {
     font-size: clamp(28px, 8cqw, 38px);
   }
 
-  .welcome-backdrop,
   .dialog-backdrop,
   .player-backdrop {
     padding: 24px;
   }
 
-  .welcome-card,
   .dialog,
   .full-player {
     max-height: calc(100dvh - 48px);
     padding: 28px 20px calc(24px + env(safe-area-inset-bottom));
   }
 
-  .welcome-card h2,
   .dialog h2 {
     margin-top: 10px;
     font-size: clamp(31px, 8.5cqw, 38px);

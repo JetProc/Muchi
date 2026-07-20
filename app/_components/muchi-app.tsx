@@ -36,7 +36,6 @@ import {
   EditorialShell,
   type ContextBackAction,
 } from "./editorial-shell";
-import { useModalFocus } from "./editorial-accessibility";
 import {
   type PreviewControls,
   type PreviewState,
@@ -77,6 +76,181 @@ import { OnboardingScreen } from "./onboarding-screen";
 
 export type { AppView } from "./editorial-types";
 
+const LOADING_ITEMS = [0, 1, 2];
+
+function LoadingStatus({ children, className }: { children: React.ReactNode; className: string }) {
+  return (
+    <div className={`${className} archive-skeleton`} role="status" aria-live="polite" aria-busy="true">
+      <span className="sr-only">음악 기록을 불러오는 중입니다.</span>
+      <div className="archive-skeleton-content" aria-hidden="true">{children}</div>
+    </div>
+  );
+}
+
+function HomeLoadingSkeleton() {
+  return (
+    <LoadingStatus className="page-content personal-space-view music-room-frame home-loading-skeleton">
+      <section className="personal-space-intro">
+        <div>
+          <span className="archive-skeleton-shape archive-skeleton-eyebrow" />
+          <span className="archive-skeleton-shape archive-skeleton-title" />
+        </div>
+        <span className="archive-skeleton-shape archive-skeleton-action" />
+      </section>
+      <section className="music-room-owner">
+        <span className="archive-skeleton-shape archive-skeleton-avatar" />
+        <span className="archive-skeleton-shape archive-skeleton-owner" />
+      </section>
+      <div className="personal-space-shelf archive-skeleton-shelf">
+        {LOADING_ITEMS.map((item) => (
+          <div className="personal-space-chapter" key={item}>
+            <span className="personal-space-chapter-art archive-skeleton-shape" />
+            <span className="personal-space-chapter-copy">
+              <span className="archive-skeleton-shape archive-skeleton-index" />
+              <span className="archive-skeleton-shape archive-skeleton-name" />
+              <span className="archive-skeleton-shape archive-skeleton-count" />
+            </span>
+          </div>
+        ))}
+      </div>
+    </LoadingStatus>
+  );
+}
+
+function DiscoverLoadingSkeleton() {
+  return (
+    <LoadingStatus className="page-content discover-view discover-loading-skeleton">
+      <header className="archive-skeleton-page-header">
+        <div>
+          <span className="archive-skeleton-shape archive-skeleton-eyebrow" />
+          <span className="archive-skeleton-shape archive-skeleton-heading" />
+          <span className="archive-skeleton-shape archive-skeleton-description" />
+        </div>
+        <span className="archive-skeleton-shape archive-skeleton-round-action" />
+      </header>
+      <section className="public-chapter-feed archive-skeleton-feed">
+        {LOADING_ITEMS.map((item) => (
+          <div className="public-chapter-line archive-skeleton-feed-line" key={item}>
+            <span className="archive-skeleton-shape archive-skeleton-index" />
+            <span className="archive-skeleton-shape archive-skeleton-feed-art" />
+            <span className="archive-skeleton-feed-copy">
+              <span className="archive-skeleton-shape archive-skeleton-profile" />
+              <span className="archive-skeleton-shape archive-skeleton-name" />
+              <span className="archive-skeleton-shape archive-skeleton-description" />
+              <span className="archive-skeleton-shape archive-skeleton-count" />
+            </span>
+          </div>
+        ))}
+      </section>
+    </LoadingStatus>
+  );
+}
+
+function CaptureLoadingSkeleton() {
+  return (
+    <LoadingStatus className="page-content capture-view capture-loading-skeleton">
+      <header className="capture-search-header">
+        <span className="archive-skeleton-shape archive-skeleton-display-title" />
+      </header>
+      <section className="capture-search-compact">
+        <span className="archive-skeleton-shape archive-skeleton-search-field" />
+      </section>
+      <span className="archive-skeleton-shape archive-skeleton-link-action" />
+      <section className="capture-results archive-skeleton-track-list">
+        {LOADING_ITEMS.map((item) => (
+          <div className="archive-skeleton-track-row" key={item}>
+            <span className="archive-skeleton-shape archive-skeleton-track-art" />
+            <span className="archive-skeleton-track-copy">
+              <span className="archive-skeleton-shape archive-skeleton-name" />
+              <span className="archive-skeleton-shape archive-skeleton-count" />
+            </span>
+            <span className="archive-skeleton-shape archive-skeleton-round-action" />
+          </div>
+        ))}
+      </section>
+    </LoadingStatus>
+  );
+}
+
+function ChaptersLoadingSkeleton() {
+  return (
+    <LoadingStatus className="page-content chapters-view chapter-library-view chapters-loading-skeleton">
+      <nav className="chapter-library-tabs">
+        <span className="archive-skeleton-shape archive-skeleton-tab" />
+        <span className="archive-skeleton-shape archive-skeleton-tab" />
+      </nav>
+      <div className="chapter-library-toolbar">
+        <span className="archive-skeleton-shape archive-skeleton-section-title" />
+        <span className="archive-skeleton-shape archive-skeleton-action" />
+      </div>
+      <section className="chapter-library-grid archive-skeleton-chapter-grid">
+        {LOADING_ITEMS.map((item) => (
+          <div className="chapter-library-card" key={item}>
+            <span className="chapter-library-cover archive-skeleton-shape" />
+            <span className="chapter-library-copy">
+              <span className="archive-skeleton-shape archive-skeleton-name" />
+              <span className="archive-skeleton-shape archive-skeleton-count" />
+            </span>
+          </div>
+        ))}
+      </section>
+    </LoadingStatus>
+  );
+}
+
+function SearchLoadingSkeleton() {
+  return (
+    <LoadingStatus className="page-content search-view search-loading-skeleton">
+      <header className="search-workspace-header archive-find-header">
+        <span className="archive-skeleton-shape archive-skeleton-heading" />
+        <span className="archive-skeleton-shape archive-skeleton-search-field" />
+        <div className="archive-skeleton-chip-row">
+          {LOADING_ITEMS.map((item) => <span className="archive-skeleton-shape archive-skeleton-chip" key={item} />)}
+        </div>
+      </header>
+      <section className="search-results-section archive-find-results archive-skeleton-track-list">
+        <span className="archive-skeleton-shape archive-skeleton-section-title" />
+        {LOADING_ITEMS.map((item) => (
+          <div className="archive-skeleton-track-row" key={item}>
+            <span className="archive-skeleton-shape archive-skeleton-track-art" />
+            <span className="archive-skeleton-track-copy">
+              <span className="archive-skeleton-shape archive-skeleton-name" />
+              <span className="archive-skeleton-shape archive-skeleton-description" />
+            </span>
+          </div>
+        ))}
+      </section>
+    </LoadingStatus>
+  );
+}
+
+function LoadingSpinner({ label = "화면을 불러오는 중입니다." }: { label?: string }) {
+  return (
+    <div className="page-content loading-spinner-screen" role="status" aria-live="polite" aria-busy="true">
+      <span className="search-loading-spinner" aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+}
+
+function ArchiveLoadingState({ view }: { view: AppView }) {
+  switch (view) {
+    case "home":
+    case "space":
+      return <HomeLoadingSkeleton />;
+    case "discover":
+      return <DiscoverLoadingSkeleton />;
+    case "capture":
+      return <CaptureLoadingSkeleton />;
+    case "chapters":
+      return <ChaptersLoadingSkeleton />;
+    case "search":
+      return <SearchLoadingSkeleton />;
+    default:
+      return <LoadingSpinner />;
+  }
+}
+
 export function MusicWorldApp({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
   const router = useMotionRouter();
@@ -89,7 +263,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [onboardingSaving, setOnboardingSaving] = useState(false);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [online, setOnline] = useState(true);
   const [systemReduce, setSystemReduce] = useState(false);
@@ -98,10 +271,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     routeKey: string;
     step: PlaylistStep;
   }>({ routeKey: "", step: 1 });
-  const welcomeDialogRef = useModalFocus<HTMLDivElement>(
-    showWelcome,
-    () => setShowWelcome(false),
-  );
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const archiveRevisionRef = useRef(0);
@@ -308,10 +477,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     return true;
   }
 
-  function setOnboardingDone() {
-    setShowWelcome(false);
-  }
-
   async function handleOnboardingComplete() {
     setOnboardingSaving(true);
     setOnboardingError(null);
@@ -424,14 +589,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           scrollReady={false}
           backAction={contextBackAction}
         >
-          <div className="page-content">
-            <div className="archive-boot" role="status" aria-live="polite">
-              <div>
-                <strong>나의 음악 기록을 펼치고 있어요</strong>
-                <span>내 계정에 저장된 챕터와 기억을 확인하는 중입니다.</span>
-              </div>
-            </div>
-          </div>
+          <ArchiveLoadingState view={view} />
         </EditorialShell>
       </MotionProvider>
     );
@@ -462,12 +620,12 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         return <Chapters archive={archive} commit={commit} notify={notify} router={router} pendingTrackId={pendingTrackId} pendingRecordMode={pendingRecordMode} />;
       case "chapter":
         if (hiddenChapterRoute) {
-          return <div className="page-content"><div className="archive-boot" role="status">안전한 음악 목록으로 이동하고 있어요.</div></div>;
+          return <LoadingSpinner label="안전한 음악 목록으로 이동하는 중입니다." />;
         }
         return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} router={router} />;
       case "memory":
         if (monthlyMemoryRoute) {
-          return <div className="page-content"><div className="archive-boot" role="status">월별 기록으로 이동하고 있어요.</div></div>;
+          return <LoadingSpinner label="월별 기록으로 이동하는 중입니다." />;
         }
         return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} recordMode={recordMode} openChapterMove={searchParams.get("move") === "chapter"} router={router} />;
       case "playlist":
@@ -535,39 +693,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       >
         {content}
       </RouteStage>
-      {showWelcome ? (
-        <div className="welcome-backdrop" role="presentation">
-          <div ref={welcomeDialogRef} className="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-            <h2 id="welcome-title">음악을 기록하세요.</h2>
-            <div className="dialog-actions">
-              <button
-                className="button button-ghost"
-                type="button"
-                onClick={() => {
-                  const empty = createEmptyArchive();
-                  commit(empty, "빈 아카이브에서 시작합니다.", true);
-                  setOnboardingDone();
-                }}
-              >
-                빈 아카이브
-              </button>
-              <button className="button" type="button" onClick={setOnboardingDone}>
-                샘플 보기
-              </button>
-              <button
-                className="button button-primary"
-                type="button"
-                onClick={() => {
-                  setOnboardingDone();
-                  router.push("/capture");
-                }}
-              >
-                첫 곡 기록
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
       </EditorialShell>
     </MotionProvider>
   );

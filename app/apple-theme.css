@@ -896,6 +896,19 @@ button.tag {
   overflow-wrap: break-word;
 }
 
+.centered-empty-message {
+  min-height: min(42dvh, 320px);
+  display: grid;
+  place-items: center;
+  padding: var(--apple-space-6);
+  color: var(--apple-ink-muted-48);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
 .notice {
   padding: var(--apple-space-4);
   font-size: 14px;

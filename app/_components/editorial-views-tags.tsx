@@ -13,7 +13,7 @@ import {
 } from "@/lib/archive";
 import { MotionLink as Link } from "./editorial-motion";
 import { useModalFocus } from "./editorial-accessibility";
-import { EmptyState, PageHeader } from "./editorial-ui";
+import { CenteredEmptyMessage, PageHeader } from "./editorial-ui";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { formatDate } from "./editorial-format";
 import { TagLink } from "./editorial-tag-link";
@@ -144,7 +144,7 @@ export function TagManager({
               </div>
             ))}
           </div>
-        ) : <EmptyState title={query ? "검색 결과가 없어요" : "아직 등록한 태그가 없어요"} />}
+        ) : <CenteredEmptyMessage>{query ? "검색 결과가 없어요." : "아직 등록한 태그가 없어요."}</CenteredEmptyMessage>}
       </section>
 
       {createOpen ? (

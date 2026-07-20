@@ -17,7 +17,7 @@ import {
 import { MotionLink as Link } from "./editorial-motion";
 import type { MotionRouter } from "./editorial-motion";
 import { useModalFocus } from "./editorial-accessibility";
-import { EmptyState, PageHeader, TrackLine } from "./editorial-ui";
+import { CenteredEmptyMessage, EmptyState, PageHeader, TrackLine } from "./editorial-ui";
 import { AlbumArtwork } from "./editorial-media";
 import {
   formatChapterTitle,
@@ -280,9 +280,9 @@ export function Search({
             ))}
           </div>
         ) : (
-          <div className="search-empty">
-            {hasSearch ? "검색 결과가 없습니다." : "곡, 아티스트, 챕터 또는 태그로 찾을 수 있어요."}
-          </div>
+          <CenteredEmptyMessage>
+            {hasSearch ? "검색 결과가 없어요." : "곡, 아티스트, 챕터 또는 태그로 찾을 수 있어요."}
+          </CenteredEmptyMessage>
         )}
       </section>
 

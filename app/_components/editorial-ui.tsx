@@ -31,6 +31,14 @@ export function EmptyState({
   );
 }
 
+export function CenteredEmptyMessage({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return <div className="centered-empty-message">{children}</div>;
+}
+
 export function PageHeader({
   eyebrow,
   title,

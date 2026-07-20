@@ -15,7 +15,7 @@ import {
 import type { ArchiveEnvelopeV1 } from "@/lib/archive";
 import { ChapterCover } from "./editorial-media";
 import { MotionLink as Link } from "./editorial-motion";
-import { EmptyState, PageHeader } from "./editorial-ui";
+import { CenteredEmptyMessage, EmptyState, PageHeader } from "./editorial-ui";
 import { MusicRoomFrame, type PersonalSpaceShelfItem } from "./editorial-music-room";
 import {
   ChapterDetailHero,
@@ -94,7 +94,7 @@ function ActivityFeed({
 }) {
   const activities = getFollowingActivities(catalog, state);
   if (!activities.length) {
-    return <EmptyState title="팔로우한 기록이 아직 없어요" action={<p>마음에 드는 뮤커를 팔로우해 보세요.</p>} />;
+    return <CenteredEmptyMessage>팔로우한 뮤커의 새 글이 아직 없어요.</CenteredEmptyMessage>;
   }
   return (
     <section className="public-activity-list" aria-label="새 공개 챕터">
@@ -151,11 +151,11 @@ export function Discover({
           </Link>
         )}
       />
-      {activityOnly ? <ActivityFeed catalog={catalog} state={state} actions={actions} /> : (
+      {activityOnly ? <ActivityFeed catalog={catalog} state={state} actions={actions} /> : ranked.length ? (
         <section className="public-chapter-feed" aria-label="추천 공개 챕터">
           {ranked.slice(0, 18).map((item, index) => <ChapterFeedLine item={item} index={index} key={item.chapter.id} />)}
         </section>
-      )}
+      ) : <CenteredEmptyMessage>추천할 공개 챕터가 아직 없어요.</CenteredEmptyMessage>}
     </div>
   );
 }
@@ -264,7 +264,7 @@ export function PublicProfileDetail({
     themeId={profile.space.themeId}
     layoutId={showAll ? "stack" : profile.space.layoutId}
     items={items}
-    empty={<EmptyState title="공개한 챕터 없음" />}
+    empty={<CenteredEmptyMessage>공개한 챕터가 아직 없어요.</CenteredEmptyMessage>}
     primaryAction={<FollowButton profileId={profile.id} followed={followed} onToggle={actions.onToggleFollow} />}
     footer={chapters.length && !showAll ? <Link href={`${profileHref}&view=all`} intent="forward">전체 챕터 보기</Link> : showAll ? <Link href={profileHref} intent="back">대표 챕터 보기</Link> : undefined}
   />;

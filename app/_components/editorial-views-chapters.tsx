@@ -64,6 +64,7 @@ import {
 } from "./editorial-media";
 import {
   ChapterChoice,
+  CenteredEmptyMessage,
   EmptyState,
   PageHeader,
 } from "./editorial-ui";
@@ -435,10 +436,8 @@ export function Chapters({
           })}
         </section>
       ) : activeTab === "manual" ? (
-        <div className="chapter-library-empty-action">
-          <button className="button button-primary" type="button" onClick={() => setShowForm(true)}>새 챕터</button>
-        </div>
-      ) : <EmptyState title="월별 챕터 없음" />}
+        <CenteredEmptyMessage>아직 만든 챕터가 없어요.</CenteredEmptyMessage>
+      ) : <CenteredEmptyMessage>월별 챕터가 아직 없어요.</CenteredEmptyMessage>}
 
       {showForm || pendingTracks.length ? (
         <div className="dialog-backdrop" role="presentation" onClick={closeCreateDialog}>

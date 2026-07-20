@@ -418,7 +418,7 @@ test("uses Apple typography, whitespace, and flat mobile surfaces", async () => 
   assert.match(appleTheme, /h1,\s*h2,\s*h3\s*\{[^}]*font-family:\s*var\(--apple-font-display\);[^}]*font-weight:\s*600;/s);
   assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*44px;[^}]*background:\s*var\(--apple-surface-black\);/s);
   assert.match(appleTheme, /\.page-content\s*\{[^}]*padding:\s*var\(--apple-space-6\) var\(--apple-page-gutter\)/s);
-  assert.match(appleTheme, /\.panel,[\s\S]*?\.search-empty\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);[^}]*border-radius:\s*var\(--apple-radius-lg\) !important;[^}]*box-shadow:\s*none !important;/s);
+  assert.match(appleTheme, /\.centered-empty-message\s*\{[^}]*min-height:\s*min\(42dvh, 320px\);[^}]*place-items:\s*center;[^}]*color:\s*var\(--apple-ink-muted-48\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width:\s*419px\)[\s\S]*?h1\s*\{[^}]*font-size:\s*26px;/s);
 });
 

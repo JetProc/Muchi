@@ -49,7 +49,7 @@ MUCHI is a mobile-only product. Every product view is designed and tested within
 - Alternating full-bleed tile sections: white/parchment ↔ near-black, with the color change itself acting as the section divider.
 - Single blue accent (`{colors.primary}` — #0066cc) carries every interactive element. No second brand color exists.
 - Two button grammars: tiny blue pill CTAs (`{rounded.pill}`) and compact utility rects (`{rounded.sm}`).
-- SF Pro Display + SF Pro Text — negative letter-spacing at display sizes for the signature "Apple tight" headline feel.
+- High1WonchuriTitle across display and UI text — negative letter-spacing at display sizes preserves the tight editorial headline feel.
 - Whisper-soft elevation used only when a product image needs to breathe — exactly one drop-shadow in the entire system.
 - Tight two-row nav: slim `{component.global-nav}` + product-specific `{component.sub-nav-frosted}` with persistent right-aligned primary CTA.
 - Section rhythm: light hero → dark product tile → light utility tile → dark tile → parchment footer.
@@ -90,8 +90,8 @@ MUCHI is a mobile-only product. Every product view is designed and tested within
 ## Typography
 
 ### Font Family
-- **Display**: `SF Pro Display, system-ui, -apple-system, BlinkMacSystemFont, sans-serif` — headings at 19px and above.
-- **Body / UI**: `SF Pro Text, system-ui, -apple-system, BlinkMacSystemFont, sans-serif` — body, captions, buttons, and links.
+- **Display**: `High1WonchuriTitle, sans-serif` — headings at 19px and above.
+- **Body / UI**: `High1WonchuriTitle, sans-serif` — body, captions, buttons, and links.
 - **OpenType features**: numeric UI may use `font-variant-numeric: tabular-nums`; display sizes rely on tight tracking.
 
 ### Hierarchy
@@ -118,14 +118,14 @@ MUCHI is a mobile-only product. Every product view is designed and tested within
 ### Principles
 - **Negative letter-spacing at display sizes.** Headlines at 17px and up tighten from `-0.12px` to `-0.374px`.
 - **Body copy at 17px, not 16px.** The extra pixel creates a reading-first pace.
-- **Weight 300 is real and rare.** Reserve it for airy 24px leads and rare 18px hero CTAs.
-- **Weight 600, not 700, for headlines.** Use 700 sparingly.
+- **Weight 300 is the light reading face.** Use it for airy leads and low-emphasis copy.
+- **Weight 700 is the headline face.** Use 500 for body emphasis and controls.
 - **Context-specific line-height.** Display 1.07–1.19, body 1.47, dense link stacks 2.41.
-- **Weight 500 is absent.** The ladder is 300 / 400 / 600 / 700.
+- **Native weight ladder:** 300 / 500 / 700. Use the closest native face for every text style.
 
 ### Note on Font Substitutes
 
-Use the system stack first so macOS/iOS resolve to SF Pro. On non-Apple platforms use Inter as the nearest open substitute. With Inter, apply `font-feature-settings: "ss03"`, tighten display tracking by `-0.01em`, and reduce body line-height from 1.47 to approximately 1.44.
+Load High1WonchuriTitle from the projectnoonnu jsDelivr source with `font-display: swap`. Use `sans-serif` only as the network-failure fallback.
 
 ## Layout
 
@@ -246,8 +246,8 @@ Other form inputs use white fill, a single Hairline border, 12–18px radius acc
 
 ### Do
 - Use Action Blue `#0066cc` for every interactive element and no competing accent.
-- Set display headlines in SF Pro Display/system 600 with negative letter-spacing.
-- Run body copy at 17px/400/1.47.
+- Set display headlines in High1WonchuriTitle 700 with negative letter-spacing.
+- Run body copy at 17px/300 or 500/1.47.
 - Alternate light/parchment and dark tiles; the color change is the divider.
 - Reserve pill geometry for primary actions, configurator chips, and search.
 - Apply the single product shadow only to product or album photography.
@@ -259,7 +259,7 @@ Other form inputs use white fill, a single Hairline border, 12–18px radius acc
 - Don't introduce a second accent color.
 - Don't add shadows to cards, buttons, navigation, or text.
 - Don't use decorative gradients.
-- Don't use font-weight 500.
+- Don't synthesize weights outside the native 300 / 500 / 700 ladder.
 - Don't round full-bleed tiles.
 - Don't tighten body line-height below 1.47.
 - Don't mix arbitrary radii; use 8, 11, 18, or pill/full.
@@ -303,7 +303,7 @@ The browser viewport is not a product breakpoint. Layout decisions use the app c
 2. Keep active/focus variants as explicit component variants.
 3. Use token references everywhere; do not inline hex values outside the token declaration block.
 4. Document and implement Default, Active/Pressed, Focus, Disabled, and meaningful Selected states; avoid ornamental hover-only behavior.
-5. Display headlines stay SF Pro Display/system 600 with negative tracking. Body stays SF Pro Text/system 400 at 17px.
+5. Display headlines stay High1WonchuriTitle 700 with negative tracking. Body stays High1WonchuriTitle 300 or 500 at 17px.
 6. The single drop-shadow is reserved for product or album photography only.
 7. When emphasis is unclear, alternate the surface before adding chrome.
 8. For MUCHI, album artwork is the product photography. Let it carry visual weight while interface chrome recedes.

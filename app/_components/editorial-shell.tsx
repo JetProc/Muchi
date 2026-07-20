@@ -358,8 +358,8 @@ export function EditorialShell({
         <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
         <header className="editorial-header">
           <div className="header-leading">
-            <Link className="brand-lockup" href="/" intent="tab" aria-label="MUCHI 홈">
-              <strong>MUCHI</strong>
+            <Link className="brand-lockup" href="/" intent="tab" aria-label="뮤키 홈">
+              <strong>뮤키</strong>
               <span>PERSONAL MUSIC ARCHIVE</span>
             </Link>
           </div>

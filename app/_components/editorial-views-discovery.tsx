@@ -411,23 +411,23 @@ export function Settings({
       <section className="settings-group" aria-labelledby="settings-display-title">
         <h2 id="settings-display-title">표시</h2>
         <div className="panel settings-list">
-          <div className="setting-row"><h3>모션 강도</h3><select className="select" style={{ width: 190 }} value={archive.data.preferences.motion} onChange={(event) => setMotion(event.target.value as MotionPreference)} aria-label="모션 강도"><option value="system">시스템 설정 따르기</option><option value="reduce">모션 줄이기</option><option value="full">감성 모션 사용</option></select></div>
+          <div className="setting-row"><h3>모션 강도</h3><select className="select setting-motion-select" value={archive.data.preferences.motion} onChange={(event) => setMotion(event.target.value as MotionPreference)} aria-label="모션 강도"><option value="system">시스템 설정 따르기</option><option value="reduce">모션 줄이기</option><option value="full">감성 모션 사용</option></select></div>
           <div className="setting-row"><h3>이맘때의 음악</h3><button className={`toggle${archive.data.preferences.recapEnabled ? " is-on" : ""}`} type="button" role="switch" aria-checked={archive.data.preferences.recapEnabled} onClick={() => setRecap(!archive.data.preferences.recapEnabled)}><span className="toggle-label" aria-hidden="true">{archive.data.preferences.recapEnabled ? "켬" : "끔"}</span><span className="sr-only">회고 {archive.data.preferences.recapEnabled ? "끄기" : "켜기"}</span></button></div>
         </div>
       </section>
       <section className="settings-group" aria-labelledby="settings-data-title">
         <h2 id="settings-data-title">데이터</h2>
-        <div className="notice notice-warning settings-storage-notice"><span aria-hidden="true">!</span><div><strong>현재 기록은 로그인한 계정에 저장됩니다.</strong><br />필요하면 JSON 파일로 별도 백업을 보관할 수 있어요.</div></div>
+        <div className="notice notice-warning settings-storage-notice"><span aria-hidden="true">!</span><div><strong>기록은 로그인한 계정에 저장돼요.</strong><span> 필요하면 JSON으로 백업할 수 있습니다.</span></div></div>
         <div className="panel settings-list">
           <div className="setting-row"><h3>태그 관리</h3><Link className="button" href="/tags" intent="tab">{Object.keys(archive.data.tags).length}개 보기</Link></div>
-          <div className="setting-row"><div><h3>내 기록 백업</h3><p>현재 서버에 저장된 기록을 JSON 파일로 내려받습니다.</p></div><div className="track-actions"><button className="button" type="button" onClick={exportData}>내보내기</button></div></div>
+          <div className="setting-row"><h3>내 기록 백업</h3><button className="button" type="button" onClick={exportData}>내보내기</button></div>
         </div>
       </section>
       <section className="settings-group settings-danger" aria-labelledby="settings-danger-title">
         <h2 id="settings-danger-title">위험 영역</h2>
         <div className="panel settings-list">
-          <div className="setting-row"><div><h3>아카이브 초기화</h3><p>서버에 저장된 모든 기록을 비웁니다.</p></div><div className="track-actions"><button className="button button-danger" type="button" onClick={replace}>모든 기록 지우기</button></div></div>
-          <div className="setting-row"><div><h3>로그아웃</h3><p>이 기기에서 Google 계정 세션을 종료합니다.</p></div><form action="/auth/signout" method="post"><button className="button" type="submit">로그아웃</button></form></div>
+          <div className="setting-row"><h3>아카이브 초기화</h3><button className="button button-danger" type="button" onClick={replace}>초기화</button></div>
+          <div className="setting-row"><h3>로그아웃</h3><form action="/auth/signout" method="post"><button className="button" type="submit">로그아웃</button></form></div>
         </div>
       </section>
     </div>

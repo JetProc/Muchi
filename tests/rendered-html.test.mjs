@@ -385,7 +385,23 @@ test("uses an accessible settings icon in the editorial header", async () => {
   assert.match(source, /import\s*\{[^}]*\bSettings\b[^}]*\}\s*from "lucide-react"/s);
   assert.match(source, /className="settings-link"[^>]*aria-label="환경 설정"/s);
   assert.match(source, /<Settings aria-hidden="true"/);
+  assert.match(source, /className="brand-lockup"[^>]*aria-label="뮤키 홈"[\s\S]*?<strong>뮤키<\/strong>/s);
   assert.doesNotMatch(source, /href="\/settings"[^>]*>SETTINGS<\/Link>/s);
+});
+
+test("keeps settings actions in compact, consistent rows", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+  ]);
+  const settingsSource = source.slice(source.indexOf("export function Settings("));
+
+  assert.match(settingsSource, /className="select setting-motion-select"/);
+  assert.doesNotMatch(settingsSource, /내 기록 백업<\/h3><p>|아카이브 초기화<\/h3><p>|로그아웃<\/h3><p>/);
+  assert.match(settingsSource, /onClick=\{replace\}>초기화<\/button>/);
+  assert.match(css, /\.setting-row\s*\{[^}]*min-height:\s*60px;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;[^}]*padding:\s*8px 14px;/s);
+  assert.match(css, /\.setting-row \.button\s*\{[^}]*min-height:\s*40px;[^}]*white-space:\s*nowrap;/s);
+  assert.match(css, /\.setting-motion-select\s*\{[^}]*width:\s*170px;[^}]*min-height:\s*40px;/s);
 });
 
 test("keeps the global header stable and places contextual back actions inside secondary content", async () => {
@@ -428,14 +444,17 @@ test("keeps the complete Apple web design direction in the repository", async ()
     assert.ok(design.includes(heading), heading);
   }
   assert.match(design, /Action Blue.*#0066cc/);
-  assert.match(design, /SF Pro Display/);
+  assert.match(design, /High1WonchuriTitle/);
   assert.match(design, /Body copy at 17px/);
   assert.match(design, /single product shadow only to product or album photography/i);
   assert.match(design, /Minimum 44 × 44px/);
 });
 
-test("applies the closed Apple palette and SF system typography", async () => {
-  const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
+test("applies the closed Apple palette and High1 Wonchuri typography", async () => {
+  const [css, globals] = await Promise.all([
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
   const appleTheme = getAppleTheme(css);
   const palette = [...new Set(
     (appleTheme.match(/#[0-9a-f]{6}/gi) ?? []).map((color) => color.toLowerCase()),
@@ -449,8 +468,13 @@ test("applies the closed Apple palette and SF system typography", async () => {
   for (const legacyAccent of ["#e91d2a", "#fcc20f", "#0000ee"]) {
     assert.ok(!palette.includes(legacyAccent), legacyAccent);
   }
-  assert.match(appleTheme, /--apple-font-display:\s*"SF Pro Display",\s*system-ui,\s*-apple-system/);
-  assert.match(appleTheme, /--apple-font-text:\s*"SF Pro Text",\s*system-ui,\s*-apple-system/);
+  assert.match(appleTheme, /--apple-font-display:\s*"High1WonchuriTitle",\s*sans-serif/);
+  assert.match(appleTheme, /--apple-font-text:\s*"High1WonchuriTitle",\s*sans-serif/);
+  assert.match(globals, /high1WonchuriTitleL\.woff2[\s\S]*?font-weight:\s*300/);
+  assert.match(globals, /high1WonchuriTitleM\.woff2[\s\S]*?font-weight:\s*500/);
+  assert.match(globals, /high1WonchuriTitleB\.woff2[\s\S]*?font-weight:\s*700/);
+  assert.match(globals, /--font-sans:\s*"High1WonchuriTitle",\s*sans-serif/);
+  assert.match(globals, /--font-serif:\s*"High1WonchuriTitle",\s*sans-serif/);
   assert.match(appleTheme, /--apple-product-shadow:\s*rgba\(0, 0, 0, 0\.22\) 3px 5px 30px 0;/);
 });
 
@@ -956,7 +980,7 @@ test("removes redundant helper copy and keeps preview controls compact outside m
   assert.doesNotMatch(source, /완벽하게 정리하지 않아도 괜찮아요/);
   assert.doesNotMatch(source, /welcome-steps/);
   assert.match(source, /다른 챕터의 같은 곡과 기억은 그대로 남습니다/);
-  assert.match(source, /로그인한 계정에 저장됩니다/);
+  assert.match(source, /기록은 로그인한 계정에 저장돼요/);
   assert.doesNotMatch(chapterSource, /ITUNES_PREVIEW_USAGE_NOTICE|미리듣기는 홍보 목적으로만/);
   assert.doesNotMatch(itunesSource, /ITUNES_PREVIEW_USAGE_NOTICE|미리듣기는 홍보 목적으로만/);
   assert.match(mediaSource, /className="play-button preview-icon-button"/);
@@ -1551,7 +1575,7 @@ test("keeps interview-driven capture paths while simplifying memory completion",
   assert.match(manifestSource, /share_target:/);
   assert.match(manifestSource, /action: "\/capture"/);
   assert.doesNotMatch(discoverySource, /window\.localStorage/);
-  assert.match(discoverySource, /현재 서버에 저장된 기록/);
+  assert.match(discoverySource, /기록은 로그인한 계정에 저장돼요/);
   assert.match(pickerSource, /빠른 선택/);
   assert.match(pickerSource, /비슷한 기존 태그/);
 });

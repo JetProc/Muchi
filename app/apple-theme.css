@@ -22,8 +22,8 @@
   --apple-body-muted: #cccccc;
   --apple-divider-soft: #f0f0f0;
   --apple-hairline: #e0e0e0;
-  --apple-font-display: "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --apple-font-text: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --apple-font-display: "High1WonchuriTitle", sans-serif;
+  --apple-font-text: "High1WonchuriTitle", sans-serif;
   --apple-radius-sm: 8px;
   --apple-radius-md: 11px;
   --apple-radius-lg: 18px;
@@ -2785,17 +2785,34 @@ button.tag {
   max-width: 820px;
 }
 
+.settings-view .settings-group {
+  margin-top: var(--apple-space-6);
+}
+
 .settings-group > h2 {
-  margin-bottom: var(--apple-space-3);
-  font-size: 21px;
+  margin-bottom: var(--apple-space-2);
+  font-size: 18px;
 }
 
 .settings-list {
+  margin: 0;
   padding: 0;
   overflow: hidden;
 }
 
-.setting-row,
+.setting-row {
+  min-height: 60px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--apple-space-3);
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--apple-hairline);
+  color: var(--apple-ink);
+  background: var(--apple-canvas);
+}
+
 .tag-manager-row {
   min-height: 72px;
   display: flex;
@@ -2816,14 +2833,36 @@ button.tag {
 
 .setting-row h3,
 .tag-manager-row strong {
+  margin: 0;
   font-size: 15px;
   font-weight: 600;
 }
 
-.setting-row p,
 .tag-manager-row small {
   color: var(--apple-ink-muted-48);
   font-size: 12px;
+}
+
+.setting-row > :last-child {
+  justify-self: end;
+}
+
+.setting-row form {
+  margin: 0;
+}
+
+.setting-row .button {
+  min-width: 72px;
+  min-height: 40px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.setting-motion-select {
+  width: 170px;
+  min-height: 40px;
+  padding: 7px 32px 7px 12px;
+  font-size: 14px;
 }
 
 .chapter-choice {
@@ -3230,7 +3269,17 @@ button.tag {
 }
 
 .settings-storage-notice {
-  margin-bottom: var(--apple-space-3);
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--apple-space-2);
+  margin-bottom: var(--apple-space-2);
+  padding: 11px 14px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.settings-storage-notice strong {
+  color: inherit;
 }
 
 .welcome-storage-note {
@@ -4537,14 +4586,9 @@ button.tag {
     justify-content: flex-start;
   }
 
-  .setting-row {
-    flex-wrap: wrap;
-  }
-
-  .setting-row .select {
-    width: 100% !important;
+  .setting-motion-select {
+    width: min(48cqw, 170px);
     min-width: 0;
-    flex: 1 1 100%;
   }
 
   .track-info strong {

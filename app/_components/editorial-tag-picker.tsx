@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Check, ChevronRight, Plus, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Check, ChevronDown, ChevronRight, Plus, Search, X } from "lucide-react";
 import { ARCHIVE_LIMITS, type TagDefinition } from "@/lib/archive";
 import { useModalFocus } from "./editorial-accessibility";
 import { MotionLink as Link } from "./editorial-motion";
@@ -21,7 +21,11 @@ interface TagPickerProps {
   emptyText?: string;
   panelTitle?: string;
   suggestionsLabel?: string;
+  headingAction?: ReactNode;
+  inline?: boolean;
 }
+
+const INLINE_COLLAPSED_HEIGHT = 110;
 
 function editDistance(left: string, right: string): number {
   const row = Array.from({ length: right.length + 1 }, (_, index) => index);
@@ -55,11 +59,16 @@ export function TagPicker({
   emptyText = "운동할 때, 과거에 좋아했던 음악처럼 남겨보세요",
   panelTitle = "태그",
   suggestionsLabel = "빠른 선택",
+  headingAction,
+  inline = false,
 }: TagPickerProps) {
   const [open, setOpen] = useState(false);
+  const [inlineExpanded, setInlineExpanded] = useState(false);
+  const [inlineHasOverflow, setInlineHasOverflow] = useState(false);
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState("");
+  const inlineListRef = useRef<HTMLDivElement>(null);
   const panelRef = useModalFocus<HTMLDivElement>(open, close);
   const sheet = useSwipeableBottomSheet({
     initialSnap: "middle",
@@ -99,6 +108,29 @@ export function TagPicker({
     }).slice(0, 3);
   }, [draft, tags]);
 
+  useEffect(() => {
+    if (!inline) return;
+    const list = inlineListRef.current;
+    if (!list) return;
+
+    const measureOverflow = () => {
+      const hasOverflow = list.scrollHeight > INLINE_COLLAPSED_HEIGHT + 1;
+      setInlineHasOverflow(hasOverflow);
+      if (!hasOverflow) setInlineExpanded(false);
+    };
+
+    const frame = requestAnimationFrame(measureOverflow);
+    if (typeof ResizeObserver === "undefined") {
+      return () => cancelAnimationFrame(frame);
+    }
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(list);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [creating, inline, sortedTags]);
+
   function showPicker() {
     setOpen(true);
     setQuery("");
@@ -123,10 +155,13 @@ export function TagPicker({
     <div className="tag-picker">
       <div className="tag-picker-heading">
         <span className="field-label">{label}</span>
-        {selectedTagIds.length ? <span className="tag-picker-total">{selectedTagIds.length} / {maxSelected}</span> : null}
+        <div className="tag-picker-heading-actions">
+          {headingAction}
+          {selectedTagIds.length ? <span className="tag-picker-total">{selectedTagIds.length} / {maxSelected}</span> : null}
+        </div>
       </div>
 
-      {suggestedTags.length ? (
+      {!inline && suggestedTags.length ? (
         <div className="tag-picker-suggestions" aria-label="자주 쓰거나 최근에 쓴 태그">
           <span>{suggestionsLabel}</span>
           <div>
@@ -143,24 +178,104 @@ export function TagPicker({
         </div>
       ) : null}
 
-      <button
-        className="tag-picker-open"
-        type="button"
-        onClick={showPicker}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-      >
-        <span className="tag-picker-open-copy">
-          <strong>{actionLabel}</strong>
-          <span>{selectedTagIds.length
-            ? selectedTags.map((tag) => `#${tag.label}`).join(" · ")
-            : emptyText}</span>
-        </span>
-        <span className="tag-picker-open-meta">
-          {selectedTagIds.length ? <em>{selectedTagIds.length}</em> : null}
-          <ChevronRight size={16} aria-hidden="true" />
-        </span>
-      </button>
+      {inline ? (
+        <div className={`tag-picker-inline${inlineHasOverflow ? " has-overflow" : ""}${inlineExpanded ? " is-expanded" : ""}`}>
+          <div ref={inlineListRef} className="tag-picker-inline-list" role="group" aria-label="태그 목록">
+            {onCreate ? (
+              creating ? (
+                <div className="tag-picker-inline-create">
+                  <input
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return;
+                      event.preventDefault();
+                      submitTag();
+                    }}
+                    maxLength={ARCHIVE_LIMITS.tagLabel}
+                    placeholder="새 태그 입력"
+                    aria-label="새 태그 이름"
+                    autoFocus
+                  />
+                  <button type="button" onClick={submitTag} disabled={!draft.trim()} aria-label="새 태그 추가">
+                    <Plus size={15} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraft("");
+                      setCreating(false);
+                    }}
+                    aria-label="새 태그 입력 취소"
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="tag-picker-inline-create-trigger"
+                  type="button"
+                  onClick={() => {
+                    setCreating(true);
+                    setInlineExpanded(true);
+                  }}
+                >
+                  <Plus size={14} aria-hidden="true" /> 새 태그
+                </button>
+              )
+            ) : null}
+            {sortedTags.map((tag) => {
+              const selected = selectedTagIds.includes(tag.id);
+              const disabled = !selected && selectedTagIds.length >= maxSelected;
+              return (
+                <button
+                  className={`tag-picker-inline-option${selected ? " is-selected" : ""}`}
+                  key={tag.id}
+                  type="button"
+                  aria-pressed={selected}
+                  disabled={disabled}
+                  onClick={() => onToggle(tag.id)}
+                >
+                  <span>#{tag.label}</span>
+                  {selected ? <Check size={13} aria-hidden="true" /> : null}
+                </button>
+              );
+            })}
+            {!sortedTags.length ? <p className="tag-picker-empty">아직 만든 태그가 없어요.</p> : null}
+          </div>
+          {inlineHasOverflow ? (
+            <button
+              className="tag-picker-inline-toggle"
+              type="button"
+              onClick={() => setInlineExpanded((value) => !value)}
+              aria-expanded={inlineExpanded}
+              aria-label={inlineExpanded ? "태그 목록 접기" : "태그 모두 보기"}
+            >
+              <ChevronDown size={18} aria-hidden="true" />
+            </button>
+          ) : null}
+          {manageHref ? <Link className="tag-picker-inline-manage" href={manageHref} intent="tab">전체 태그 관리</Link> : null}
+        </div>
+      ) : (
+        <button
+          className="tag-picker-open"
+          type="button"
+          onClick={showPicker}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          <span className="tag-picker-open-copy">
+            <strong>{actionLabel}</strong>
+            <span>{selectedTagIds.length
+              ? selectedTags.map((tag) => `#${tag.label}`).join(" · ")
+              : emptyText}</span>
+          </span>
+          <span className="tag-picker-open-meta">
+            {selectedTagIds.length ? <em>{selectedTagIds.length}</em> : null}
+            <ChevronRight size={16} aria-hidden="true" />
+          </span>
+        </button>
+      )}
 
       {open ? (
         <>

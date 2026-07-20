@@ -1,12 +1,13 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
   type FormEvent,
 } from "react";
-import { Check, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import {
   ARCHIVE_LIMITS,
   archiveInboxTrackWithTags,
@@ -469,14 +470,6 @@ export function Capture({
   }, []);
 
   useEffect(() => {
-    if (!sharedUrl || shareHandled.current) return;
-    const matchedUrl = sharedUrl.match(/https?:\/\/\S+/)?.[0]?.replace(/[),.]+$/, "") ?? sharedUrl;
-    setMusicUrl(matchedUrl);
-    setLinkDialogOpen(true);
-    shareHandled.current = true;
-  }, [sharedUrl]);
-
-  useEffect(() => {
     if (!draftReady.current) return;
     try {
       window.sessionStorage.setItem(CAPTURE_DRAFT_KEY, JSON.stringify({
@@ -560,13 +553,18 @@ export function Capture({
     setSavedMemoryId(null);
   }
 
-  function startRecord(track: TrackReference) {
+  const startRecord = useCallback((track: TrackReference) => {
     setAssigning(track);
     setRecordMode("choose");
     setSelectedTagLabels([]);
     setNewTagLabel("");
     setSavedMemoryId(null);
-  }
+  }, []);
+
+  const startDetailedRecord = useCallback((track: TrackReference) => {
+    startRecord(track);
+    setRecordMode("tag");
+  }, [startRecord]);
 
   function changeQuery(value: string) {
     setQuery(value);
@@ -577,8 +575,7 @@ export function Capture({
     setError(null);
   }
 
-  async function importLink(event: FormEvent) {
-    event.preventDefault();
+  const importMusicLink = useCallback(async (url: string) => {
     if (!online) {
       setLinkError("오프라인에서는 새 음악 링크를 가져올 수 없어요.");
       return;
@@ -587,7 +584,7 @@ export function Capture({
     setLinkError(null);
     setManualFallback(null);
     try {
-      const response = await fetch(`/api/music-metadata?url=${encodeURIComponent(musicUrl.trim())}`, {
+      const response = await fetch(`/api/music-metadata?url=${encodeURIComponent(url.trim())}`, {
         headers: { Accept: "application/json" },
       });
       const payload = await response.json() as MusicMetadataApiResponse;
@@ -602,16 +599,27 @@ export function Capture({
         setManualAlbum(payload.fallback.suggested.album);
         return;
       }
-      setResults([payload.track]);
-      setVisibleResultCount(SEARCH_RESULT_BATCH_SIZE);
-      setLoadingMore(false);
-      setResultSource("link");
       setLinkDialogOpen(false);
+      startDetailedRecord(payload.track);
     } catch {
-      setLinkError("링크 정보를 가져오지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.");
+      setLinkError("곡 정보를 가져오지 못했어요. YouTube Music 또는 Apple Music에서 해당 곡을 다시 공유해 주세요.");
     } finally {
       setLinkLoading(false);
     }
+  }, [online, startDetailedRecord]);
+
+  useEffect(() => {
+    if (!sharedUrl || shareHandled.current) return;
+    const matchedUrl = sharedUrl.match(/https?:\/\/\S+/)?.[0]?.replace(/[),.]+$/, "") ?? sharedUrl;
+    setMusicUrl(matchedUrl);
+    setLinkDialogOpen(true);
+    shareHandled.current = true;
+    void importMusicLink(matchedUrl);
+  }, [importMusicLink, sharedUrl]);
+
+  async function importLink(event: FormEvent) {
+    event.preventDefault();
+    await importMusicLink(musicUrl);
   }
 
   function finishManualImport(event: FormEvent) {
@@ -622,13 +630,10 @@ export function Capture({
       artist: manualArtist,
       album: manualAlbum,
     });
-    setResults([track]);
-    setVisibleResultCount(SEARCH_RESULT_BATCH_SIZE);
-    setLoadingMore(false);
-    setResultSource("link");
     setManualFallback(null);
     setLinkError(null);
     setLinkDialogOpen(false);
+    startDetailedRecord(track);
   }
 
   async function submit(event: FormEvent) {
@@ -747,10 +752,6 @@ export function Capture({
       ...selectedTagLabels,
       ...(typedLabel ? [typedLabel] : []),
     ])];
-    if (!labels.length) {
-        notify("나중에 이 곡을 찾을 태그를 하나 남겨 주세요.");
-      return;
-    }
     try {
       const captured = captureTrackToInbox(archive, assigning);
       if (!captured.data.inbox[assigning.id]) {
@@ -762,7 +763,7 @@ export function Capture({
         return;
       }
       const result = archiveInboxTrackWithTags(captured, assigning.id, labels);
-      if (commit(result.archive, `‘${labels[0]}’ 태그로 기록했어요.`)) {
+      if (commit(result.archive, labels.length ? `‘${labels[0]}’ 태그로 기록했어요.` : "곡을 기록했어요.")) {
         clearCaptureDraft();
         setSelectedResults((current) => current.filter((item) => item.id !== assigning.id));
         setSelectedTagLabels(labels);
@@ -871,19 +872,19 @@ export function Capture({
       {linkDialogOpen ? (
         <div className="dialog-backdrop" role="presentation" onClick={() => setLinkDialogOpen(false)}>
           <div ref={linkDialogRef} className="dialog link-import-dialog" role="dialog" aria-modal="true" aria-labelledby="link-import-title" onClick={(event) => event.stopPropagation()}>
-            <h2 id="link-import-title">링크로 가져오기</h2>
-            <p className="link-import-description">스트리밍 앱의 플레이리스트나 곡 공유 링크를 붙여 넣어 주세요.</p>
+            <h2 id="link-import-title">음악 앱에서 가져오기</h2>
+            <p className="link-import-description">YouTube Music 또는 Apple Music 앱에서 곡을 공유해 뮤키로 보내 주세요. 분석이 끝나면 바로 같은 기록 화면으로 이어져요.</p>
             {!manualFallback ? (
               <>
                 <form className="form-stack link-import-form" onSubmit={importLink}>
                   <div className="field">
-                    <label htmlFor="music-url">음악 공유 링크</label>
-                    <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="https://…" required autoComplete="url" />
+                    <label htmlFor="music-url">YouTube Music 또는 Apple Music 곡 링크</label>
+                    <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="https://music.youtube.com/watch?v=… 또는 music.apple.com/…" required autoComplete="url" />
                   </div>
                   {linkError ? <div className="notice notice-danger" role="alert">{linkError}</div> : null}
                   <div className="dialog-actions">
                     <button className="button button-ghost" type="button" onClick={() => setLinkDialogOpen(false)}>취소</button>
-                    <button className="button button-primary" type="submit" disabled={linkLoading || !online}>{linkLoading ? <LoadingDots /> : "링크 가져오기"}</button>
+                    <button className="button button-primary" type="submit" disabled={linkLoading || !online}>{linkLoading ? <LoadingDots /> : "곡 분석하기"}</button>
                   </div>
                 </form>
               </>
@@ -912,7 +913,7 @@ export function Capture({
                 <button type="button" onClick={() => setRecordMode("tag")}><strong>자세히 기록</strong></button>
               </div>
             ) : recordMode === "tag" ? (
-              <form className="form-stack" onSubmit={saveKeywords}>
+              <form className="form-stack record-tag-form" onSubmit={saveKeywords}>
                 {suggestedTags.length ? (
                   <div className="field">
                     <span className="field-label">최근 태그</span>
@@ -932,12 +933,23 @@ export function Capture({
                 </div>
                 {selectedTagLabels.length ? (
                   <div className="tag-row" aria-label="선택한 태그">
-                    {selectedTagLabels.map((label) => <button className="tag is-selected" type="button" key={label} onClick={() => toggleSuggestedTag(label)}>#{label} 삭제</button>)}
+                    {selectedTagLabels.map((label) => (
+                      <button
+                        className="tag is-selected"
+                        type="button"
+                        key={label}
+                        onClick={() => toggleSuggestedTag(label)}
+                        aria-label={`${label} 태그 삭제`}
+                      >
+                        <span>#{label}</span>
+                        <X size={14} strokeWidth={2.4} aria-hidden="true" />
+                      </button>
+                    ))}
                   </div>
                 ) : null}
                 <div className="dialog-actions">
                   <button className="button" type="button" onClick={() => setRecordMode("choose")}>뒤로</button>
-                  <button className="button button-primary" type="submit" disabled={!selectedTagLabels.length && !newTagLabel.trim()}>기록하기</button>
+                  <button className="button button-primary" type="submit">기록하기</button>
                 </div>
               </form>
             ) : (
@@ -970,38 +982,101 @@ export function Inbox({
     .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
   const chapters = getCubesInTreeOrder(archive)
     .filter((chapter) => isVisibleChapter(archive, chapter) && isAssignableChapter(chapter));
-  const [selectedTrack, setSelectedTrack] = useState<TrackId | null>(null);
+  const [selectedTrackIds, setSelectedTrackIds] = useState<Set<TrackId>>(() => new Set());
+  const [assignmentTrackIds, setAssignmentTrackIds] = useState<TrackId[]>([]);
   const assignDialogRef = useModalFocus<HTMLDivElement>(
-    Boolean(selectedTrack),
-    () => setSelectedTrack(null),
+    assignmentTrackIds.length > 0,
+    () => setAssignmentTrackIds([]),
   );
   const chapterSheet = useSwipeableBottomSheet({
     initialSnap: "middle",
     snapPoints: ["middle", "expanded"],
     snapHeights: { middle: "56%", expanded: "86%" },
-    onDismiss: () => setSelectedTrack(null),
+    onDismiss: () => setAssignmentTrackIds([]),
   });
 
-  function assign(trackId: TrackId, chapterId: string) {
+  function openAssignment(trackIds: TrackId[]) {
+    if (!trackIds.length) return;
+    setAssignmentTrackIds(trackIds);
+  }
+
+  function toggleTrackSelection(trackId: TrackId) {
+    setSelectedTrackIds((current) => {
+      const next = new Set(current);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  }
+
+  function deleteSelectedTracks() {
+    if (!selectedTrackIds.size) return;
+    let next = archive;
+    let removedCount = 0;
+    for (const trackId of selectedTrackIds) {
+      if (!next.data.inbox[trackId]) continue;
+      next = removeInboxTrack(next, trackId);
+      removedCount += 1;
+    }
+    if (!removedCount) {
+      setSelectedTrackIds(new Set());
+      return;
+    }
+    if (commit(
+      next,
+      removedCount > 1
+        ? `${removedCount}곡을 보관함에서 삭제했어요.`
+        : "정리 대기 목록에서 곡을 삭제했어요.",
+    )) {
+      setSelectedTrackIds(new Set());
+    }
+  }
+
+  function assign(chapterId: string) {
     try {
-      const result = moveInboxTrackToCube(archive, trackId, chapterId);
+      if (!assignmentTrackIds.length) return;
+      let next = archive;
+      let lastResult: ReturnType<typeof moveInboxTrackToCube> | null = null;
+      let addedCount = 0;
+      for (const trackId of assignmentTrackIds) {
+        if (!next.data.inbox[trackId]) continue;
+        const result = moveInboxTrackToCube(next, trackId, chapterId);
+        next = result.archive;
+        lastResult = result;
+        if (result.added) addedCount += 1;
+      }
+      if (!lastResult) return;
       if (commit(
-        result.archive,
-        result.added
-          ? "곡이 챕터에서 새로운 순간을 찾았어요."
-          : "이미 이 챕터에 있는 곡이라 보관함에서만 정리했어요.",
+        next,
+        assignmentTrackIds.length > 1
+          ? `${assignmentTrackIds.length}곡을 한 챕터에 담았어요.`
+          : addedCount
+            ? "곡이 챕터에서 새로운 순간을 찾았어요."
+            : "이미 이 챕터에 있는 곡이라 보관함에서만 정리했어요.",
       )) {
-        setSelectedTrack(null);
-        router.push(
-          `/memory?id=${encodeURIComponent(result.cubeTrack.id)}`,
-          "shared",
-          result.cubeTrack.id,
-        );
+        const assignedIds = assignmentTrackIds;
+        setAssignmentTrackIds([]);
+        setSelectedTrackIds((current) => {
+          const remaining = new Set(current);
+          assignedIds.forEach((trackId) => remaining.delete(trackId));
+          return remaining;
+        });
+        if (assignedIds.length > 1) {
+          router.push(`/chapter?id=${encodeURIComponent(chapterId)}`, "shared", chapterId);
+        } else {
+          router.push(
+            `/memory?id=${encodeURIComponent(lastResult.cubeTrack.id)}`,
+            "shared",
+            lastResult.cubeTrack.id,
+          );
+        }
       }
     } catch (error) {
       notify(error instanceof Error ? error.message : "곡을 이동하지 못했어요.");
     }
   }
+
+  const selectedTrackIdList = [...selectedTrackIds];
 
   const inboxItems = entries.flatMap((entry) => {
     const track = archive.data.tracks[entry.trackId];
@@ -1014,13 +1089,14 @@ export function Inbox({
       action: (
         <div className="inbox-track-actions">
           <button
-            className="button button-danger"
+            className={`inbox-track-select${selectedTrackIds.has(track.id) ? " is-selected" : ""}`}
             type="button"
-            onClick={() => commit(removeInboxTrack(archive, track.id), "정리 대기 목록에서 곡을 삭제했어요.")}
+            aria-pressed={selectedTrackIds.has(track.id)}
+            aria-label={`${track.title} ${selectedTrackIds.has(track.id) ? "선택 해제" : "선택"}`}
+            onClick={() => toggleTrackSelection(track.id)}
           >
-            삭제
+            <Check size={14} aria-hidden="true" />
           </button>
-          <button className="button button-primary" type="button" onClick={() => setSelectedTrack(track.id)}>기록</button>
         </div>
       ),
     }];
@@ -1037,8 +1113,27 @@ export function Inbox({
         <ChapterTrackSection items={inboxItems} title="기록할 곡" label={`${inboxItems.length}곡`} />
       ) : <EmptyState title="정리할 곡이 없어요" action={<Link className="button button-primary" href="/capture">첫 곡 기록하기</Link>} />}
 
-      {selectedTrack ? (
-        <div className="dialog-backdrop" role="presentation" onClick={() => setSelectedTrack(null)}>
+      {selectedTrackIds.size ? (
+        <div className="inbox-selection-bar" aria-live="polite">
+          <span>{selectedTrackIds.size}곡 선택됨</span>
+          <div className="inbox-selection-actions">
+            {selectedTrackIdList.length === 1 ? (
+              <button className="button" type="button" onClick={() => openAssignment(selectedTrackIdList)}>
+                기록
+              </button>
+            ) : null}
+            <button className="button button-primary" type="button" onClick={() => openAssignment(selectedTrackIdList)}>
+              챕터 넣기
+            </button>
+            <button className="button button-danger" type="button" onClick={deleteSelectedTracks}>
+              삭제
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {assignmentTrackIds.length ? (
+        <div className="dialog-backdrop" role="presentation" onClick={() => setAssignmentTrackIds([])}>
           <div
             ref={assignDialogRef}
             className={`dialog inbox-chapter-sheet is-swipeable-sheet${chapterSheet.isDragging ? " is-dragging" : ""}`}
@@ -1066,7 +1161,7 @@ export function Inbox({
                   detail={`${getCubeTracks(archive, chapter.id).length}곡`}
                   index={index}
                   key={chapter.id}
-                  onSelect={(chapterId) => assign(selectedTrack, chapterId)}
+                  onSelect={assign}
                   showSelectionLabel={false}
                 />
               ))}
@@ -1074,8 +1169,11 @@ export function Inbox({
               {!chapters.length ? <div className="notice notice-warning">아직 챕터가 없어요.</div> : null}
             </div>
             <div className="inbox-chapter-sheet-footer">
-              <button className="button button-ghost" type="button" onClick={() => setSelectedTrack(null)}>취소</button>
-              <Link className="button button-primary" href={`/chapters?trackId=${encodeURIComponent(selectedTrack)}`}>새 챕터 만들기</Link>
+              <button className="button button-ghost" type="button" onClick={() => setAssignmentTrackIds([])}>취소</button>
+              <Link
+                className="button button-primary"
+                href={`/chapters?${assignmentTrackIds.map((trackId) => `trackId=${encodeURIComponent(trackId)}`).join("&")}`}
+              >새 챕터 만들기</Link>
             </div>
           </div>
         </div>

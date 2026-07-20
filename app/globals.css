@@ -1709,6 +1709,10 @@ button.tag {
   color: var(--ink-soft);
 }
 
+.memory-art-record-visibility {
+  margin-top: 14px;
+}
+
 .memory-form {
   padding-top: 0;
 }

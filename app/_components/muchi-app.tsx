@@ -279,7 +279,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const reduceMotion = archive.data.preferences.motion === "reduce"
     || (archive.data.preferences.motion === "system" && systemReduce);
   const queryId = searchParams.get("id");
-  const pendingTrackId = searchParams.get("trackId") as TrackId | null;
+  const pendingTrackIds = searchParams.getAll("trackId") as TrackId[];
+  const pendingTrackId = pendingTrackIds[0] ?? null;
   const pendingRecordMode = searchParams.get("recordMode") === "quick" ? "quick" : "detail";
   const recordMode = searchParams.get("mode") === "quick" ? "quick" : "detail";
   const sharedUrl = searchParams.get("url") ?? searchParams.get("text");
@@ -551,7 +552,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "inbox":
         return <Inbox archive={archive} commit={commit} notify={notify} router={router} />;
       case "chapters":
-        return <Chapters archive={archive} commit={commit} notify={notify} router={router} pendingTrackId={pendingTrackId} pendingRecordMode={pendingRecordMode} />;
+        return <Chapters archive={archive} commit={commit} notify={notify} router={router} pendingTrackId={pendingTrackId} pendingTrackIds={pendingTrackIds} pendingRecordMode={pendingRecordMode} />;
       case "chapter":
         if (hiddenChapterRoute) {
           return <LoadingSpinner label="안전한 음악 목록으로 이동하는 중입니다." />;
@@ -589,6 +590,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         return (
           <Search
             archive={archive}
+            commit={commit}
+            notify={notify}
             initialQuery={searchQuery}
             requestedTagIds={searchTagIds}
             requestedView={searchView}

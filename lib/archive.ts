@@ -1746,9 +1746,6 @@ export function archiveInboxTrackWithTags(
   if (!archive.data.inbox[trackId]) {
     throw new ArchiveDomainError("not-found", "임시 보관함에서 곡을 찾을 수 없습니다.");
   }
-  if (inputs.length === 0) {
-    throw new ArchiveDomainError("invalid-input", "아카이빙을 시작하려면 태그가 하나 필요합니다.");
-  }
   if (inputs.length > ARCHIVE_LIMITS.tagsPerCubeTrack) {
     throw new ArchiveDomainError(
       "limit-exceeded",
@@ -1795,7 +1792,36 @@ export function moveCaptureTrackToCube(
     (item) => item.cubeId === destinationCubeId && item.trackId === current.trackId,
   );
   if (duplicate) {
-    return { status: "duplicate", archive, existingCubeTrack: duplicate };
+    const notes = [
+      ...duplicate.notes,
+      ...current.notes.filter((note) => !duplicate.notes.some((existing) => existing.id === note.id)),
+    ].sort((left, right) => {
+      const dateDifference = (right.listenedOn ?? "").localeCompare(left.listenedOn ?? "");
+      return dateDifference || right.createdAt.localeCompare(left.createdAt);
+    });
+    const existingCubeTrack = {
+      ...duplicate,
+      tagIds: [...new Set([...duplicate.tagIds, ...current.tagIds])],
+      character: duplicate.character.trim() ? duplicate.character : current.character,
+      memoryPeriod: duplicate.memoryPeriod ?? current.memoryPeriod,
+      place: duplicate.place.trim() ? duplicate.place : current.place,
+      people: duplicate.people.trim() ? duplicate.people : current.people,
+      notes,
+      updatedAt: now,
+    };
+    const cubeTracks = { ...archive.data.cubeTracks, [duplicate.id]: existingCubeTrack };
+    delete cubeTracks[current.id];
+    const cubes = {
+      ...archive.data.cubes,
+      [source.id]: { ...source, updatedAt: now },
+      [destination.id]: { ...destination, updatedAt: now },
+    };
+    const next = withData(
+      archive,
+      { ...archive.data, cubes, cubeTracks },
+      now,
+    );
+    return { status: "duplicate", archive: next, existingCubeTrack };
   }
 
   const sortOrder = Object.values(archive.data.cubeTracks).filter(
@@ -2026,16 +2052,6 @@ export function removeCubeTrack(
   return withData(archive, data, now);
 }
 
-function hasPersonalContent(cubeTrack: CubeTrack): boolean {
-  return Boolean(
-    cubeTrack.character.trim()
-    || cubeTrack.memoryPeriod
-    || cubeTrack.place.trim()
-    || cubeTrack.people.trim()
-    || cubeTrack.notes.length,
-  );
-}
-
 function hasPersonalContext(archive: ArchiveEnvelopeV1, trackId: TrackId): boolean {
   return Object.values(archive.data.cubeTracks).some((cubeTrack) => {
     if (cubeTrack.trackId !== trackId) return false;
@@ -2061,22 +2077,6 @@ function restoreInboxWhenUnarchived(
     },
     now,
   );
-}
-
-function normalizeCaptureAfterTagChange(
-  archive: ArchiveEnvelopeV1,
-  cubeTrackId: string,
-  now: string,
-): ArchiveEnvelopeV1 {
-  const cubeTrack = archive.data.cubeTracks[cubeTrackId];
-  if (!cubeTrack || cubeTrack.tagIds.length > 0) return archive;
-  const cube = archive.data.cubes[cubeTrack.cubeId];
-  if (cube?.kind !== "capture" || hasPersonalContent(cubeTrack)) return archive;
-
-  const cubeTracks = { ...archive.data.cubeTracks };
-  delete cubeTracks[cubeTrackId];
-  const withoutCapture = withData(archive, { ...archive.data, cubeTracks }, now);
-  return restoreInboxWhenUnarchived(withoutCapture, cubeTrack.trackId, now);
 }
 
 export function setCubeTrackTags(
@@ -2212,16 +2212,7 @@ export function deleteTag(
       changedCubeIds.has(id) ? { ...cube, updatedAt: now } : cube,
     ]),
   );
-  const removed = withData(archive, { ...archive.data, tags, cubeTracks, cubes }, now);
-  return [...changedCubeIds].reduce((currentArchive, cubeId) => {
-    const affectedIds = Object.values(currentArchive.data.cubeTracks)
-      .filter((item) => item.cubeId === cubeId)
-      .map((item) => item.id);
-    return affectedIds.reduce(
-      (nextArchive, cubeTrackId) => normalizeCaptureAfterTagChange(nextArchive, cubeTrackId, now),
-      currentArchive,
-    );
-  }, removed);
+  return withData(archive, { ...archive.data, tags, cubeTracks, cubes }, now);
 }
 
 export function setCubeTrackTagIds(
@@ -2240,7 +2231,7 @@ export function setCubeTrackTagIds(
     );
   }
   const nextCubeTrack = { ...cubeTrack, tagIds, updatedAt: now };
-  const updated = withData(
+  return withData(
     archive,
     {
       ...archive.data,
@@ -2255,7 +2246,6 @@ export function setCubeTrackTagIds(
     },
     now,
   );
-  return normalizeCaptureAfterTagChange(updated, cubeTrackId, now);
 }
 
 export function reorderCubeTracks(

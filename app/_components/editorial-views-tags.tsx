@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import {
+  ARCHIVE_LIMITS,
   createTags,
   deleteTag,
   getTagGroups,
@@ -120,12 +121,12 @@ export function TagManager({
       />
 
       <section className="tag-library" aria-labelledby="tag-library-title">
-        <div className="tag-library-head"><div><h2 id="tag-library-title">태그</h2></div><label className="field tag-library-search" htmlFor="tag-search"><span className="sr-only">태그 검색</span><input id="tag-search" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="태그 검색" /></label></div>
+        <div className="tag-library-head"><h2 id="tag-library-title" className="sr-only">태그</h2><label className="field tag-library-search" htmlFor="tag-search"><span className="sr-only">태그 검색</span><input id="tag-search" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="태그 검색" /></label></div>
         {visibleTags.length ? (
           <div className="tag-manager-list">
             {visibleTags.map((tag) => editingId === tag.id ? (
               <form className="tag-manager-row tag-manager-edit" key={tag.id} onSubmit={(event) => saveEdit(event, tag.id)}>
-                <input className="input" value={editLabel} onChange={(event) => setEditLabel(event.target.value)} maxLength={40} aria-label="태그 이름" autoFocus />
+                <input className="input" value={editLabel} onChange={(event) => setEditLabel(event.target.value)} maxLength={ARCHIVE_LIMITS.tagLabel} aria-label="태그 이름" autoFocus />
                 <div className="tag-manager-actions"><button className="button button-primary" type="submit">완료</button><button className="button" type="button" onClick={() => setEditingId(null)}>취소</button></div>
               </form>
             ) : (
@@ -139,7 +140,7 @@ export function TagManager({
                       : ""}
                   </small>
                 </TagLink>
-                <details className="tag-manager-menu"><summary className="button">관리</summary><div className="tag-manager-actions"><button className="button" type="button" onClick={() => beginEdit(tag)}>수정</button><button className="button button-danger" type="button" onClick={() => remove(tag)}>삭제</button></div></details>
+                <div className="tag-manager-actions"><button className="button" type="button" onClick={() => beginEdit(tag)}>수정</button><button className="button button-danger" type="button" onClick={() => remove(tag)}>삭제</button></div>
               </div>
             ))}
           </div>

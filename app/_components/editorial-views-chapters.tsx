@@ -103,6 +103,7 @@ export type ChapterTrackDetailItem = {
   tags?: Array<Pick<TagDefinition, "id" | "label">>;
   action?: ReactNode;
   detailActions?: ReactNode;
+  collapsible?: boolean;
   privateRecord?: boolean;
   sharedId?: string;
 };
@@ -175,7 +176,8 @@ export function ChapterTrackSection({
       <div className="chapter-compact-track-list">
         {items.map((item) => {
           const expanded = expandedTrackId === item.id;
-          const canExpand = !item.privateRecord;
+          const canExpand = item.collapsible ?? !item.privateRecord;
+          const inlineSummary = item.collapsible === false ? item.summary : null;
           return (
             <article className={`chapter-compact-track${expanded ? " is-expanded" : ""}`} key={item.id}>
               <div className="chapter-compact-track-main">
@@ -200,6 +202,7 @@ export function ChapterTrackSection({
                     <span className="chapter-compact-track-copy">
                       <strong>{item.track.title}</strong>
                       <span>{item.track.artist}</span>
+                      {inlineSummary ? <small>{inlineSummary}</small> : null}
                     </span>
                   </div>
                 )}

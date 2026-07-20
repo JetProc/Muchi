@@ -601,7 +601,7 @@ test("uses a compact accordion inside chapters and unified rows elsewhere", asyn
   assert.match(chapterSource, /aria-expanded=\{expanded\}/);
   assert.match(chapterSource, /setExpandedTrackId/);
   assert.match(chapterSource, /className="chapter-memory-link"/);
-  assert.match(chapterSource, /const canExpand = !item\.privateRecord/);
+  assert.match(chapterSource, /const canExpand = item\.collapsible \?\? !item\.privateRecord/);
   assert.match(chapterSource, /className="chapter-compact-track-toggle is-static"/);
   assert.match(chapterSource, /item\.tags\.slice\(0, 6\)/);
   assert.doesNotMatch(globals, /@media \(max-width:\s*0px\)/);
@@ -690,18 +690,21 @@ test("shares chapter hierarchy choices, fields, and delete confirmation across f
   assert.match(deleteSource, /하위 챕터.*한 단계 위로 이동해 그대로 남습니다/);
 });
 
-test("keeps the Inbox on the shared expandable track pattern with a swipeable chapter sheet", async () => {
-  const [primarySource, chapterSource, uiSource, appleTheme] = await Promise.all([
+test("keeps the Inbox on a compact static track pattern with a swipeable chapter sheet", async () => {
+  const [primarySource, chapterSource, uiSource, appleTheme, globalStyles] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-ui.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   const inboxSource = sliceBetween(primarySource, "export function Inbox(", undefined, "Inbox source");
 
   assert.match(primarySource, /import \{ ChapterTrackSection \} from "\.\/editorial-views-chapters"/);
   assert.match(inboxSource, /<ChapterTrackSection/);
-  assert.match(inboxSource, /detailActions:\s*\(/);
+  assert.match(inboxSource, /action:\s*\(/);
+  assert.doesNotMatch(inboxSource, /detailActions:\s*\(/);
+  assert.match(inboxSource, /collapsible:\s*false/);
   assert.doesNotMatch(inboxSource, /<TrackLine/);
   assert.match(inboxSource, />\s*삭제\s*<\/button>/);
   assert.match(inboxSource, />\s*기록\s*<\/button>/);
@@ -712,6 +715,9 @@ test("keeps the Inbox on the shared expandable track pattern with a swipeable ch
   assert.match(inboxSource, /className="inbox-chapter-sheet-footer"/);
   assert.match(inboxSource, /showSelectionLabel=\{false\}/);
   assert.match(chapterSource, /detailActions\?: ReactNode/);
+  assert.match(chapterSource, /collapsible\?: boolean/);
+  assert.match(chapterSource, /const canExpand = item\.collapsible \?\? !item\.privateRecord/);
+  assert.match(chapterSource, /const inlineSummary = item\.collapsible === false \? item\.summary : null/);
   assert.match(chapterSource, /className="chapter-compact-track-detail-actions"/);
   assert.match(uiSource, /showSelectionLabel = true/);
   assert.match(uiSource, /showSelectionLabel \? <em>선택<\/em> : null/);
@@ -720,10 +726,13 @@ test("keeps the Inbox on the shared expandable track pattern with a swipeable ch
   assert.match(appleTheme, /\.inbox-chapter-sheet-footer\s*\{[^}]*position:\s*relative;[^}]*border-top:/s);
   assert.match(appleTheme, /\.is-swipeable-sheet\s*\{[^}]*overscroll-behavior:\s*contain;[^}]*transition:\s*transform/s);
   assert.match(appleTheme, /\.inbox-chapter-sheet\.is-swipeable-sheet\s*\{[^}]*grid-template-rows:\s*auto minmax\(0, 1fr\) auto;/s);
-  assert.match(appleTheme, /\.inbox-view \.chapter-compact-track-detail-actions\s*\{[^}]*padding:\s*7px 0 12px 52px;/s);
-  assert.match(appleTheme, /\.inbox-track-actions\s*\{[^}]*display:\s*flex;[^}]*gap:\s*10px;/s);
-  assert.match(appleTheme, /\.inbox-track-actions \.button\s*\{[^}]*min-height:\s*30px;[^}]*height:\s*30px;[^}]*border-radius:\s*10px !important;/s);
-  assert.match(appleTheme, /\.inbox-track-actions \.button::after\s*\{[^}]*inset:\s*-5px -3px;/s);
+  assert.match(appleTheme, /\.inbox-track-actions\s*\{[^}]*display:\s*flex;[^}]*gap:\s*6px;/s);
+  assert.match(appleTheme, /\.inbox-track-actions \.button\s*\{[^}]*min-height:\s*28px;[^}]*height:\s*28px;[^}]*border-radius:\s*9px !important;/s);
+  assert.match(appleTheme, /\.inbox-track-actions \.button-primary\s*\{[^}]*color:\s*var\(--apple-primary\);[^}]*background:\s*color-mix\(in srgb, var\(--apple-primary\) 7%, var\(--apple-canvas\)\);/s);
+  assert.match(appleTheme, /\.inbox-track-actions \.button-danger\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--apple-danger\) 6%, var\(--apple-canvas\)\);/s);
+  assert.match(appleTheme, /\.inbox-track-actions \.button::after\s*\{[^}]*inset:\s*-8px -4px;/s);
+  assert.match(globalStyles, /\.chapter-compact-track-toggle\.is-static\s*\{[^}]*grid-template-columns:\s*40px minmax\(0, 1fr\);[^}]*cursor:\s*default;/s);
+  assert.match(globalStyles, /\.chapter-compact-track-copy > small\s*\{[^}]*font-size:\s*10px;/s);
   assert.match(appleTheme, /\.text-button:not\(:disabled\):hover,[\s\S]*?background:\s*color-mix/s);
 });
 
@@ -825,7 +834,7 @@ test("keeps the home focused on three personal archive priorities", async () => 
   assert.match(appleTheme, /\.album-hero\s*\{[^}]*background:\s*var\(--apple-surface-tile-1\);/s);
 });
 
-test("keeps destructive chapter actions managed and Inbox actions inside an expanded row", async () => {
+test("keeps destructive chapter actions managed and Inbox actions visible in each track row", async () => {
   const [primarySource, chapterSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
@@ -833,7 +842,7 @@ test("keeps destructive chapter actions managed and Inbox actions inside an expa
 
   const inboxSource = sliceBetween(primarySource, "export function Inbox(", undefined, "Inbox source");
   assert.doesNotMatch(inboxSource, /const \[managing, setManaging\] = useState\(false\)|목록 관리/);
-  assert.match(inboxSource, /detailActions:\s*\([\s\S]*?button-danger[\s\S]*?>\s*삭제\s*<\/button>/s);
+  assert.match(inboxSource, /action:\s*\([\s\S]*?button-danger[\s\S]*?>\s*삭제\s*<\/button>/s);
   assert.match(inboxSource, /<ChapterTrackSection/);
   assert.match(chapterSource, /const \[managing, setManaging\] = useState\(false\)/);
   assert.match(chapterSource, /className="chapter-menu-trigger"/);

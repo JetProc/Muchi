@@ -1010,7 +1010,8 @@ export function Inbox({
       id: entry.trackId,
       track,
       summary: `${formatDate(entry.capturedAt)}에 기록`,
-      detailActions: (
+      collapsible: false,
+      action: (
         <div className="inbox-track-actions">
           <button
             className="button button-danger"

@@ -1754,30 +1754,48 @@ button.tag {
   padding: 8px 8px 10px 52px;
 }
 
-.inbox-view .chapter-compact-track-detail-actions {
-  padding: 7px 0 12px 52px;
-}
-
 .inbox-track-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .inbox-track-actions .button {
   position: relative;
-  min-height: 30px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 10px !important;
-  font-size: 11px;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 9px !important;
+  font-size: 10px;
   font-weight: 650;
   line-height: 1;
 }
 
+.inbox-track-actions .button-primary {
+  border-color: color-mix(in srgb, var(--apple-primary) 28%, var(--apple-hairline));
+  color: var(--apple-primary);
+  background: color-mix(in srgb, var(--apple-primary) 7%, var(--apple-canvas));
+}
+
+.inbox-track-actions .button-danger {
+  border-color: color-mix(in srgb, var(--apple-danger) 22%, var(--apple-hairline));
+  color: color-mix(in srgb, var(--apple-danger) 78%, var(--apple-ink));
+  background: color-mix(in srgb, var(--apple-danger) 6%, var(--apple-canvas));
+}
+
+.inbox-track-actions .button-primary:not(:disabled):hover,
+.inbox-track-actions .button-primary:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--apple-primary) 13%, var(--apple-canvas));
+}
+
+.inbox-track-actions .button-danger:not(:disabled):hover,
+.inbox-track-actions .button-danger:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--apple-danger) 11%, var(--apple-canvas));
+}
+
 .inbox-track-actions .button::after {
   position: absolute;
-  inset: -5px -3px;
+  inset: -8px -4px;
   content: "";
 }
 

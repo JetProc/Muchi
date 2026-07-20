@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./apple-theme.css";
 import { MuchiDataProvider } from "./_components/muchi-data-provider";
@@ -14,8 +14,20 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",
+    apple: [
+      {
+        url: "/favicon.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
   },
   applicationName: "뮤키",
+  appleWebApp: {
+    capable: true,
+    title: "뮤키",
+    statusBarStyle: "default",
+  },
   openGraph: {
     title: "뮤키",
     description: "음악을 들었던 순간을 나만의 언어로 편집하는 개인 아카이브",
@@ -36,6 +48,13 @@ export const metadata: Metadata = {
     description: "음악을 들었던 순간을 나만의 언어로 편집하는 개인 아카이브",
     images: ["/og.png"],
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#17130F",
 };
 
 export default function RootLayout({

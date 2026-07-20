@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "muchi-shell";
-const CACHE_VERSION = "v5-music-share";
+const CACHE_VERSION = "v6-ios-pwa";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
 

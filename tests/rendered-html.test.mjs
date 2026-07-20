@@ -208,6 +208,12 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(source, /className="record-dialog-track"/);
   assert.match(source, /보관함에 우선 저장/);
   assert.match(source, /자세히 기록/);
+  assert.match(source, /recordMode === "chapter"/);
+  assert.match(source, /곡을 기록할 챕터를 하나 이상 선택해 주세요/);
+  assert.match(source, /function recordInChapter\(chapterId: string\)/);
+  assert.match(source, /moveInboxTrackToCube\(captured, assigning\.id, chapterId\)/);
+  assert.match(source, /setCubeTrackTagIds\(/);
+  assert.match(source, /InlineChapterCreate onCreate=\{createChapterAndRecord\}/);
   assert.match(appleTheme, /\.record-dialog-track\s*\{[^}]*grid-template-columns:\s*52px minmax\(0, 1fr\);/s);
 });
 
@@ -312,9 +318,16 @@ test("collects a validated nickname and Google avatar before onboarding complete
   assert.doesNotMatch(onboardingSource, /className="onboarding-mark">MUCHI<\/span>/);
   assert.match(onboardingSource, /Google 프로필/);
   assert.match(onboardingSource, /id="onboarding-nickname"/);
+  assert.doesNotMatch(onboardingSource, /탐색에 챕터를 공개하면 다른 뮤커에게/);
+  assert.doesNotMatch(onboardingSource, /프로필 사진은 닉네임 설정에만 표시돼요/);
+  assert.doesNotMatch(onboardingSource, /닉네임은 공개 챕터의 작성자 이름으로 사용돼요/);
   assert.match(onboardingSource, /NICKNAME_MAX_LENGTH/);
   assert.match(onboardingSource, /한글·영문·숫자·띄어쓰기만 사용/);
-  assert.match(onboardingSource, /첫 챕터 열기/);
+  assert.match(onboardingSource, /setStep\("intro"\)/);
+  assert.match(onboardingSource, /기억할 곡 찾기/);
+  assert.match(onboardingSource, /순간을 태그로 남기기/);
+  assert.match(onboardingSource, /챕터로 음악 세계 쌓기/);
+  assert.match(onboardingSource, /첫 곡 기록하기/);
   assert.match(routeSource, /requireAuthenticatedUser\(\)/);
   assert.match(routeSource, /validateNickname\(body\.nickname\)/);
   assert.match(repositorySource, /profile_setup_completed: true/);
@@ -483,6 +496,30 @@ test("keeps settings actions in compact, consistent rows", async () => {
   assert.match(css, /\.settings-list\s*\{[^}]*display:\s*grid;[^}]*gap:\s*0;/s);
   assert.match(css, /\.setting-row \.button\s*\{[^}]*min-height:\s*40px;[^}]*white-space:\s*nowrap;/s);
   assert.match(css, /\.setting-motion-select\s*\{[^}]*width:\s*170px;[^}]*min-height:\s*40px;/s);
+});
+
+test("connects onboarding, the settings guide, and first-record hints", async () => {
+  const [appSource, settingsSource, captureSource, guideSource, guideRouteSource] = await Promise.all([
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-guide.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/guide/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(settingsSource, /뮤키 사용 방법[\s\S]*?href="\/guide"/s);
+  assert.match(appSource, /case "guide":[\s\S]*?<Guide \/>/s);
+  assert.match(appSource, /router\.replace\("\/capture\?guide=1", "replace"\)/);
+  assert.match(appSource, /guideMode=\{searchParams\.get\("guide"\) === "1"\}/);
+  assert.match(captureSource, /className="capture-mini-guide"/);
+  assert.match(captureSource, /className="record-tag-guide"/);
+  assert.match(guideSource, /YouTube Music[\s\S]*?가져오기[\s\S]*?지원/s);
+  assert.match(guideSource, /Apple Music[\s\S]*?내보내기[\s\S]*?준비 중/s);
+  assert.match(guideSource, /Spotify[\s\S]*?미지원/s);
+  assert.match(guideSource, /Android PWA[\s\S]*?YouTube Music[\s\S]*?뮤키/s);
+  assert.match(guideSource, /iPhone \/ iPad[\s\S]*?직접 선택하는 공유는 아직 지원하지 않아요/s);
+  assert.match(guideSource, /href="\/capture\?guide=1"/);
+  assert.match(guideRouteSource, /MusicWorldApp view="guide"/);
 });
 
 test("keeps the global header stable and places contextual back actions inside secondary content", async () => {
@@ -727,7 +764,7 @@ test("shares chapter hierarchy choices, fields, and delete confirmation across f
 
   assert.equal((chapterSource.match(/<ChapterFields/g) ?? []).length, 3);
   assert.equal((chapterSource.match(/<ChapterDeleteDialog/g) ?? []).length, 2);
-  assert.equal((primarySource.match(/<ChapterChoice/g) ?? []).length, 1);
+  assert.equal((primarySource.match(/<ChapterChoice/g) ?? []).length, 2);
   assert.equal((chapterSource.match(/<ChapterChoice/g) ?? []).length, 1);
   assert.match(primarySource, /getCubesInTreeOrder\(archive\)/);
   assert.match(chapterSource, /getCubesInTreeOrder\(archive\)/);
@@ -1362,8 +1399,11 @@ test("ships the PWA shell and removes the disposable starter", async () => {
 
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(manifest, /display:\s*"standalone"/);
+  assert.match(manifest, /id:\s*"\/"/);
+  assert.match(manifest, /short_name:\s*"뮤키"/);
+  assert.match(manifest, /orientation:\s*"portrait"/);
   assert.match(manifest, /나만의 챕터/);
-  assert.match(serviceWorker, /v5-music-share/);
+  assert.match(serviceWorker, /v6-ios-pwa/);
   assert.match(serviceWorker, /"\/chapters"/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
   assert.match(serviceWorker, /!isSameOrigin\(url\) \|\| request\.destination === "audio"/);
@@ -1680,6 +1720,8 @@ test("keeps interview-driven capture paths while simplifying memory completion",
 
   assert.match(primarySource, /보관함에 우선 저장/);
   assert.match(primarySource, /자세히 기록/);
+  assert.match(primarySource, /다른 챕터에도 담기/);
+  assert.match(primarySource, /InlineChapterCreate onCreate=\{createChapterAndAssign\}/);
   assert.match(primarySource, /기억 더 남기기/);
   assert.match(primarySource, /링크로 가져오기/);
   assert.doesNotMatch(primarySource, /기존 플레이리스트 가져오기|실제 곡을 가져오지는 않아요/);

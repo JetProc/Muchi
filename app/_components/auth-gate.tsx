@@ -25,7 +25,7 @@ export function AuthGate({ message }: { message?: string }) {
       const supabase = createSupabaseBrowserClient();
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback?next=/` },
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
       });
       if (authError) throw authError;
     } catch (cause) {

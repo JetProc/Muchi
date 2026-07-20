@@ -236,6 +236,61 @@ export function parseSupportedMusicUrl(input: string): ParsedMusicLink {
   return parsed;
 }
 
+/**
+ * Parses the share URL formats that can enter the capture flow. Keeping this
+ * narrower than the legacy multi-provider parser prevents unsupported links
+ * from leading users into a partially populated record form.
+ */
+export function parseCaptureMusicShareUrl(input: string): ParsedMusicLink {
+  const originalUrl = input.trim();
+  if (
+    !originalUrl ||
+    originalUrl.length > MAX_URL_LENGTH ||
+    /[\u0000-\u001F\u007F]/.test(originalUrl)
+  ) {
+    throw new MusicLinkError(
+      "invalid-url",
+      "YouTube Music 또는 Apple Music에서 공유한 곡 링크를 확인해 주세요.",
+    );
+  }
+
+  let url: URL;
+  try {
+    url = new URL(originalUrl);
+  } catch {
+    throw new MusicLinkError(
+      "invalid-url",
+      "YouTube Music 또는 Apple Music에서 공유한 곡 링크를 확인해 주세요.",
+    );
+  }
+
+  if (
+    url.protocol !== "https:" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.port !== ""
+  ) {
+    throw new MusicLinkError(
+      "unsupported-url",
+      "YouTube Music 또는 Apple Music 앱에서 공유한 곡 링크만 바로 기록할 수 있어요. 앱에서 공유 → 뮤키를 선택해 주세요.",
+    );
+  }
+
+  const parsed = url.hostname === "music.youtube.com"
+    ? parseYoutube(url, originalUrl)
+    : url.hostname === "music.apple.com"
+      ? parseAppleMusic(url, originalUrl)
+      : null;
+  if (!parsed) {
+    throw new MusicLinkError(
+      "unsupported-url",
+      "YouTube Music 또는 Apple Music에서 곡을 다시 선택한 뒤 공유 → 뮤키를 눌러 주세요.",
+    );
+  }
+
+  return parsed;
+}
+
 export function completeManualTrack(
   fallback: ManualTrackFallback,
   input: {

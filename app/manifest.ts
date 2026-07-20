@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#17130F",
     lang: "ko-KR",
     share_target: {
-      action: "/capture",
+      action: "/capture?source=music-share",
       method: "GET",
       enctype: "application/x-www-form-urlencoded",
       params: {

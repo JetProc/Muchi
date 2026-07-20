@@ -1,7 +1,7 @@
 import { makeProviderTrackId, type TrackReference } from "../../../lib/archive";
 import {
   MusicLinkError,
-  parseSupportedMusicUrl,
+  parseCaptureMusicShareUrl,
   type ManualFallbackReason,
   type ManualMusicMetadataResponse,
   type MusicMetadataApiResponse,
@@ -42,17 +42,6 @@ function httpsUrl(value: unknown): string | null {
   } catch {
     return null;
   }
-}
-
-function duration(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0
-    ? Math.round(value)
-    : null;
-}
-
-function enlargeAppleArtwork(value: unknown): string | null {
-  const url = httpsUrl(value);
-  return url?.replace(/\/\d+x\d+bb(?=\.[a-z0-9]+(?:\?|$))/i, "/600x600bb") ?? null;
 }
 
 async function fetchOfficialJson(url: URL): Promise<unknown> {
@@ -122,28 +111,6 @@ function manual(
   };
 }
 
-async function spotifyMetadata(link: ParsedMusicLink): Promise<ManualMusicMetadataResponse> {
-  try {
-    const endpoint = new URL("https://open.spotify.com/oembed");
-    endpoint.searchParams.set("url", link.canonicalUrl);
-    const payload = await fetchOfficialJson(endpoint);
-    if (!isRecord(payload)) return manual(link, "metadata-unavailable");
-
-    const suggested = blankSuggestion();
-    suggested.title = text(payload.title);
-    suggested.artworkUrl = httpsUrl(payload.thumbnail_url);
-    // Spotify oEmbed intentionally omits the track artist. Keep the result in
-    // manual mode instead of inventing an artist or scraping an embed page.
-    return manual(
-      link,
-      suggested.title ? "metadata-incomplete" : "metadata-unavailable",
-      suggested,
-    );
-  } catch {
-    return manual(link, "metadata-unavailable");
-  }
-}
-
 async function youtubeMetadata(
   link: ParsedMusicLink,
 ): Promise<ReadyMusicMetadataResponse | ManualMusicMetadataResponse> {
@@ -196,21 +163,18 @@ async function appleMusicMetadata(
       return manual(link, "metadata-unavailable");
     }
 
-    const result = payload.results.find(
-      (item) =>
-        isRecord(item) &&
-        item.kind === "song" &&
-        item.trackId === link.providerTrackId,
-    );
-    if (!isRecord(result)) return manual(link, "metadata-unavailable");
-
+    const result = payload.results.find(isRecord);
+    if (!result) return manual(link, "metadata-unavailable");
     const suggested: SuggestedTrackMetadata = {
+      ...blankSuggestion(),
       title: text(result.trackName),
       artist: text(result.artistName),
       album: text(result.collectionName),
       genre: text(result.primaryGenreName),
-      durationMs: duration(result.trackTimeMillis),
-      artworkUrl: enlargeAppleArtwork(result.artworkUrl100),
+      durationMs: typeof result.trackTimeMillis === "number" && Number.isFinite(result.trackTimeMillis)
+        ? result.trackTimeMillis
+        : null,
+      artworkUrl: httpsUrl(result.artworkUrl100),
       previewUrl: httpsUrl(result.previewUrl),
     };
     if (!suggested.title || !suggested.artist) {
@@ -250,7 +214,7 @@ export async function GET(request: Request): Promise<Response> {
 
   let link: ParsedMusicLink;
   try {
-    link = parseSupportedMusicUrl(requestedUrl);
+    link = parseCaptureMusicShareUrl(requestedUrl);
   } catch (error) {
     const code = error instanceof MusicLinkError ? error.code : "invalid-url";
     const message =
@@ -260,8 +224,7 @@ export async function GET(request: Request): Promise<Response> {
     return json({ status: "error", error: { code, message } }, 400);
   }
 
-  if (link.service === "apple-music") return json(await appleMusicMetadata(link));
-  if (link.service === "spotify") return json(await spotifyMetadata(link));
-  if (link.service === "youtube") return json(await youtubeMetadata(link));
-  return json(manual(link, "provider-manual-only"));
+  return json(link.service === "apple-music"
+    ? await appleMusicMetadata(link)
+    : await youtubeMetadata(link));
 }

@@ -5,7 +5,7 @@ export const ARCHIVE_LIMITS = {
   cubeName: 40,
   cubeDescription: 200,
   tagsPerCubeTrack: 20,
-  tagLabel: 40,
+  tagLabel: 30,
   character: 100,
   place: 60,
   people: 60,

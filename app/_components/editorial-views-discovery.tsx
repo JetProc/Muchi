@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { ChevronRight, X } from "lucide-react";
 import {
+  createTags,
   createEmptyArchive,
   searchArchive,
   selectRecap,
@@ -104,6 +105,8 @@ function rawSearchHref(
 
 export function Search({
   archive,
+  commit,
+  notify,
   initialQuery,
   requestedTagIds,
   requestedView,
@@ -111,6 +114,8 @@ export function Search({
   router,
 }: {
   archive: ArchiveEnvelopeV1;
+  commit: ArchiveCommit;
+  notify: Notify;
   initialQuery: string;
   requestedTagIds: string[];
   requestedView: string | null;
@@ -177,6 +182,29 @@ export function Search({
     router.push(rawSearchHref("", [tagId], fromMemoryId));
   }
 
+  function addTag(label: string): boolean {
+    try {
+      const result = createTags(archive, [label]);
+      const tag = result.tags[0];
+      if (!tag) return false;
+      if (tagIds.includes(tag.id)) {
+        notify("이미 선택한 태그예요.");
+        return false;
+      }
+      if (result.created > 0 && !commit(result.archive, `‘${tag.label}’ 태그를 추가했어요.`)) {
+        return false;
+      }
+      const next = [...tagIds, tag.id];
+      setTagIds(next);
+      router.replace(rawSearchHref(query, next, fromMemoryId));
+      if (result.created === 0) notify(`‘${tag.label}’ 태그로 찾을게요.`);
+      return true;
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "태그를 추가하지 못했어요.");
+      return false;
+    }
+  }
+
   return (
     <div className="page-content search-view">
       <header className="search-workspace-header archive-find-header">
@@ -204,22 +232,22 @@ export function Search({
             </button>
           ) : null}
         </div>
-        {tags.length ? (
-          <div className="search-tag-controls">
-            <TagPicker
-              label="태그로 찾기"
-              tags={tags}
-              selectedTagIds={tagIds}
-              suggestedTagIds={quickTagIds}
-              usageCounts={tagUsageCounts}
-              onToggle={toggle}
-              suggestionsLabel="빠른 찾기"
-              actionLabel="태그로 찾기"
-              emptyText="자주 쓰는 태그를 빠르게 선택하세요"
-              panelTitle="태그 찾기"
-              manageHref={null}
-            />
-            {tagIds.length > 1 ? (
+        <div className="search-tag-controls">
+          <TagPicker
+            label="태그로 찾기"
+            tags={tags}
+            selectedTagIds={tagIds}
+            suggestedTagIds={quickTagIds}
+            usageCounts={tagUsageCounts}
+            onToggle={toggle}
+            suggestionsLabel="빠른 찾기"
+            actionLabel="태그로 찾기"
+            emptyText="자주 쓰는 태그를 빠르게 선택하세요"
+            panelTitle="태그 찾기"
+            manageHref="/tags"
+            onCreate={addTag}
+            inline
+            headingAction={tagIds.length > 1 ? (
               <select
                 className="search-tag-match"
                 value={tagMatch}
@@ -230,8 +258,8 @@ export function Search({
                 <option value="any">하나 이상</option>
               </select>
             ) : null}
-          </div>
-        ) : null}
+          />
+        </div>
       </header>
 
       <section className="search-results-section archive-find-results" aria-labelledby="search-results-title">
@@ -417,7 +445,6 @@ export function Settings({
       </section>
       <section className="settings-group" aria-labelledby="settings-data-title">
         <h2 id="settings-data-title">데이터</h2>
-        <div className="notice notice-warning settings-storage-notice"><span aria-hidden="true">!</span><div><strong>기록은 로그인한 계정에 저장돼요.</strong><span> 필요하면 JSON으로 백업할 수 있습니다.</span></div></div>
         <div className="panel settings-list">
           <div className="setting-row"><h3>태그 관리</h3><Link className="button" href="/tags" intent="tab">{Object.keys(archive.data.tags).length}개 보기</Link></div>
           <div className="setting-row"><h3>내 기록 백업</h3><button className="button" type="button" onClick={exportData}>내보내기</button></div>

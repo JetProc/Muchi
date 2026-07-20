@@ -15,6 +15,7 @@ import {
   Lock,
   MoreHorizontal,
   Plus,
+  Trash2,
   Unlock,
 } from "lucide-react";
 import {
@@ -76,7 +77,6 @@ import {
   isVisibleChapter,
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
-import { tagSearchHref } from "./editorial-tag-link";
 import { useModalFocus } from "./editorial-accessibility";
 import {
   TagPicker,
@@ -115,6 +115,7 @@ export function ChapterDetailHero({
   menu,
   title,
   description,
+  visibilityAction,
   meta,
   actions,
   utilities,
@@ -128,6 +129,7 @@ export function ChapterDetailHero({
   menu?: ReactNode;
   title: string;
   description?: string;
+  visibilityAction?: ReactNode;
   meta: ReactNode;
   actions?: ReactNode;
   utilities?: ReactNode;
@@ -144,6 +146,7 @@ export function ChapterDetailHero({
         {leading}
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
+        {visibilityAction ? <div className="chapter-detail-visibility">{visibilityAction}</div> : null}
         <div className="chapter-detail-meta-row">
           <p className="chapter-detail-meta">{meta}</p>
           {!utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities is-inline">{utilities}</div> : null}
@@ -239,23 +242,19 @@ export function ChapterPlaylistActions({
   chapterId: string;
   source?: "discover";
 }) {
-  const playlistHref = (service: "apple" | "spotify" | "youtube") => {
+  const playlistHref = (service: "apple" | "youtube") => {
     const params = new URLSearchParams({ id: chapterId, service });
     if (source) params.set("source", source);
     return `/playlist?${params.toString()}`;
   };
   return (
-    <nav className="chapter-service-actions" aria-label="내 플레이리스트로 가져오기">
+    <nav className="chapter-service-actions" aria-label="플레이리스트로 내보내기">
       <div className="chapter-service-grid">
-        <Link className="chapter-service-link is-apple" href={playlistHref("apple")} intent="modal" aria-label="Apple Music으로 내 플레이리스트 가져오기">
+        <Link className="chapter-service-link is-apple" href={playlistHref("apple")} intent="modal" aria-label="Apple Music으로 내보내기">
           <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="apple" /></span>
           <span>Apple Music</span>
         </Link>
-        <Link className="chapter-service-link is-spotify" href={playlistHref("spotify")} intent="modal" aria-label="Spotify로 내 플레이리스트 가져오기">
-          <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="spotify" /></span>
-          <span>Spotify</span>
-        </Link>
-        <Link className="chapter-service-link is-youtube" href={playlistHref("youtube")} intent="modal" aria-label="YouTube Music으로 내 플레이리스트 가져오기">
+        <Link className="chapter-service-link is-youtube" href={playlistHref("youtube")} intent="modal" aria-label="YouTube Music으로 내보내기">
           <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="youtube" /></span>
           <span>YouTube Music</span>
         </Link>
@@ -270,6 +269,7 @@ export function Chapters({
   notify,
   router,
   pendingTrackId,
+  pendingTrackIds,
   pendingRecordMode,
 }: {
   archive: ArchiveEnvelopeV1;
@@ -277,6 +277,7 @@ export function Chapters({
   notify: Notify;
   router: MotionRouter;
   pendingTrackId: TrackId | null;
+  pendingTrackIds?: TrackId[];
   pendingRecordMode: "quick" | "detail";
 }) {
   const [activeTab, setActiveTab] = useState<"manual" | "monthly">("manual");
@@ -297,7 +298,14 @@ export function Chapters({
       }
       return right.updatedAt.localeCompare(left.updatedAt);
     });
-  const pendingTrack = pendingTrackId ? archive.data.tracks[pendingTrackId] : null;
+  const resolvedPendingTrackIds = pendingTrackIds?.length
+    ? pendingTrackIds
+    : pendingTrackId
+      ? [pendingTrackId]
+      : [];
+  const pendingTracks = resolvedPendingTrackIds
+    .map((trackId) => archive.data.tracks[trackId])
+    .filter((track): track is TrackReference => Boolean(track));
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -305,10 +313,10 @@ export function Chapters({
   const [visibility, setVisibility] = useState<ChapterVisibility>("private");
   const [deleteTarget, setDeleteTarget] = useState<Cube | null>(null);
   const createDialogRef = useModalFocus<HTMLFormElement>(
-    showForm || Boolean(pendingTrack),
+    showForm || pendingTracks.length > 0,
     () => {
       setShowForm(false);
-      if (pendingTrack) router.replace("/chapters");
+      if (pendingTracks.length) router.replace("/chapters");
     },
   );
   const deleteDialogRef = useModalFocus<HTMLDivElement>(
@@ -317,19 +325,24 @@ export function Chapters({
   );
 
   function submit(event: FormEvent) {
-    event.preventDefault();
+      event.preventDefault();
     try {
       const result = createCube(archive, { name, description, coverImageUrl, visibility });
-      const linked = pendingTrack
-        ? (result.archive.data.inbox[pendingTrack.id]
-          ? moveInboxTrackToCube(result.archive, pendingTrack.id, result.cube.id)
-          : addTrackToCube(result.archive, pendingTrack.id, result.cube.id))
-        : null;
-      const next = linked?.archive ?? result.archive;
+      let next = result.archive;
+      const linkedTracks: Array<ReturnType<typeof moveInboxTrackToCube>["cubeTrack"]> = [];
+      for (const track of pendingTracks) {
+        const linked = next.data.inbox[track.id]
+          ? moveInboxTrackToCube(next, track.id, result.cube.id)
+          : addTrackToCube(next, track.id, result.cube.id);
+        next = linked.archive;
+        linkedTracks.push(linked.cubeTrack);
+      }
       if (commit(
         next,
-        pendingTrack
-          ? `‘${result.cube.name}’에 곡을 담았어요. 이제 이 곡의 표정을 남겨보세요.`
+        linkedTracks.length > 1
+          ? `‘${result.cube.name}’에 ${linkedTracks.length}곡을 담았어요.`
+          : linkedTracks.length === 1
+            ? `‘${result.cube.name}’에 곡을 담았어요. 이제 이 곡의 표정을 남겨보세요.`
           : `‘${result.cube.name}’ 챕터를 만들었어요.`,
       )) {
         setName("");
@@ -337,11 +350,13 @@ export function Chapters({
         setCoverImageUrl(null);
         setVisibility("private");
         setShowForm(false);
-        if (linked) {
+        if (linkedTracks.length > 1) {
+          router.push(`/chapter?id=${encodeURIComponent(result.cube.id)}`, "shared", result.cube.id);
+        } else if (linkedTracks.length === 1) {
           router.push(
-            `/memory?id=${encodeURIComponent(linked.cubeTrack.id)}&mode=${pendingRecordMode}`,
+            `/memory?id=${encodeURIComponent(linkedTracks[0].id)}&mode=${pendingRecordMode}`,
             "shared",
-            linked.cubeTrack.id,
+            linkedTracks[0].id,
           );
         }
       }
@@ -352,7 +367,7 @@ export function Chapters({
 
   function closeCreateDialog() {
     setShowForm(false);
-    if (pendingTrack) router.replace("/chapters");
+    if (pendingTracks.length) router.replace("/chapters");
   }
 
   function removeTargetChapter() {
@@ -405,8 +420,8 @@ export function Chapters({
                     <ChapterCover archive={archive} chapter={chapter} />
                   </Link>
                   {activeTab === "manual" ? (
-                    <button className="chapter-library-more" type="button" onClick={() => setDeleteTarget(chapter)} aria-label={`${chapter.name} 챕터 삭제`} title="챕터 삭제">
-                      <MoreHorizontal size={18} aria-hidden="true" />
+                    <button className="chapter-library-delete" type="button" onClick={() => setDeleteTarget(chapter)} aria-label={`${chapter.name} 챕터 삭제`} title="챕터 삭제">
+                      <Trash2 size={16} aria-hidden="true" />
                     </button>
                   ) : null}
                 </div>
@@ -425,7 +440,7 @@ export function Chapters({
         </div>
       ) : <EmptyState title="월별 챕터 없음" />}
 
-      {showForm || pendingTrack ? (
+      {showForm || pendingTracks.length ? (
         <div className="dialog-backdrop" role="presentation" onClick={closeCreateDialog}>
           <form ref={createDialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="create-chapter-title" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
             <h2 id="create-chapter-title">새 챕터</h2>
@@ -443,7 +458,7 @@ export function Chapters({
               showDescription={false}
               visibility={visibility}
             />
-            <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={closeCreateDialog}>취소</button><button className="button button-primary" type="submit">{pendingTrack ? "챕터 만들고 기록하기" : "챕터 만들기"}</button></div>
+            <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={closeCreateDialog}>취소</button><button className="button button-primary" type="submit">{pendingTracks.length ? pendingTracks.length > 1 ? "챕터 만들고 곡 담기" : "챕터 만들고 기록하기" : "챕터 만들기"}</button></div>
           </form>
         </div>
       ) : null}
@@ -606,6 +621,14 @@ export function ChapterDetail({
     );
   }
 
+  function toggleChapterVisibility() {
+    const nextVisibility = activeChapter.visibility === "public" ? "private" : "public";
+    commit(
+      updateCube(archive, activeChapter.id, { visibility: nextVisibility }),
+      nextVisibility === "public" ? "챕터를 공개했어요." : "챕터를 비공개로 전환했어요.",
+    );
+  }
+
   const trackItems: ChapterTrackDetailItem[] = entries.map((entry, index) => ({
     id: entry.cubeTrack.id,
     track: entry.track,
@@ -632,6 +655,18 @@ export function ChapterDetail({
         eyebrow={formatDate(chapter.updatedAt)}
         title={formatChapterTitle(chapter)}
         description={chapter.description}
+        visibilityAction={!monthlyChapter ? (
+          <button
+            className={`text-button memory-record-visibility ${activeChapter.visibility === "public" ? "is-public" : "is-private"}`}
+            type="button"
+            onClick={toggleChapterVisibility}
+            aria-pressed={activeChapter.visibility === "public"}
+            aria-label={`챕터 ${activeChapter.visibility === "public" ? "공개" : "비공개"}`}
+          >
+            {activeChapter.visibility === "public" ? <Unlock size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+            <span>{activeChapter.visibility === "public" ? "챕터 공개" : "챕터 비공개"}</span>
+          </button>
+        ) : undefined}
         meta={`${entries.length}곡`}
         menu={!monthlyChapter ? (
           <div className="chapter-menu" ref={menuRef}>
@@ -779,9 +814,11 @@ export function ChapterDetail({
 export function MemoryPanel({
   cubeTrack,
   track,
+  recordVisibilityAction,
 }: {
   cubeTrack: CubeTrack;
   track: TrackReference;
+  recordVisibilityAction?: ReactNode;
 }) {
   const latestNote = getLatestCubeTrackNote(cubeTrack);
   return (
@@ -791,6 +828,7 @@ export function MemoryPanel({
         <span className="section-label">{latestNote?.listenedOn ? formatCalendarDate(latestNote.listenedOn) : `최초 기록 · ${formatDate(cubeTrack.createdAt)}`}</span>
         <h2>{track.title}</h2>
         <p>{track.artist}{track.album ? ` · ${track.album}` : ""}</p>
+        {recordVisibilityAction ? <div className="memory-art-record-visibility">{recordVisibilityAction}</div> : null}
       </div>
     </aside>
   );
@@ -803,8 +841,8 @@ interface TagEditorProps {
   usageCounts: Record<string, number>;
   toggleTag: (tagId: string) => void;
   addTag: (label: string) => boolean;
-  searchableTagIds?: string[];
   memoryReturnId?: string;
+  headingAction?: ReactNode;
 }
 
 export function TagEditor({
@@ -814,13 +852,9 @@ export function TagEditor({
   usageCounts,
   toggleTag,
   addTag,
-  searchableTagIds = [],
   memoryReturnId,
+  headingAction,
 }: TagEditorProps) {
-  const searchableTags = selectedTagIds
-    .filter((tagId) => searchableTagIds.includes(tagId))
-    .map((tagId) => tags.find((tag) => tag.id === tagId))
-    .filter((tag): tag is TagDefinition => Boolean(tag));
   return (
     <div className="field managed-tag-field">
       <TagPicker
@@ -830,21 +864,12 @@ export function TagEditor({
         usageCounts={usageCounts}
         onToggle={toggleTag}
         onCreate={addTag}
+        headingAction={headingAction}
+        inline
         manageHref={memoryReturnId
           ? `/tags?fromMemory=${encodeURIComponent(memoryReturnId)}`
           : "/tags"}
       />
-      {searchableTags.length ? (
-        <nav className="memory-tag-links" aria-label="선택한 태그로 음악 찾기">
-          {searchableTags.map((tag) => (
-            <Link
-              href={tagSearchHref([tag.id], { fromMemoryId: memoryReturnId })}
-              intent="forward"
-              key={tag.id}
-            >#{tag.label} 모아보기</Link>
-          ))}
-        </nav>
-      ) : null}
     </div>
   );
 }
@@ -983,13 +1008,6 @@ export function Memory({
   const editingNote = editingNoteId
     ? activeCubeTrack.notes.find((note) => note.id === editingNoteId) ?? null
     : null;
-  const providerName = {
-    itunes: "Apple Music",
-    spotify: "Spotify",
-    youtube: "YouTube Music",
-    melon: "Melon",
-  }[activeTrack.provider];
-
   function toggleTag(tagId: string) {
     setSelectedTagIds((current) => current.includes(tagId)
       ? current.filter((item) => item !== tagId)
@@ -1000,7 +1018,7 @@ export function Memory({
     const nextVisibility = activeCubeTrack.recordVisibility === "public" ? "private" : "public";
     commit(
       setCubeTrackRecordVisibility(archive, activeCubeTrack.id, nextVisibility),
-      nextVisibility === "public" ? "태그와 메모를 공개했어요." : "태그와 메모를 비공개로 전환했어요.",
+      nextVisibility === "public" ? "태그/메모를 공개했어요." : "태그/메모를 비공개로 전환했어요.",
     );
   }
 
@@ -1054,10 +1072,6 @@ export function Memory({
         ...selectedExistingTagIds,
         ...created.tags.map((tag) => tag.id),
       ])];
-      if (!resolvedTagIds.length) {
-        notify("나중에 이 곡을 찾을 태그를 하나 남겨 주세요.");
-        return;
-      }
       if (editingNoteId && !noteBody.trim()) {
         notify("수정할 메모 내용을 입력해 주세요.");
         return;
@@ -1076,18 +1090,10 @@ export function Memory({
         ? "날짜별 감상을 수정했어요."
         : noteBody.trim()
           ? "이 곡의 새로운 감상을 기록했어요."
-          : "이 곡의 태그를 기록했어요.";
-      const toast = activeTrack.externalUrl
-        ? {
-          text: message,
-          action: {
-            label: `${providerName} 열기`,
-            href: activeTrack.externalUrl,
-            external: true,
-          },
-        }
-        : message;
-      if (commit(next, toast)) {
+          : resolvedTagIds.length
+            ? "이 곡의 태그를 기록했어요."
+            : "곡을 기록했어요.";
+      if (commit(next, message)) {
         clearDraft();
         if (activeCube.kind === "capture") router.push("/tags", "back");
         else router.push(`/chapter?id=${encodeURIComponent(activeCube.id)}`, "back", activeCube.id);
@@ -1154,11 +1160,26 @@ export function Memory({
   return (
     <div className="page-content memory-view">
       <PageHeader
-        eyebrow={cube.kind === "capture" ? "챕터 미분류" : `개인 기록 · ${formatChapterTitle(cube)}`}
+        eyebrow={cube.kind === "capture" ? "챕터 미분류" : formatChapterTitle(cube)}
         title="곡 기록"
       />
       <div className="memory-layout">
-        <MemoryPanel cubeTrack={cubeTrack} track={track} />
+        <MemoryPanel
+          cubeTrack={cubeTrack}
+          track={track}
+          recordVisibilityAction={cube.kind === "manual" ? (
+            <button
+              className={`text-button memory-record-visibility ${activeCubeTrack.recordVisibility === "public" ? "is-public" : "is-private"}`}
+              type="button"
+              onClick={toggleRecordVisibility}
+              aria-pressed={activeCubeTrack.recordVisibility === "public"}
+              aria-label={`태그/메모 ${activeCubeTrack.recordVisibility === "public" ? "공개" : "비공개"}`}
+            >
+              {activeCubeTrack.recordVisibility === "public" ? <Unlock size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
+              <span>{activeCubeTrack.recordVisibility === "public" ? "태그/메모 공개" : "태그/메모 비공개"}</span>
+            </button>
+          ) : undefined}
+        />
         <form className="memory-form form-stack" onSubmit={save}>
           <TagEditor
             tags={availableTags}
@@ -1167,25 +1188,12 @@ export function Memory({
             usageCounts={tagUsageCounts}
             toggleTag={toggleTag}
             addTag={addTag}
-            searchableTagIds={Object.keys(archive.data.tags)}
             memoryReturnId={activeCubeTrack.id}
           />
           <section className="memory-note-composer memory-note-composer-compact" aria-labelledby="memory-note-title">
             <div className="memory-note-heading">
-              <h2 id="memory-note-title">메모</h2>
+              <h2 id="memory-note-title" className="field-label">메모</h2>
               <div className="memory-note-heading-actions">
-                {cube.kind === "manual" ? (
-                  <button
-                    className={`text-button memory-record-visibility ${activeCubeTrack.recordVisibility === "public" ? "is-public" : "is-private"}`}
-                    type="button"
-                    onClick={toggleRecordVisibility}
-                    aria-pressed={activeCubeTrack.recordVisibility === "public"}
-                    aria-label={`곡 기록 ${activeCubeTrack.recordVisibility === "public" ? "공개" : "비공개"}`}
-                  >
-                    {activeCubeTrack.recordVisibility === "public" ? <Unlock size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
-                    <span>{activeCubeTrack.recordVisibility === "public" ? "공개" : "비공개"}</span>
-                  </button>
-                ) : null}
                 {editingNoteId ? <button className="text-button" type="button" onClick={cancelNoteEdit}>수정 취소</button> : null}
               </div>
             </div>

@@ -43,6 +43,7 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
   recap: { label: "RECAP", path: "/recap", index: "05" },
   settings: { label: "SETTINGS", path: "/settings", index: "06" },
   tags: { label: "TAGS", path: "/tags", index: "07" },
+  guide: { label: "GUIDE", path: "/guide", index: "08" },
 };
 
 const MOBILE_NAV = ["home", "discover", "capture", "chapters", "search"] as const satisfies readonly AppView[];

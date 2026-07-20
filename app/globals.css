@@ -289,23 +289,58 @@ img {
   border-top: 1px solid rgba(23, 19, 15, .13);
 }
 
-.onboarding-journey > li {
+.onboarding-journey > div {
   display: grid;
-  grid-template-columns: 32px 1fr;
+  grid-template-columns: 24px 20px minmax(0, 1fr);
+  align-items: start;
   gap: 10px;
   padding: 14px 0;
   border-bottom: 1px solid rgba(23, 19, 15, .1);
 }
+
+.onboarding-journey > div > span {
+  padding-top: 2px;
+  color: var(--oxblood);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.onboarding-journey > div > svg { margin-top: 1px; color: var(--oxblood); }
+
+.onboarding-journey p { margin: 0; }
 
 .onboarding-journey strong {
   display: block;
   font-size: 14px;
 }
 
-.onboarding-journey p {
-  margin: 2px 0 0;
+.onboarding-journey small {
+  display: block;
+  margin-top: 2px;
   color: var(--dust-text);
   font-size: 13px;
+}
+
+.onboarding-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.onboarding-back {
+  width: 100%;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 8px;
+  border: 0;
+  color: var(--dust-text);
+  background: transparent;
+  font-size: 12px;
 }
 
 .onboarding-profile {

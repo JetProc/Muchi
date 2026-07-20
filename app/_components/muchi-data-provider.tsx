@@ -52,7 +52,7 @@ type MuchiDataContextValue = {
   ensureDiscoveryData: (force?: boolean) => Promise<void>;
   saveArchive: (next: ArchiveEnvelopeV1, message?: ToastMessage) => boolean;
   saveDiscovery: (next: DiscoveryInteractionState, message?: ToastMessage) => boolean;
-  completeOnboarding: (nickname: string) => Promise<void>;
+  completeOnboarding: (nickname: string) => Promise<boolean>;
 };
 
 const MuchiDataContext = createContext<MuchiDataContextValue | null>(null);
@@ -277,9 +277,11 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     setOnboardingError(null);
     try {
       setOnboarding(await saveOnboardingComplete(nickname));
+      return true;
     } catch (cause) {
       if (cause instanceof OnboardingApiError && cause.code === "unauthenticated") setAuthRequired(true);
       else setOnboardingError(cause instanceof Error ? cause.message : "온보딩을 완료하지 못했어요.");
+      return false;
     } finally {
       setOnboardingSaving(false);
     }

@@ -49,6 +49,7 @@ import {
   Settings,
 } from "./editorial-views-discovery";
 import { TagManager } from "./editorial-views-tags";
+import { Guide } from "./editorial-views-guide";
 import {
   PlaylistBuilder,
   type PlaylistStep,
@@ -315,6 +316,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "recap":
       case "settings":
         return { label: "홈으로", href: "/" };
+      case "guide":
+        return { label: "설정으로", href: "/settings" };
       case "space":
         return { label: "내 공간으로", href: "/" };
       case "chapter":
@@ -536,7 +539,11 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         avatarUrl={onboarding.avatarUrl}
         loading={onboardingSaving}
         error={onboardingError}
-        onComplete={(nickname) => { void completeOnboarding(nickname); }}
+        onComplete={(nickname, destination) => {
+          void completeOnboarding(nickname).then((completed) => {
+            if (completed && destination === "capture") router.replace("/capture?guide=1", "replace");
+          });
+        }}
       />
     );
   }
@@ -544,7 +551,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const content = (() => {
     switch (view) {
       case "capture":
-        return <Capture archive={archive} commit={commit} notify={notify} online={online} router={router} sharedUrl={sharedUrl} />;
+        return <Capture archive={archive} commit={commit} notify={notify} online={online} router={router} sharedUrl={sharedUrl} guideMode={searchParams.get("guide") === "1"} />;
       case "space":
         return searchParams.get("view") === "visitor"
           ? <VisitorSpace archive={archive} chapterId={queryId} />
@@ -603,6 +610,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         return <Recap archive={archive} />;
       case "settings":
         return <Settings archive={archive} commit={commit} notify={notify} />;
+      case "guide":
+        return <Guide />;
       case "tags":
         return <TagManager archive={archive} commit={commit} notify={notify} />;
       default:

@@ -15,7 +15,8 @@ export type AppView =
   | "search"
   | "recap"
   | "tags"
-  | "settings";
+  | "settings"
+  | "guide";
 
 export type ArchiveCommit = (
   next: ArchiveEnvelopeV1,

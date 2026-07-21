@@ -12,6 +12,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
   Compass,
+  CircleHelp,
   House,
   Library,
   Plus,
@@ -65,6 +66,25 @@ const MOBILE_NAV_ICON = {
   discover: Compass,
   search: Search,
 } as const;
+
+const CONTEXTUAL_HELP: Record<AppView, { title: string; description: string }> = {
+  home: { title: "내 음악 세계", description: "최근 기록을 다시 듣고, 태그와 챕터를 따라 나만의 음악 세계를 살펴보세요." },
+  space: { title: "내 음악 세계", description: "최근 기록을 다시 듣고, 태그와 챕터를 따라 나만의 음악 세계를 살펴보세요." },
+  capture: { title: "곡 기록하기", description: "곡을 검색하거나 음악 앱 링크를 가져온 뒤, 떠올리고 싶은 순간과 챕터를 남겨 보세요." },
+  inbox: { title: "보관함", description: "아직 챕터에 넣지 않은 곡을 모아 두는 곳이에요. 여러 곡을 골라 한 챕터로 정리할 수 있어요." },
+  chapters: { title: "챕터", description: "같은 장면이나 시기의 곡을 챕터로 모아 보세요. 챕터 안에서는 추가순 또는 애정도순으로 볼 수 있어요." },
+  chapter: { title: "챕터", description: "이 챕터에 담긴 곡과 기억을 살펴보세요. 곡을 더 기록하거나 챕터 공개 범위를 바꿀 수도 있어요." },
+  memory: { title: "곡 기록", description: "태그, 애정도, 메모는 모두 선택 사항이에요. 다만 곡은 하나 이상의 챕터에 담겨야 기록할 수 있어요." },
+  playlist: { title: "플레이리스트", description: "챕터에 담긴 곡을 확인하고, 지원이 준비된 음악 서비스로 내보낼 수 있어요." },
+  discover: { title: "탐색", description: "다른 뮤커가 공개한 챕터를 둘러보고, 마음에 드는 뮤커를 팔로우해 보세요." },
+  discoverChapter: { title: "공개 챕터", description: "공개된 곡의 태그와 메모, 애정도를 살펴볼 수 있어요. 비공개 기록은 보이지 않아요." },
+  discoverProfile: { title: "뮤커 프로필", description: "이 뮤커가 공개한 챕터를 보고 팔로우할 수 있어요." },
+  search: { title: "기록 찾기", description: "곡명, 아티스트, 태그, 메모에 남긴 단서로 내 음악 기록을 다시 찾을 수 있어요." },
+  recap: { title: "회고", description: "기간을 골라 그때 남긴 곡과 메모를 다시 읽어 보세요." },
+  settings: { title: "설정", description: "계정, 앱 동작, 데이터 관리와 전체 사용 가이드를 확인할 수 있어요." },
+  tags: { title: "태그", description: "나중에 다시 찾고 싶은 순간을 짧은 말로 만들어 관리하세요." },
+  guide: { title: "뮤키 사용 방법", description: "곡을 가져와 태그와 챕터로 남기는 기본 흐름을 안내하고 있어요." },
+};
 
 const scrollPositions = new Map<string, number>();
 
@@ -334,6 +354,9 @@ export function EditorialShell({
   const restoredRouteKeyRef = useRef<string | null>(null);
   const playerOpen = Boolean(preview.state);
   const [fullPlayerOpen, setFullPlayerOpen] = useState(false);
+  const [contextHelpOpen, setContextHelpOpen] = useState(false);
+  const contextHelpRef = useModalFocus<HTMLDivElement>(contextHelpOpen, () => setContextHelpOpen(false));
+  const contextHelp = CONTEXTUAL_HELP[view];
 
   useLayoutEffect(() => {
     const viewport = scrollViewportRef.current;
@@ -359,6 +382,12 @@ export function EditorialShell({
       });
       window.requestAnimationFrame(() => scrollViewportRef.current?.focus({ preventScroll: true }));
     }, "modal", preview.state ? `player-${preview.state.track.id}` : undefined);
+  }
+
+  function setContextHelpVisibility(open: boolean) {
+    transitionEditorialUI(() => {
+      flushSync(() => setContextHelpOpen(open));
+    }, "modal", "context-help");
   }
 
   return (
@@ -399,6 +428,15 @@ export function EditorialShell({
             >
               <Settings aria-hidden="true" size={17} strokeWidth={1.8} />
             </Link>
+            <button
+              className="help-link"
+              type="button"
+              onClick={() => setContextHelpVisibility(true)}
+              aria-label={`${contextHelp.title} 도움말`}
+              aria-haspopup="dialog"
+            >
+              <CircleHelp aria-hidden="true" size={18} strokeWidth={1.8} />
+            </button>
           </div>
         </header>
 
@@ -430,6 +468,28 @@ export function EditorialShell({
             onClose={() => setPlayerVisibility(false)}
             onDismiss={dismissPlayer}
           />
+        ) : null}
+        {contextHelpOpen ? (
+          <div className="dialog-backdrop" role="presentation" onClick={() => setContextHelpVisibility(false)}>
+            <section
+              ref={contextHelpRef}
+              className="dialog context-help-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="context-help-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <span className="section-label">도움말</span>
+              <h2 id="context-help-title">{contextHelp.title}</h2>
+              <p>{contextHelp.description}</p>
+              <div className="dialog-actions">
+                <Link className="button button-primary" href="/guide" intent="forward" onClick={() => setContextHelpVisibility(false)}>
+                  전체 사용 가이드
+                </Link>
+                <button className="text-button" type="button" onClick={() => setContextHelpVisibility(false)} data-modal-autofocus>닫기</button>
+              </div>
+            </section>
+          </div>
         ) : null}
         <ToastRegion toast={toast} />
       </div>

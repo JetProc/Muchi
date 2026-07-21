@@ -481,7 +481,7 @@ test("renders toast and player actions only for safe destinations", async () => 
   assert.doesNotMatch(shellSource, /href=\{toast\.action\.href\}/);
 });
 
-test("uses an accessible settings icon in the editorial header", async () => {
+test("uses accessible settings and contextual help controls in the editorial header", async () => {
   const [source, packageJsonSource] = await Promise.all([
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -492,6 +492,11 @@ test("uses an accessible settings icon in the editorial header", async () => {
   assert.match(source, /import\s*\{[^}]*\bSettings\b[^}]*\}\s*from "lucide-react"/s);
   assert.match(source, /className="settings-link"[^>]*aria-label="환경 설정"/s);
   assert.match(source, /<Settings aria-hidden="true"/);
+  assert.match(source, /\bCircleHelp\b/);
+  assert.match(source, /className="help-link"[\s\S]*?aria-haspopup="dialog"/s);
+  assert.match(source, /const CONTEXTUAL_HELP: Record<AppView,/);
+  assert.match(source, /className="dialog context-help-dialog"/);
+  assert.match(source, /전체 사용 가이드/);
   assert.match(source, /className="brand-lockup"[^>]*aria-label="뮤키 홈"[\s\S]*?className="brand-lockup-mark" src="\/assets\/brand\/muchi-logo\.png"[\s\S]*?<strong>뮤키<\/strong>/s);
   assert.doesNotMatch(source, /href="\/settings"[^>]*>SETTINGS<\/Link>/s);
 });

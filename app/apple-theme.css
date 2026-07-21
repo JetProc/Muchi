@@ -255,7 +255,8 @@ p {
 
 .header-links a,
 .header-links .inbox-link,
-.header-links .settings-link {
+.header-links .settings-link,
+.header-links .help-link {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -280,6 +281,16 @@ p {
 .header-links .settings-link {
   width: 44px;
   padding: 0;
+}
+
+.header-links .help-link {
+  width: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 !important;
+  color: var(--apple-body-on-dark);
+  background: transparent;
+  cursor: pointer;
 }
 
 .inbox-link {
@@ -641,9 +652,18 @@ p {
 }
 
 .header-links a:not(:disabled):hover,
-.header-links a:not(:disabled):focus-visible {
+.header-links a:not(:disabled):focus-visible,
+.header-links .help-link:not(:disabled):hover,
+.header-links .help-link:not(:disabled):focus-visible {
   background: rgba(255, 255, 255, 0.14);
 }
+
+.context-help-dialog .section-label {
+  display: block;
+  color: var(--apple-ink-muted-48);
+}
+
+.context-help-dialog h2 { margin-bottom: 0; }
 
 .text-button:not(:disabled):hover,
 .text-button:not(:disabled):focus-visible,

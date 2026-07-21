@@ -82,6 +82,17 @@ async function loadProfileDomain() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
+async function loadTagStarterPackDomain() {
+  const source = await readFile(new URL("../lib/tag-starter-packs.ts", import.meta.url), "utf8");
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
+}
+
 test("server-renders a deterministic MUCHI editorial archive shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
@@ -174,7 +185,7 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(source, /공유 링크로 바로 기록/);
   assert.match(source, /아직 준비 중이에요/);
   assert.match(source, /<small>지원<\/small>/);
-  assert.match(source, /<small>미지원<\/small>/);
+  assert.match(source, /<small>준비 중<\/small>/);
   assert.match(source, /className="link-import-input-row"/);
   assert.doesNotMatch(source, /ADD BY LINK/);
   assert.match(source, /aria-modal="true" aria-labelledby="link-import-title"/);
@@ -290,7 +301,8 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.match(layoutSource, /xprfs0qhlb/);
   assert.match(dataProviderSource, /useState<ArchiveEnvelopeV1>\(\(\) => createEmptyArchive\(\)\)/);
   assert.match(dataProviderSource, /Promise\.all\(\[\s*fetchArchive\(\),\s*fetchOnboardingStatus\(\),\s*\]\)/s);
-  assert.match(dataProviderSource, /ensureDiscoveryData[\s\S]*?Promise\.all\(\[fetchPublicDiscoveryCatalog\(\), fetchDiscoveryState\(\)\]\)/s);
+  assert.match(dataProviderSource, /discoveryStateRequest = authenticated[\s\S]*?fetchDiscoveryState\(\)/s);
+  assert.match(dataProviderSource, /Promise\.all\(\[fetchPublicDiscoveryCatalog\(\), discoveryStateRequest\]\)/);
   assert.match(dataProviderSource, /saveArchiveRemote\(pending\.archive, archiveRevisionRef\.current, pending\.syncPublicProjection\)/);
   assert.match(dataProviderSource, /publicProjectionSignature\(archive\) !== publicProjectionSignature\(next\)/);
   assert.match(dataProviderSource, /변경사항을 보존하고 다시 저장할게요/);
@@ -338,10 +350,15 @@ test("collects a validated nickname and Google avatar before onboarding complete
   assert.match(onboardingSource, /NICKNAME_MAX_LENGTH/);
   assert.match(onboardingSource, /한글·영문·숫자·띄어쓰기만 사용/);
   assert.match(onboardingSource, /setStep\("intro"\)/);
+  assert.match(onboardingSource, /setStep\("tags"\)/);
+  assert.match(onboardingSource, /<TagStarterPackPicker selectedPackIds=\{selectedPackIds\}/);
+  assert.match(onboardingSource, /onComplete\(nickname, selectedTagLabels, "capture"\)/);
   assert.match(onboardingSource, /기억할 곡 찾기/);
   assert.match(onboardingSource, /순간을 태그로 남기기/);
   assert.match(onboardingSource, /챕터로 음악 세계 쌓기/);
   assert.match(onboardingSource, /첫 곡 기록하기/);
+  assert.match(appSource, /createTags\(archive, starterTags\)/);
+  assert.match(appSource, /saveArchiveState\(result\.archive\)/);
   assert.match(routeSource, /requireAuthenticatedUser\(\)/);
   assert.match(routeSource, /validateNickname\(body\.nickname\)/);
   assert.match(repositorySource, /profile_setup_completed: true/);
@@ -352,6 +369,30 @@ test("collects a validated nickname and Google avatar before onboarding complete
   assert.equal(profileDomain.validateNickname("a").ok, false);
   assert.equal(profileDomain.validateNickname("뮤키✨").ok, false);
   assert.doesNotMatch(appSource, /showWelcome|빈 아카이브|샘플 보기/);
+});
+
+test("offers reusable general-purpose tag starter packs during onboarding and tag management", async () => {
+  const [starterPackDomain, managerSource, pickerSource, css] = await Promise.all([
+    loadTagStarterPackDomain(),
+    readFile(new URL("../app/_components/editorial-views-tags.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/tag-starter-pack-picker.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+  ]);
+  const packs = starterPackDomain.TAG_STARTER_PACKS;
+  const labels = packs.flatMap((pack) => pack.tags);
+
+  assert.deepEqual(packs.map((pack) => pack.title), ["장르", "상황", "계절", "시간", "악기"]);
+  assert.ok(packs.every((pack) => pack.tags.length >= 4 && pack.tags.length <= 6));
+  assert.equal(labels.length, 25);
+  assert.equal(new Set(labels.map((label) => label.toLocaleLowerCase("ko-KR"))).size, labels.length);
+  assert.match(managerSource, />추천 태그<\/button>/);
+  assert.match(managerSource, /className="dialog tag-starter-dialog"/);
+  assert.match(managerSource, /getStarterTagLabels\(selectedStarterPackIds\)/);
+  assert.match(managerSource, /createTags\(archive, recommendedCandidates\)/);
+  assert.match(pickerSource, /existingLabels\?\.has\(normalizeTagLabel\(tag\)\)/);
+  assert.match(pickerSource, /aria-pressed=\{selected\}/);
+  assert.match(css, /\.tag-starter-pack\[aria-pressed="true"\]/);
+  assert.match(css, /\.tag-starter-pack-tags\s*\{[^}]*flex-wrap:\s*wrap;/s);
 });
 
 test("keeps the app shell visible and matches archive loading states to each primary tab", async () => {
@@ -534,7 +575,7 @@ test("connects onboarding, the settings guide, and first-record hints", async ()
   assert.match(captureSource, /className="record-tag-guide"/);
   assert.match(guideSource, /YouTube Music[\s\S]*?가져오기[\s\S]*?지원/s);
   assert.match(guideSource, /Apple Music[\s\S]*?내보내기[\s\S]*?준비 중/s);
-  assert.match(guideSource, /Spotify[\s\S]*?미지원/s);
+  assert.match(guideSource, /Spotify[\s\S]*?준비 중/s);
   assert.match(guideSource, /Android PWA[\s\S]*?YouTube Music[\s\S]*?뮤키/s);
   assert.match(guideSource, /iPhone \/ iPad[\s\S]*?직접 선택하는 공유는 아직 지원하지 않아요/s);
   assert.match(guideSource, /href="\/capture\?guide=1"/);
@@ -2960,6 +3001,7 @@ test("builds a published public discovery catalog with explainable similarity an
       artworkUrl: null,
       createdAt: "2026-07-20T12:00:00.000Z",
       likeCount: 0,
+      likedByViewer: false,
       tracks: [
         { id: "record-1", track: sharedTrack, visibility: "public", note: "공개 메모", tags: ["밤 산책"] },
         { id: "record-2", track: sharedTrack, visibility: "private", note: null, tags: [] },
@@ -2976,6 +3018,16 @@ test("builds a published public discovery catalog with explainable similarity an
   assert.ok(profiles.every((profile) => profile.space.featuredChapterIds.length === 1));
   assert.ok(profiles.every((profile) => profile.space.featuredChapterIds.every((chapterId) => catalog.chapters[chapterId]?.profileId === profile.id)));
   assert.ok(chapters.every((chapter) => chapter.tracks.length === 2));
+
+  const chapterId = chapters[0].id;
+  const likedCatalog = discoveryDomain.withPublicChapterLike(catalog, chapterId, true);
+  assert.equal(catalog.chapters[chapterId].likedByViewer, false);
+  assert.equal(catalog.chapters[chapterId].likeCount, 0);
+  assert.equal(likedCatalog.chapters[chapterId].likedByViewer, true);
+  assert.equal(likedCatalog.chapters[chapterId].likeCount, 1);
+  const unlikedCatalog = discoveryDomain.withPublicChapterLike(likedCatalog, chapterId, false);
+  assert.equal(unlikedCatalog.chapters[chapterId].likedByViewer, false);
+  assert.equal(unlikedCatalog.chapters[chapterId].likeCount, 0);
 
   const ranked = discoveryDomain.rankPublicChapters(archive, catalog);
   assert.ok(ranked.length > 0);
@@ -3010,6 +3062,47 @@ test("excludes the signed-in user's own chapters from the public discovery query
   );
 
   assert.match(catalogReader, /\.neq\("author_id", userId\)/);
+});
+
+test("keeps public chapters readable before login and restores the requested destination after Google login", async () => {
+  const [authSource, providerSource, appSource, routeSource, migrationSource] = await Promise.all([
+    readFile(new URL("../app/_components/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/public-discovery/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260721093000_public_profile_metadata_and_follows.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(authSource, /callback\.searchParams\.set\("next", destination\)/);
+  assert.match(authSource, /redirectTo: callback\.toString\(\)/);
+  assert.match(providerSource, /function isPublicDiscoveryRoute/);
+  assert.match(providerSource, /setAuthRequired\(!publicDiscoveryRoute\)/);
+  assert.match(appSource, /if \(!authenticated && !publicDiscoveryRoute\) return <AuthGate \/>;/);
+  assert.match(appSource, /startGoogleSignIn\(\)/);
+  assert.match(routeSource, /getOptionalAuthenticatedUser\(\)/);
+  assert.match(routeSource, /readPublicDiscoveryCatalog\(supabase, userId\)/);
+  assert.match(migrationSource, /public can read published chapters/);
+  assert.match(migrationSource, /profile_follow_counts/);
+  assert.match(migrationSource, /author_avatar_url/);
+});
+
+test("shows a retry state instead of an endless discovery skeleton and publishes real profile metadata", async () => {
+  const [appSource, discoverySource, profileRepositorySource, publicRepositorySource] = await Promise.all([
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-public-discovery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/server/profile-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/server/public-discovery-repository.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(appSource, /function DiscoveryLoadError/);
+  assert.match(appSource, /discoveryError && !discoveryReady/);
+  assert.match(appSource, /ensureDiscoveryData\(true\)/);
+  assert.match(discoverySource, /profile\.avatarUrl/);
+  assert.match(discoverySource, /팔로워 \{profile\.followerCount/);
+  assert.match(profileRepositorySource, /updateProfile/);
+  assert.match(profileRepositorySource, /syncPublishedAuthorProfile/);
+  assert.match(publicRepositorySource, /author_avatar_url/);
+  assert.match(publicRepositorySource, /followerCountByProfile/);
 });
 
 test("uses shared chapter components for public discovery details and playlist export", async () => {
@@ -3054,7 +3147,7 @@ test("uses shared chapter components for public discovery details and playlist e
   assert.match(publicChapterSource, /meta=\{`\$\{chapter\.tracks\.length\}곡`\}/);
   assert.doesNotMatch(publicChapterSource, /공개 챕터 ·|공개 기록/);
   assert.match(publicChapterSource, /className="public-chapter-owner"/);
-  assert.match(publicChapterSource, /<ProfileStamp profile=\{profile\} showHandle=\{false\} \/>/);
+  assert.match(publicChapterSource, /<ProfileStamp profile=\{profile\} showFollowerCount=\{false\} \/>/);
   assert.match(publicChapterSource, /item\.visibility === "private"[\s\S]*?기록 비공개[\s\S]*?: undefined/);
   assert.match(chapterSource, /canExpand \? \([\s\S]*?<ChevronDown[\s\S]*?\) : \([\s\S]*?is-static/s);
   assert.doesNotMatch(publicChapterSource, /"공개 기록"\s*:\s*"비공개 기록"/);

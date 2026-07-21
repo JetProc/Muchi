@@ -17,6 +17,7 @@ import {
   createEmptyPublicDiscoveryCatalog,
   type DiscoveryInteractionState,
   type PublicDiscoveryCatalog,
+  withPublicChapterLike,
 } from "@/lib/public-discovery";
 import { ArchiveApiError, fetchArchive, saveArchive as saveArchiveRemote, type VersionedArchive } from "@/lib/client/archive-api";
 import { fetchDiscoveryState, saveDiscoveryState, type VersionedDiscoveryState } from "@/lib/client/discovery-state-api";
@@ -27,6 +28,7 @@ import {
   saveOnboardingComplete,
   type OnboardingStatus,
 } from "@/lib/client/onboarding-api";
+import { updateProfile as updateProfileRemote, type ProfileUpdate } from "@/lib/client/profile-api";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { ToastMessage } from "./editorial-types";
 
@@ -38,6 +40,7 @@ type PendingDiscovery = { state: DiscoveryInteractionState; message?: ToastMessa
 type MuchiDataContextValue = {
   archive: ArchiveEnvelopeV1;
   archiveReady: boolean;
+  authenticated: boolean;
   authRequired: boolean;
   remoteError: string | null;
   catalog: PublicDiscoveryCatalog;
@@ -50,9 +53,11 @@ type MuchiDataContextValue = {
   onboardingError: string | null;
   online: boolean;
   ensureDiscoveryData: (force?: boolean) => Promise<void>;
+  updatePublicChapterLike: (chapterId: string, liked: boolean) => void;
   saveArchive: (next: ArchiveEnvelopeV1, message?: ToastMessage) => boolean;
   saveDiscovery: (next: DiscoveryInteractionState, message?: ToastMessage) => boolean;
   completeOnboarding: (nickname: string) => Promise<boolean>;
+  updateProfile: (update: ProfileUpdate) => Promise<boolean>;
 };
 
 const MuchiDataContext = createContext<MuchiDataContextValue | null>(null);
@@ -61,10 +66,15 @@ function isAppRoute(pathname: string) {
   return !pathname.startsWith("/auth/");
 }
 
+function isPublicDiscoveryRoute(pathname: string) {
+  return pathname === "/discover" || pathname.startsWith("/discover/");
+}
+
 export function MuchiDataProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [archive, setArchive] = useState<ArchiveEnvelopeV1>(() => createEmptyArchive());
   const [archiveReady, setArchiveReady] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const [authRequired, setAuthRequired] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [catalog, setCatalog] = useState(() => createEmptyPublicDiscoveryCatalog());
@@ -99,12 +109,19 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!isAppRoute(pathname) || archiveReady || authRequired || remoteError) return;
+    if (!isAppRoute(pathname)) return;
+    const publicDiscoveryRoute = isPublicDiscoveryRoute(pathname);
+    if (archiveReady) return;
     let cancelled = false;
     const bootstrap = async () => {
       const { data } = await createSupabaseBrowserClient().auth.getSession() as { data: { session: unknown } };
       if (!data.session) {
-        if (!cancelled) setAuthRequired(true);
+        if (!cancelled) {
+          setAuthenticated(false);
+          setAuthRequired(!publicDiscoveryRoute);
+          setOnline(window.navigator.onLine);
+          setArchiveReady(true);
+        }
         return;
       }
       const [archiveResult, onboardingResult]: [VersionedArchive, OnboardingStatus] = await Promise.all([
@@ -118,15 +135,20 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
       setArchive(archiveResult.archive);
       setOnboarding(onboardingResult);
       setOnline(window.navigator.onLine);
+      setAuthenticated(true);
       setArchiveReady(true);
     };
     void bootstrap().catch((cause: unknown) => {
       if (cancelled) return;
-      if (cause instanceof ArchiveApiError && cause.code === "unauthenticated") setAuthRequired(true);
+      if (cause instanceof ArchiveApiError && cause.code === "unauthenticated") {
+        setAuthenticated(false);
+        setAuthRequired(!publicDiscoveryRoute);
+        setArchiveReady(true);
+      }
       else setRemoteError(cause instanceof Error ? cause.message : "음악 기록을 불러오지 못했어요.");
     });
     return () => { cancelled = true; };
-  }, [archiveReady, authRequired, pathname, remoteError]);
+  }, [archiveReady, authenticated, pathname]);
 
   useEffect(() => {
     const updateOnline = () => setOnline(window.navigator.onLine);
@@ -204,7 +226,10 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     const initialLoad = !discoveryReady;
     if (initialLoad) setDiscoveryLoading(true);
     setDiscoveryError(null);
-    const request = Promise.all([fetchPublicDiscoveryCatalog(), fetchDiscoveryState()])
+    const discoveryStateRequest = authenticated
+      ? fetchDiscoveryState()
+      : Promise.resolve({ state: createDiscoveryInteractionState(), revision: 0 });
+    const request = Promise.all([fetchPublicDiscoveryCatalog(), discoveryStateRequest])
       .then(([catalogResult, stateResult]: [PublicDiscoveryCatalog, VersionedDiscoveryState]) => {
         discoveryRevisionRef.current = stateResult.revision;
         discoveryUpdatedAtRef.current = Date.now();
@@ -224,7 +249,11 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
       });
     discoveryPromiseRef.current = request;
     return request;
-  }, [discoveryReady, publishNotice]);
+  }, [authenticated, discoveryReady, publishNotice]);
+
+  const updatePublicChapterLike = useCallback((chapterId: string, liked: boolean) => {
+    setCatalog((current) => withPublicChapterLike(current, chapterId, liked));
+  }, []);
 
   const saveArchive = useCallback((next: ArchiveEnvelopeV1, message?: ToastMessage) => {
     if (!archiveReady || authRequired) return false;
@@ -322,9 +351,24 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const updateProfile = useCallback(async (update: ProfileUpdate) => {
+    setOnboardingSaving(true);
+    setOnboardingError(null);
+    try {
+      setOnboarding(await updateProfileRemote(update));
+      return true;
+    } catch (cause) {
+      setOnboardingError(cause instanceof Error ? cause.message : "프로필을 저장하지 못했어요.");
+      return false;
+    } finally {
+      setOnboardingSaving(false);
+    }
+  }, []);
+
   const value = useMemo<MuchiDataContextValue>(() => ({
     archive,
     archiveReady,
+    authenticated,
     authRequired,
     remoteError,
     catalog,
@@ -337,13 +381,15 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     onboardingError,
     online,
     ensureDiscoveryData,
+    updatePublicChapterLike,
     saveArchive,
     saveDiscovery,
     completeOnboarding,
+    updateProfile,
   }), [
-    archive, archiveReady, authRequired, remoteError, catalog, discoveryState, discoveryReady,
+    archive, archiveReady, authenticated, authRequired, remoteError, catalog, discoveryState, discoveryReady,
     discoveryLoading, discoveryError, onboarding, onboardingSaving, onboardingError, online,
-    ensureDiscoveryData, saveArchive, saveDiscovery, completeOnboarding,
+    ensureDiscoveryData, updatePublicChapterLike, saveArchive, saveDiscovery, completeOnboarding, updateProfile,
   ]);
 
   return <MuchiDataContext.Provider value={value}>{children}</MuchiDataContext.Provider>;

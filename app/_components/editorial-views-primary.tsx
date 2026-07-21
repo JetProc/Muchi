@@ -944,7 +944,7 @@ export function Capture({
                   </div>
                   <div className="link-import-service is-unsupported">
                     <span className="link-import-service-icon"><MusicServiceIcon service="spotify" size={17} /></span>
-                    <div className="link-import-service-meta"><strong>Spotify</strong><small>미지원</small></div>
+                    <div className="link-import-service-meta"><strong>Spotify</strong><small>준비 중</small></div>
                     <p>아직 준비 중이에요</p>
                   </div>
                 </div>

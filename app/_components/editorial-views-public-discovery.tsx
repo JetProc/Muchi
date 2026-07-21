@@ -38,18 +38,22 @@ function initials(profile: PublicProfile): string {
 function ProfileStamp({
   profile,
   compact = false,
-  showHandle = true,
+  showFollowerCount = true,
 }: {
   profile: PublicProfile;
   compact?: boolean;
-  showHandle?: boolean;
+  showFollowerCount?: boolean;
 }) {
   return (
-    <span className={`public-profile-stamp${compact ? " is-compact" : ""}`}>
-      <span className="public-profile-avatar" style={{ backgroundColor: profile.avatarTone }} aria-hidden="true">{initials(profile)}</span>
+      <span className={`public-profile-stamp${compact ? " is-compact" : ""}`}>
+      <span className="public-profile-avatar" style={{ backgroundColor: profile.avatarTone }} aria-hidden="true">{profile.avatarUrl ? <>
+        {/* Google profile URLs are remote and intentionally not passed through Next image optimization. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" />
+      </> : initials(profile)}</span>
       <span>
         <strong>{profile.name}</strong>
-        {showHandle && profile.handle ? <small>@{profile.handle}</small> : null}
+        {showFollowerCount ? <small>팔로워 {profile.followerCount.toLocaleString("ko-KR")}명</small> : null}
       </span>
     </span>
   );
@@ -210,7 +214,7 @@ export function PublicChapterDetail({
         intent="forward"
         aria-label={`${profile.name} 프로필 보기`}
       >
-        <ProfileStamp profile={profile} showHandle={false} />
+        <ProfileStamp profile={profile} showFollowerCount={false} />
         <ChevronRight size={16} aria-hidden="true" />
       </Link>
       <ChapterDetailHero
@@ -260,7 +264,7 @@ export function PublicProfileDetail({
   return <MusicRoomFrame
     eyebrow={showAll ? "ALL CHAPTERS" : "MUSIC ROOM"}
     title={showAll ? `${profile.name}의 모든 챕터` : `${profile.name}의 음악 서재`}
-    owner={<ProfileStamp profile={profile} showHandle={false} />}
+    owner={<ProfileStamp profile={profile} />}
     ownerBio={profile.bio}
     themeId={profile.space.themeId}
     layoutId={showAll ? "stack" : profile.space.layoutId}

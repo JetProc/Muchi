@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import {
+  createTags,
   type ArchiveEnvelopeV1,
   type TrackId,
   type TrackReference,
@@ -19,7 +20,7 @@ import {
   toggleFollow,
   markActivityRead,
 } from "@/lib/public-discovery";
-import { saveChapterLike } from "@/lib/client/public-discovery-api";
+import { saveChapterLike, saveProfileFollow } from "@/lib/client/public-discovery-api";
 import {
   EditorialShell,
   type ContextBackAction,
@@ -60,7 +61,7 @@ import {
   PublicProfileDetail,
 } from "./editorial-views-public-discovery";
 import type { AppView, ToastMessage } from "./editorial-types";
-import { AuthGate } from "./auth-gate";
+import { AuthGate, startGoogleSignIn } from "./auth-gate";
 import { OnboardingScreen } from "./onboarding-screen";
 import { useMuchiData } from "./muchi-data-provider";
 
@@ -133,6 +134,17 @@ function DiscoverLoadingSkeleton() {
         ))}
       </section>
     </LoadingStatus>
+  );
+}
+
+function DiscoveryLoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="page-content discover-load-error" role="alert">
+      <span className="section-label">탐색 연결 오류</span>
+      <h1>공개 챕터를 불러오지 못했어요</h1>
+      <p>{message}</p>
+      <button className="button button-primary" type="button" onClick={onRetry}>다시 시도</button>
+    </div>
   );
 }
 
@@ -247,19 +259,23 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const {
     archive,
     archiveReady: hydrated,
+    authenticated,
     authRequired,
     remoteError,
     catalog,
     discoveryState,
     discoveryReady,
+    discoveryError,
     onboarding,
     onboardingSaving,
     onboardingError,
     online,
     ensureDiscoveryData,
+    updatePublicChapterLike,
     saveArchive: saveArchiveState,
     saveDiscovery: saveDiscoveryState,
     completeOnboarding,
+    updateProfile,
   } = useMuchiData();
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [systemReduce, setSystemReduce] = useState(false);
@@ -270,6 +286,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   }>({ routeKey: "", step: 1 });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const pendingLikeChapterIdsRef = useRef(new Set<string>());
 
   const inboxEntries = useMemo(
     () => Object.values(archive.data.inbox)
@@ -395,6 +412,9 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     || view === "discoverChapter"
     || view === "discoverProfile"
     || (view === "playlist" && searchParams.get("source") === "discover");
+  const publicDiscoveryRoute = view === "discover"
+    || view === "discoverChapter"
+    || view === "discoverProfile";
 
   useEffect(() => {
     if (!hydrated || !discoveryRoute) return;
@@ -437,17 +457,36 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   }
 
   function handleToggleFollow(profileId: string) {
+    if (!authenticated) {
+      void startGoogleSignIn().catch((error: unknown) => notify(error instanceof Error ? error.message : "로그인을 시작하지 못했어요."));
+      return;
+    }
     const following = discoveryState.followedProfileIds.includes(profileId);
-    saveDiscoveryState(toggleFollow(discoveryState, profileId), following ? "팔로우를 취소했어요." : "새 챕터 소식을 받아볼게요.");
+    void saveProfileFollow(profileId, !following)
+      .then(() => {
+        saveDiscoveryState(toggleFollow(discoveryState, profileId), following ? "팔로우를 취소했어요." : "새 챕터 소식을 받아볼게요.");
+        return ensureDiscoveryData(true);
+      })
+      .catch((error: unknown) => notify(error instanceof Error ? error.message : "팔로우를 저장하지 못했어요."));
   }
 
   function handleToggleLike(chapterId: string) {
+    if (!authenticated) {
+      void startGoogleSignIn().catch((error: unknown) => notify(error instanceof Error ? error.message : "로그인을 시작하지 못했어요."));
+      return;
+    }
     const chapter = getPublicChapter(catalog, chapterId);
-    if (!chapter) return;
+    if (!chapter || pendingLikeChapterIdsRef.current.has(chapterId)) return;
     const liked = chapter.likedByViewer;
-    void saveChapterLike(chapter.profileId, chapterId.replace(`public:${chapter.profileId}:`, ""), !liked)
-      .then(() => void ensureDiscoveryData(true))
-      .catch((error: unknown) => notify(error instanceof Error ? error.message : "좋아요를 저장하지 못했어요."));
+    const nextLiked = !liked;
+    pendingLikeChapterIdsRef.current.add(chapterId);
+    updatePublicChapterLike(chapterId, nextLiked);
+    void saveChapterLike(chapter.profileId, chapterId.replace(`public:${chapter.profileId}:`, ""), nextLiked)
+      .catch((error: unknown) => {
+        updatePublicChapterLike(chapterId, liked);
+        notify(error instanceof Error ? error.message : "좋아요를 저장하지 못했어요.");
+      })
+      .finally(() => pendingLikeChapterIdsRef.current.delete(chapterId));
   }
 
   function handleMarkActivityRead(activityId: string) {
@@ -513,7 +552,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   };
 
   if (!hydrated) {
-    if (authRequired) return <AuthGate />;
+    if (authRequired && !publicDiscoveryRoute) return <AuthGate />;
     if (remoteError) return <AuthGate message={remoteError} />;
     return (
       <MotionProvider>
@@ -532,14 +571,20 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     );
   }
 
-  if (onboarding && !onboarding.completed) {
+  if (!authenticated && !publicDiscoveryRoute) return <AuthGate />;
+
+  if (authenticated && onboarding && !onboarding.completed && !publicDiscoveryRoute) {
     return (
       <OnboardingScreen
         displayName={onboarding.displayName}
         avatarUrl={onboarding.avatarUrl}
         loading={onboardingSaving}
         error={onboardingError}
-        onComplete={(nickname, destination) => {
+        onComplete={(nickname, starterTags, destination) => {
+          if (starterTags.length) {
+            const result = createTags(archive, starterTags);
+            if (!saveArchiveState(result.archive)) return;
+          }
           void completeOnboarding(nickname).then((completed) => {
             if (completed && destination === "capture") router.replace("/capture?guide=1", "replace");
           });
@@ -585,12 +630,15 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           />
         );
       case "discover":
+        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true).catch(() => undefined); }} />;
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
         return <Discover archive={archive} catalog={catalog} state={discoveryState} activityOnly={searchParams.get("activity") === "1"} actions={discoveryActions} />;
       case "discoverChapter":
+        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true).catch(() => undefined); }} />;
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
         return <PublicChapterDetail catalog={catalog} chapterId={queryId} actions={discoveryActions} />;
       case "discoverProfile":
+        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true).catch(() => undefined); }} />;
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
         return <PublicProfileDetail catalog={catalog} state={discoveryState} profileId={queryId} showAll={searchParams.get("view") === "all"} actions={discoveryActions} />;
       case "search":
@@ -609,7 +657,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "recap":
         return <Recap archive={archive} />;
       case "settings":
-        return <Settings archive={archive} commit={commit} notify={notify} />;
+        return <Settings archive={archive} commit={commit} notify={notify} profile={onboarding} profileSaving={onboardingSaving} profileError={onboardingError} onUpdateProfile={updateProfile} />;
       case "guide":
         return <Guide />;
       case "tags":

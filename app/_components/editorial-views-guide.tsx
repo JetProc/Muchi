@@ -7,7 +7,7 @@ import { PageHeader } from "./editorial-ui";
 const SUPPORTS = [
   ["YouTube Music", "가져오기", "지원"],
   ["Apple Music", "가져오기", "지원"],
-  ["Spotify", "가져오기", "미지원"],
+  ["Spotify", "가져오기", "준비 중"],
   ["YouTube Music", "내보내기", "준비 중"],
   ["Apple Music", "내보내기", "준비 중"],
   ["Spotify", "내보내기", "준비 중"],
@@ -42,7 +42,7 @@ export function Guide() {
         <div className="guide-support-list" role="list">
           {SUPPORTS.map(([service, action, status]) => <div key={`${service}-${action}`} role="listitem"><strong>{service}</strong><span>{action === "가져오기" ? <Upload aria-hidden="true" size={14} /> : <ExternalLink aria-hidden="true" size={14} />}{action}</span><em className={`is-${status.replace(" ", "-")}`}>{status}</em></div>)}
         </div>
-        <p className="guide-footnote">지원하지 않는 링크는 직접 검색으로 같은 곡을 찾아 기록할 수 있어요.</p>
+        <p className="guide-footnote">Spotify 가져오기는 준비 중이에요. 지금은 직접 검색으로 같은 곡을 찾아 기록할 수 있어요.</p>
       </section>
       <section className="guide-cta" aria-label="첫 기록 시작">
         <span>이제 한 곡을 골라 볼까요?</span>

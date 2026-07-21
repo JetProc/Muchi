@@ -1,17 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { validateNickname } from "@/lib/profile";
+import { syncPublishedAuthorProfile } from "./public-discovery-repository";
 
 export type OnboardingProfile = {
   completed: boolean;
   displayName: string;
   avatarUrl: string | null;
+  bio: string;
 };
+
+export type ProfileUpdate = { nickname: string; bio: string };
 
 type ProfileRow = {
   display_name: string;
   onboarding_completed: boolean;
   profile_setup_completed: boolean;
   avatar_url: string | null;
+  bio: string;
 };
 
 function safeAvatarUrl(value: string | null): string | null {
@@ -29,6 +34,7 @@ function toOnboardingProfile(row: ProfileRow): OnboardingProfile {
     completed: row.onboarding_completed && row.profile_setup_completed,
     displayName: row.display_name,
     avatarUrl: safeAvatarUrl(row.avatar_url),
+    bio: row.bio.trim(),
   };
 }
 
@@ -38,13 +44,13 @@ export async function readOnboardingProfile(
 ): Promise<OnboardingProfile> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("display_name, onboarding_completed, profile_setup_completed, avatar_url")
+    .select("display_name, onboarding_completed, profile_setup_completed, avatar_url, bio")
     .eq("id", userId)
     .maybeSingle();
   if (error) throw error;
   return data
     ? toOnboardingProfile(data as ProfileRow)
-    : { completed: false, displayName: "", avatarUrl: null };
+    : { completed: false, displayName: "", avatarUrl: null, bio: "" };
 }
 
 export async function completeOnboarding(
@@ -62,8 +68,34 @@ export async function completeOnboarding(
       onboarding_completed: true,
       profile_setup_completed: true,
     }, { onConflict: "id" })
-    .select("display_name, onboarding_completed, profile_setup_completed, avatar_url")
+    .select("display_name, onboarding_completed, profile_setup_completed, avatar_url, bio")
     .single();
   if (error) throw error;
+  const profile = toOnboardingProfile(data as ProfileRow);
+  await syncPublishedAuthorProfile(supabase, userId);
+  return profile;
+}
+
+function normalizeBio(value: string): string {
+  return value.trim().replace(/\r\n/g, "\n");
+}
+
+export async function updateProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  update: ProfileUpdate,
+): Promise<OnboardingProfile> {
+  const nickname = validateNickname(update.nickname);
+  if (!nickname.ok) throw new Error(nickname.message);
+  const bio = normalizeBio(update.bio);
+  if (Array.from(bio).length > 160) throw new Error("소개는 160자 이내로 입력해 주세요.");
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ display_name: nickname.nickname, bio })
+    .eq("id", userId)
+    .select("display_name, onboarding_completed, profile_setup_completed, avatar_url, bio")
+    .single();
+  if (error) throw error;
+  await syncPublishedAuthorProfile(supabase, userId);
   return toOnboardingProfile(data as ProfileRow);
 }

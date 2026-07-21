@@ -31,10 +31,22 @@ export async function saveChapterLike(authorId: string, chapterId: string, liked
   const response = await fetch("/api/public-discovery", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ authorId, chapterId, liked }),
+    body: JSON.stringify({ action: "like", authorId, chapterId, liked }),
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { message?: string } | null;
     throw new PublicDiscoveryApiError("unavailable", body?.message ?? "좋아요를 저장하지 못했어요.");
+  }
+}
+
+export async function saveProfileFollow(profileId: string, followed: boolean): Promise<void> {
+  const response = await fetch("/api/public-discovery", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "follow", profileId, followed }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { message?: string } | null;
+    throw new PublicDiscoveryApiError("unavailable", body?.message ?? "팔로우를 저장하지 못했어요.");
   }
 }

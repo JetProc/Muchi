@@ -3,6 +3,23 @@
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+function currentDestination() {
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+export async function startGoogleSignIn(destination = currentDestination()) {
+  const callback = new URL("/auth/callback", window.location.origin);
+  if (destination.startsWith("/") && !destination.startsWith("//")) {
+    callback.searchParams.set("next", destination);
+  }
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: callback.toString() },
+  });
+  if (error) throw error;
+}
+
 function GoogleMark() {
   return (
     <svg className="google-mark" viewBox="0 0 18 18" aria-hidden="true">
@@ -22,12 +39,7 @@ export function AuthGate({ message }: { message?: string }) {
     setLoading(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (authError) throw authError;
+      await startGoogleSignIn();
     } catch (cause) {
       setLoading(false);
       setError(cause instanceof Error ? cause.message : "Google 로그인을 시작하지 못했어요.");

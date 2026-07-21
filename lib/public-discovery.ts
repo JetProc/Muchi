@@ -11,8 +11,8 @@ export type PublicSpacePresentation = {
 export type PublicProfile = {
   id: string;
   name: string;
-  handle: string;
   bio: string;
+  avatarUrl: string | null;
   avatarTone: string;
   followerCount: number;
   space: PublicSpacePresentation;
@@ -69,11 +69,35 @@ export type RankedPublicChapter = {
 export type PublicDiscoveryRow = {
   authorId: string;
   authorName: string;
+  authorAvatarUrl?: string | null;
+  authorBio?: string;
+  followerCount?: number;
   payload: PublicChapter;
 };
 
 export function createEmptyPublicDiscoveryCatalog(): PublicDiscoveryCatalog {
   return { profiles: {}, chapters: {}, activities: [] };
+}
+
+export function withPublicChapterLike(
+  catalog: PublicDiscoveryCatalog,
+  chapterId: string,
+  likedByViewer: boolean,
+): PublicDiscoveryCatalog {
+  const chapter = catalog.chapters[chapterId];
+  if (!chapter || chapter.likedByViewer === likedByViewer) return catalog;
+
+  return {
+    ...catalog,
+    chapters: {
+      ...catalog.chapters,
+      [chapterId]: {
+        ...chapter,
+        likedByViewer,
+        likeCount: Math.max(0, chapter.likeCount + (likedByViewer ? 1 : -1)),
+      },
+    },
+  };
 }
 
 export function createPublicDiscoveryCatalog(rows: PublicDiscoveryRow[]): PublicDiscoveryCatalog {
@@ -86,10 +110,10 @@ export function createPublicDiscoveryCatalog(rows: PublicDiscoveryRow[]): Public
     catalog.profiles[profileId] = existingProfile ?? {
       id: profileId,
       name: row.authorName.trim() || "뮤키 사용자",
-      handle: "",
-      bio: "",
+      bio: typeof row.authorBio === "string" ? row.authorBio.trim() : "",
+      avatarUrl: typeof row.authorAvatarUrl === "string" ? row.authorAvatarUrl : null,
       avatarTone: "#6f7898",
-      followerCount: 0,
+      followerCount: typeof row.followerCount === "number" && row.followerCount >= 0 ? row.followerCount : 0,
       space: { themeId: "paper", layoutId: "shelf", featuredChapterIds: [] },
     };
     catalog.chapters[chapter.id] = { ...chapter, profileId };

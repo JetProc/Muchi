@@ -2,6 +2,7 @@ export type OnboardingStatus = {
   completed: boolean;
   displayName: string;
   avatarUrl: string | null;
+  bio: string;
 };
 
 export class OnboardingApiError extends Error {
@@ -34,10 +35,11 @@ async function request(method: "GET" | "PUT", nickname?: string): Promise<Onboar
     typeof body.completed !== "boolean"
     || typeof body.displayName !== "string"
     || !(body.avatarUrl === null || typeof body.avatarUrl === "string")
+    || typeof body.bio !== "string"
   ) {
     throw new OnboardingApiError("invalid_response", "서버가 올바르지 않은 온보딩 정보를 반환했습니다.");
   }
-  return { completed: body.completed, displayName: body.displayName, avatarUrl: body.avatarUrl };
+  return { completed: body.completed, displayName: body.displayName, avatarUrl: body.avatarUrl, bio: body.bio };
 }
 
 export function fetchOnboardingStatus(): Promise<OnboardingStatus> {

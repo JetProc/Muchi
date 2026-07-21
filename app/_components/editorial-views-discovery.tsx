@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { ChevronRight, X } from "lucide-react";
 import {
   createTags,
@@ -26,6 +26,8 @@ import {
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { TagPicker } from "./editorial-tag-picker";
+import type { OnboardingStatus } from "@/lib/client/onboarding-api";
+import type { ProfileUpdate } from "@/lib/client/profile-api";
 
 function SearchResultLine({
   result,
@@ -387,15 +389,58 @@ export function Recap({ archive }: {
   );
 }
 
+function ProfileEditor({
+  profile,
+  saving,
+  error,
+  onSave,
+  onClose,
+}: {
+  profile: OnboardingStatus;
+  saving: boolean;
+  error: string | null;
+  onSave: (update: ProfileUpdate) => Promise<boolean>;
+  onClose: () => void;
+}) {
+  const [nickname, setNickname] = useState(profile.displayName);
+  const [bio, setBio] = useState(profile.bio);
+  const dialogRef = useModalFocus<HTMLFormElement>(true, onClose);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (await onSave({ nickname, bio })) onClose();
+  }
+  return (
+    <div className="dialog-backdrop" role="presentation" onClick={onClose}>
+      <form ref={dialogRef} className="dialog profile-editor" role="dialog" aria-modal="true" aria-labelledby="profile-editor-title" onClick={(event) => event.stopPropagation()} onSubmit={submit}>
+        <h2 id="profile-editor-title">공개 프로필</h2>
+        <p className="profile-editor-guide">공개 챕터에 이름, Google 프로필 사진, 소개가 함께 보여요.</p>
+        <label className="field" htmlFor="profile-nickname"><span>닉네임</span><input id="profile-nickname" className="input" value={nickname} onChange={(event) => setNickname(event.target.value)} minLength={2} maxLength={20} required /></label>
+        <label className="field" htmlFor="profile-bio"><span>소개 <small>{Array.from(bio).length}/160</small></span><textarea id="profile-bio" className="textarea" value={bio} onChange={(event) => setBio(event.target.value)} maxLength={160} placeholder="어떤 음악을 좋아하는지 짧게 소개해 주세요." /></label>
+        {error ? <p className="notice notice-danger" role="alert">{error}</p> : null}
+        <div className="dialog-actions"><button className="button" type="button" onClick={onClose} disabled={saving}>취소</button><button className="button button-primary" type="submit" disabled={saving}>{saving ? "저장 중" : "저장"}</button></div>
+      </form>
+    </div>
+  );
+}
+
 export function Settings({
   archive,
   commit,
   notify,
+  profile,
+  profileSaving,
+  profileError,
+  onUpdateProfile,
 }: {
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
   notify: Notify;
+  profile: OnboardingStatus | null;
+  profileSaving: boolean;
+  profileError: string | null;
+  onUpdateProfile: (update: ProfileUpdate) => Promise<boolean>;
 }) {
+  const [profileOpen, setProfileOpen] = useState(false);
   function setMotion(motion: MotionPreference) {
     commit({
       ...archive,
@@ -451,6 +496,10 @@ export function Settings({
           <div className="setting-row"><h3>내 기록 백업</h3><button className="button" type="button" onClick={exportData}>내보내기</button></div>
         </div>
       </section>
+      {profile ? <section className="settings-group" aria-labelledby="settings-profile-title">
+        <h2 id="settings-profile-title">공개 프로필</h2>
+        <div className="panel settings-list"><div className="setting-row"><div><h3>{profile.displayName}</h3><small>{profile.bio || "소개를 추가해 공개 챕터에 나를 보여 주세요."}</small></div><button className="button" type="button" onClick={() => setProfileOpen(true)}>편집</button></div></div>
+      </section> : null}
       <section className="settings-group" aria-labelledby="settings-guide-title">
         <h2 id="settings-guide-title">사용 가이드</h2>
         <div className="panel settings-list">
@@ -464,6 +513,7 @@ export function Settings({
           <div className="setting-row"><h3>로그아웃</h3><form action="/auth/signout" method="post"><button className="button" type="submit">로그아웃</button></form></div>
         </div>
       </section>
+      {profileOpen && profile ? <ProfileEditor profile={profile} saving={profileSaving} error={profileError} onSave={onUpdateProfile} onClose={() => setProfileOpen(false)} /> : null}
     </div>
   );
 }

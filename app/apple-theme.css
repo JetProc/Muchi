@@ -2728,12 +2728,23 @@ button.tag {
   padding: var(--apple-space-5);
 }
 
-.memory-note-composer,
+.memory-form > .managed-tag-field,
+.memory-form > .affection-selector,
+.memory-form > .memory-note-composer {
+  padding-bottom: var(--apple-space-5);
+  border-bottom: 1px solid var(--apple-hairline);
+}
+
 .memory-note-history {
   display: grid;
   gap: var(--apple-space-4);
   padding-top: var(--apple-space-5);
   border-top: 1px solid var(--apple-hairline);
+}
+
+.memory-form > .memory-note-composer + .memory-note-history {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .memory-note-heading {

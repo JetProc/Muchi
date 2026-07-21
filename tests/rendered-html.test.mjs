@@ -1806,8 +1806,8 @@ test("keeps interview-driven capture paths while simplifying memory completion",
   assert.match(appleThemeSource, /\.record-dialog \.field > \.search-form\s*\{\s*margin-top:\s*0;/s);
   assert.match(appleThemeSource, /\.input:focus,[\s\S]*?\.tag-picker-inline-create input:focus,[\s\S]*?\.tag-picker-search:focus-within\s*\{[^}]*border-color:\s*var\(--apple-hairline\);[^}]*box-shadow:\s*none;[^}]*outline:\s*none;/s);
   assert.match(appleThemeSource, /input:focus-visible,[\s\S]*?select:focus-visible\s*\{\s*outline:\s*none;/s);
-  assert.match(chapterSource, /recordVisibilityAction=\{cube\.kind === "manual"/);
-  assert.match(chapterSource, /recordVisibility === "public" \? "태그\/메모 공개" : "태그\/메모 비공개"/);
+  assert.match(chapterSource, /action=\{cube\.kind === "manual"/);
+  assert.match(chapterSource, /recordVisibility === "public" \? "공개" : "비공개"/);
   assert.match(chapterSource, /function toggleChapterVisibility\(\)/);
   assert.match(chapterSource, /aria-label=\{`챕터 \$\{activeChapter\.visibility === "public" \? "공개" : "비공개"\}`\}/);
   assert.match(chapterSource, /activeChapter\.visibility === "public" \? "챕터 공개" : "챕터 비공개"/);
@@ -2859,9 +2859,12 @@ test("keeps the memory form focused on tags, an optional dated memo, and one com
   assert.doesNotMatch(memorySource, /개인 기록 · \$\{formatChapterTitle\(cube\)\}/);
   assert.match(memoryFormSource, /<TagEditor/);
   assert.doesNotMatch(memoryFormSource, /memory-record-visibility/);
-  assert.match(memorySource, /recordVisibilityAction/);
+  assert.match(memorySource, /className="page-header-actions"/);
+  assert.doesNotMatch(memorySource, /recordVisibilityAction|memory-art-record-visibility/);
   assert.match(memorySource, /<Unlock size=\{14\}/);
   assert.match(memorySource, /<Lock size=\{14\}/);
+  assert.match(memoryFormSource, /<AffectionSelector value=\{affection\} onChange=\{setAffection\} \/>/);
+  assert.match(css, /\.memory-form > \.managed-tag-field,[\s\S]*?\.memory-form > \.affection-selector,[\s\S]*?\.memory-form > \.memory-note-composer\s*\{[^}]*border-bottom:\s*1px solid var\(--apple-hairline\);/s);
   assert.doesNotMatch(memoryFormSource, /기록 공개|기록 비공개/);
   assert.match(discoverySource, /<TagPicker/);
   assert.doesNotMatch(memoryFormSource, /managed-tag-groups|managed-tag-option|inline-tag-composer|period-tag-group|추가 시기 · 자동/);

@@ -836,11 +836,9 @@ export function ChapterDetail({
 export function MemoryPanel({
   cubeTrack,
   track,
-  recordVisibilityAction,
 }: {
   cubeTrack: CubeTrack;
   track: TrackReference;
-  recordVisibilityAction?: ReactNode;
 }) {
   const latestNote = getLatestCubeTrackNote(cubeTrack);
   return (
@@ -850,7 +848,6 @@ export function MemoryPanel({
         <span className="section-label">{latestNote?.listenedOn ? formatCalendarDate(latestNote.listenedOn) : `최초 기록 · ${formatDate(cubeTrack.createdAt)}`}</span>
         <h2>{track.title}{cubeTrack.affection ? <AffectionDot affection={cubeTrack.affection} /> : null}</h2>
         <p>{track.artist}{track.album ? ` · ${track.album}` : ""}</p>
-        {recordVisibilityAction ? <div className="memory-art-record-visibility">{recordVisibilityAction}</div> : null}
       </div>
     </aside>
   );
@@ -1222,12 +1219,8 @@ export function Memory({
       <PageHeader
         eyebrow={cube.kind === "capture" ? "챕터 미분류" : formatChapterTitle(cube)}
         title="곡 기록"
-      />
-      <div className="memory-layout">
-        <MemoryPanel
-          cubeTrack={cubeTrack}
-          track={track}
-          recordVisibilityAction={cube.kind === "manual" ? (
+        action={cube.kind === "manual" ? (
+          <div className="page-header-actions">
             <button
               className={`text-button memory-record-visibility ${activeCubeTrack.recordVisibility === "public" ? "is-public" : "is-private"}`}
               type="button"
@@ -1236,9 +1229,15 @@ export function Memory({
               aria-label={`태그/메모 ${activeCubeTrack.recordVisibility === "public" ? "공개" : "비공개"}`}
             >
               {activeCubeTrack.recordVisibility === "public" ? <Unlock size={14} aria-hidden="true" /> : <Lock size={14} aria-hidden="true" />}
-              <span>{activeCubeTrack.recordVisibility === "public" ? "태그/메모 공개" : "태그/메모 비공개"}</span>
+              <span>{activeCubeTrack.recordVisibility === "public" ? "공개" : "비공개"}</span>
             </button>
-          ) : undefined}
+          </div>
+        ) : undefined}
+      />
+      <div className="memory-layout">
+        <MemoryPanel
+          cubeTrack={cubeTrack}
+          track={track}
         />
         <form className="memory-form form-stack" onSubmit={save}>
           <TagEditor

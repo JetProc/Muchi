@@ -236,7 +236,6 @@ export function AffectionSelector({
     <section className="affection-selector" aria-labelledby="affection-title">
       <div className="affection-selector-heading">
         <h2 id="affection-title" className="field-label">애정도</h2>
-        <span>선택 사항</span>
       </div>
       <div className="affection-options" role="group" aria-label="곡 애정도">
         {options.map((option) => {

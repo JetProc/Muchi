@@ -38,6 +38,7 @@ function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ 
         visibility: privateRecord ? "private" : "public",
         note: privateRecord ? null : getLatestCubeTrackNote(cubeTrack)?.body ?? null,
         tags: privateRecord ? [] : tags.map((tag) => tag.label),
+        affection: privateRecord ? null : cubeTrack.affection,
       })),
     },
   }));

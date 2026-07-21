@@ -1,4 +1,4 @@
-export const ARCHIVE_SCHEMA_VERSION = 8 as const;
+export const ARCHIVE_SCHEMA_VERSION = 9 as const;
 export const ARCHIVE_SEED_VERSION = 2 as const;
 
 export const ARCHIVE_LIMITS = {
@@ -44,6 +44,8 @@ export type CubeKind = "manual" | "monthly" | "capture";
 export type CubeSystemKey = null | "capture" | `month:${string}`;
 export type ChapterVisibility = "private" | "public";
 export type RecordVisibility = "private" | "public";
+export const AFFECTION_LEVELS = ["red", "orange", "yellow"] as const;
+export type AffectionLevel = (typeof AFFECTION_LEVELS)[number];
 export const SPACE_THEME_IDS = ["paper", "midnight", "moss"] as const;
 export const SPACE_LAYOUT_IDS = ["shelf", "folio", "stack"] as const;
 export type SpaceThemeId = (typeof SPACE_THEME_IDS)[number];
@@ -105,6 +107,7 @@ export interface CubeTrack {
   memoryPeriod: MemoryPeriod;
   place: string;
   people: string;
+  affection: AffectionLevel | null;
   notes: MemoryNote[];
   sortOrder: number;
   source: EntitySource;
@@ -246,6 +249,7 @@ export interface UpdateCubeTrackInput {
   memoryPeriod?: MemoryPeriod;
   place?: string;
   people?: string;
+  affection?: AffectionLevel | null;
 }
 
 export interface MemoryNoteInput {
@@ -548,6 +552,15 @@ function validateMemoryPeriod(value: MemoryPeriod): MemoryPeriod {
     throw new ArchiveDomainError("invalid-input", "기억 시기가 올바르지 않습니다.");
   }
   return { ...value };
+}
+
+function validAffection(value: unknown): value is AffectionLevel {
+  return AFFECTION_LEVELS.includes(value as AffectionLevel);
+}
+
+function validateAffection(value: AffectionLevel | null): AffectionLevel | null {
+  if (value === null || validAffection(value)) return value;
+  throw new ArchiveDomainError("invalid-input", "애정도 값이 올바르지 않습니다.");
 }
 
 function trackIsEqual(left: TrackReference, right: TrackReference): boolean {
@@ -1257,6 +1270,7 @@ function seedCubeTrack(
     memoryPeriod,
     place,
     people,
+    affection: null,
     notes: seedMemoryNotes(slug),
     sortOrder,
     source: "seed",
@@ -1652,6 +1666,7 @@ function addTrackToCubeInternal(
     memoryPeriod: null,
     place: "",
     people: "",
+    affection: null,
     notes: [],
     sortOrder,
     source: "user",
@@ -1882,6 +1897,9 @@ export function updateCubeTrack(
     ...(input.people === undefined
       ? {}
       : { people: cleanText(input.people, "사람", ARCHIVE_LIMITS.people) }),
+    ...(input.affection === undefined
+      ? {}
+      : { affection: validateAffection(input.affection) }),
     updatedAt: now,
   };
   const cubes = {
@@ -2310,8 +2328,8 @@ function withPersonalSpaceDefaults(archive: ArchiveEnvelopeV1): ArchiveEnvelopeV
   const cubeTracks = Object.fromEntries(Object.entries(archive.data.cubeTracks).map(([id, cubeTrack]) => [
     id,
     cubeTrack.recordVisibility === "public" || cubeTrack.recordVisibility === "private"
-      ? cubeTrack
-      : { ...cubeTrack, recordVisibility: "private" as const },
+      ? { ...cubeTrack, affection: validAffection(cubeTrack.affection) ? cubeTrack.affection : null }
+      : { ...cubeTrack, recordVisibility: "private" as const, affection: validAffection(cubeTrack.affection) ? cubeTrack.affection : null },
   ])) as Record<string, CubeTrack>;
   const candidateIds = Array.isArray(archive.data.space?.featuredCubeIds)
     ? archive.data.space.featuredCubeIds
@@ -2335,7 +2353,10 @@ function withPersonalSpaceDefaults(archive: ArchiveEnvelopeV1): ArchiveEnvelopeV
     || rawSpace.layoutId !== space.layoutId
     || rawSpace.featuredCubeIds.join("\u0000") !== space.featuredCubeIds.join("\u0000")
     || Object.values(archive.data.cubes).some((cube) => cube.visibility !== "public" && cube.visibility !== "private")
-    || Object.values(archive.data.cubeTracks).some((cubeTrack) => cubeTrack.recordVisibility !== "public" && cubeTrack.recordVisibility !== "private");
+    || Object.values(archive.data.cubeTracks).some((cubeTrack) => (
+      (cubeTrack.recordVisibility !== "public" && cubeTrack.recordVisibility !== "private")
+      || (cubeTrack.affection !== null && !validAffection(cubeTrack.affection))
+    ));
   return changed
     ? withData(archive, { ...archive.data, cubes, cubeTracks, space }, archive.updatedAt)
     : archive;
@@ -2383,6 +2404,22 @@ export function setCubeTrackRecordVisibility(
   }, now);
 }
 
+export function setCubeTrackAffection(
+  archive: ArchiveEnvelopeV1,
+  cubeTrackId: string,
+  affection: AffectionLevel | null,
+  now = nowIso(),
+): ArchiveEnvelopeV1 {
+  const current = assertEditableCubeTrack(archive, cubeTrackId);
+  return withData(archive, {
+    ...archive.data,
+    cubeTracks: {
+      ...archive.data.cubeTracks,
+      [cubeTrackId]: { ...current, affection: validateAffection(affection), updatedAt: now },
+    },
+  }, now);
+}
+
 export type VisitorSpaceChapter = {
   chapter: Cube;
   tracks: Array<{ cubeTrack: CubeTrack; track: TrackReference; tags: TagDefinition[]; privateRecord: boolean }>;
@@ -2417,6 +2454,7 @@ export function publicProjectionSignature(archive: ArchiveEnvelopeV1): string {
       visibility: privateRecord ? "private" : "public",
       note: privateRecord ? null : getLatestCubeTrackNote(cubeTrack)?.body ?? null,
       tags: privateRecord ? [] : tags.map((tag) => tag.label),
+      affection: privateRecord ? null : cubeTrack.affection,
     })),
   })));
 }
@@ -3203,6 +3241,7 @@ function isCubeTrack(value: unknown): value is CubeTrack {
     Number.isInteger(value.sortOrder) &&
     (value.source === "seed" || value.source === "user") &&
     (value.recordVisibility === "private" || value.recordVisibility === "public") &&
+    (value.affection === null || validAffection(value.affection)) &&
     validIsoDate(value.createdAt) &&
     validIsoDate(value.updatedAt)
   );
@@ -3501,7 +3540,11 @@ function addLegacyPersonalSpaceDefaults(value: Record<string, unknown>): Record<
     ? Object.fromEntries(Object.entries(value.data.cubeTracks).map(([id, cubeTrack]) => [
       id,
       isRecord(cubeTrack)
-        ? { ...cubeTrack, recordVisibility: cubeTrack.recordVisibility === "public" ? "public" : "private" }
+        ? {
+            ...cubeTrack,
+            recordVisibility: cubeTrack.recordVisibility === "public" ? "public" : "private",
+            affection: validAffection(cubeTrack.affection) ? cubeTrack.affection : null,
+          }
         : cubeTrack,
     ]))
     : value.data.cubeTracks;
@@ -3624,6 +3667,14 @@ function migrateVersionSeven(value: Record<string, unknown>): ArchiveEnvelopeV1 
   return validateArchiveEnvelope(candidate) ? candidate : null;
 }
 
+function migrateVersionEight(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
+  const candidate = addLegacyPersonalSpaceDefaults({
+    ...value,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  });
+  return validateArchiveEnvelope(candidate) ? candidate : null;
+}
+
 export function migrateArchive(value: unknown): MigrationResult {
   if (!isRecord(value)) return { status: "invalid", error: "저장 데이터가 객체가 아닙니다." };
   if (typeof value.schemaVersion === "number" && value.schemaVersion > ARCHIVE_SCHEMA_VERSION) {
@@ -3667,6 +3718,12 @@ export function migrateArchive(value: unknown): MigrationResult {
   }
   if (value.schemaVersion === 7) {
     const migrated = migrateVersionSeven(value);
+    return migrated
+      ? { status: "ok", archive: migrated, migrated: true }
+      : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+  }
+  if (value.schemaVersion === 8) {
+    const migrated = migrateVersionEight(value);
     return migrated
       ? { status: "ok", archive: migrated, migrated: true }
       : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };

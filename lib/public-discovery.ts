@@ -1,4 +1,4 @@
-import type { ArchiveEnvelopeV1, SpaceLayoutId, SpaceThemeId, TrackReference } from "./archive";
+import type { AffectionLevel, ArchiveEnvelopeV1, SpaceLayoutId, SpaceThemeId, TrackReference } from "./archive";
 
 export type PublicRecordVisibility = "public" | "private";
 
@@ -24,6 +24,7 @@ export type PublicChapterTrack = {
   visibility: PublicRecordVisibility;
   note: string | null;
   tags: string[];
+  affection: AffectionLevel | null;
 };
 
 export type PublicChapter = {

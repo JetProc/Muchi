@@ -1415,6 +1415,37 @@ test("ships the PWA shell and removes the disposable starter", async () => {
   await access(projectRoot);
 });
 
+test("stores optional affection per chapter record and migrates older records to no selection", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const track = {
+    id: archiveDomain.makeProviderTrackId("youtube", "affection01"),
+    provider: "youtube",
+    providerTrackId: "affection01",
+    title: "애정도 테스트",
+    artist: "뮤키",
+    album: "",
+    genre: "",
+    durationMs: null,
+    artworkUrl: null,
+    previewUrl: null,
+    externalUrl: null,
+  };
+  const chapter = archiveDomain.createCube(archiveDomain.createEmptyArchive(), { name: "테스트 챕터" });
+  const captured = archiveDomain.captureTrackToInbox(chapter.archive, track);
+  const moved = archiveDomain.moveInboxTrackToCube(captured, track.id, chapter.cube.id);
+  const red = archiveDomain.setCubeTrackAffection(moved.archive, moved.cubeTrack.id, "red");
+  assert.equal(red.data.cubeTracks[moved.cubeTrack.id].affection, "red");
+  const cleared = archiveDomain.setCubeTrackAffection(red, moved.cubeTrack.id, null);
+  assert.equal(cleared.data.cubeTracks[moved.cubeTrack.id].affection, null);
+
+  const legacy = structuredClone(cleared);
+  legacy.schemaVersion = 8;
+  delete legacy.data.cubeTracks[moved.cubeTrack.id].affection;
+  const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
+  assert.equal(parsed.status, "ok");
+  assert.equal(parsed.archive.data.cubeTracks[moved.cubeTrack.id].affection, null);
+});
+
 test("keeps the same song's tags and memory independent in each cube", async () => {
   const archiveDomain = await loadArchiveDomain();
   const seed = archiveDomain.createSeedArchive();
@@ -2385,7 +2416,7 @@ test("supports all or any matching when archive search uses multiple tags", asyn
   assert.ok(anyMatches.some((result) => result.kind === "cube-track" && result.cubeTrack.id === second.id));
 });
 
-test("migrates schema v5 chapter signatures to explicit v8 kinds, covers, and private personal-space defaults without guessing ambiguous chapters", async () => {
+test("migrates schema v5 chapter signatures to current kinds, covers, and private personal-space defaults without guessing ambiguous chapters", async () => {
   const archiveDomain = await loadArchiveDomain();
   const track = {
     id: archiveDomain.makeProviderTrackId("youtube", "M7lc1UVf-VE"),
@@ -2425,7 +2456,7 @@ test("migrates schema v5 chapter signatures to explicit v8 kinds, covers, and pr
 
   const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
   assert.equal(parsed.status, "ok");
-  assert.equal(parsed.archive.schemaVersion, 8);
+  assert.equal(parsed.archive.schemaVersion, archiveDomain.ARCHIVE_SCHEMA_VERSION);
   assert.equal(parsed.archive.data.cubes["month:2026-07"].kind, "monthly");
   assert.equal(parsed.archive.data.cubes["month:2026-07"].systemKey, "month:2026-07");
   assert.equal(parsed.archive.data.cubes["month:2026-08"].kind, "manual");

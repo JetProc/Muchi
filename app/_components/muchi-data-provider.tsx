@@ -163,6 +163,41 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    let focusTimer: number | null = null;
+
+    const updateKeyboardInset = () => {
+      const inset = viewport
+        ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+        : 0;
+      document.documentElement.style.setProperty("--keyboard-inset", `${Math.round(inset)}px`);
+    };
+    const keepFocusedFieldVisible = (event: FocusEvent) => {
+      if (!(event.target instanceof HTMLElement) || !event.target.matches("input, textarea, select")) return;
+      const field = event.target;
+      if (!field.closest(".dialog, .tag-picker-panel")) return;
+      if (focusTimer !== null) window.clearTimeout(focusTimer);
+      focusTimer = window.setTimeout(() => {
+        field.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, 180);
+    };
+
+    updateKeyboardInset();
+    viewport?.addEventListener("resize", updateKeyboardInset);
+    viewport?.addEventListener("scroll", updateKeyboardInset);
+    window.addEventListener("resize", updateKeyboardInset);
+    document.addEventListener("focusin", keepFocusedFieldVisible);
+    return () => {
+      if (focusTimer !== null) window.clearTimeout(focusTimer);
+      viewport?.removeEventListener("resize", updateKeyboardInset);
+      viewport?.removeEventListener("scroll", updateKeyboardInset);
+      window.removeEventListener("resize", updateKeyboardInset);
+      document.removeEventListener("focusin", keepFocusedFieldVisible);
+      document.documentElement.style.removeProperty("--keyboard-inset");
+    };
+  }, []);
+
   const ensureDiscoveryData = useCallback((force = false): Promise<void> => {
     if (discoveryPromiseRef.current) return discoveryPromiseRef.current;
     if (!force && discoveryReady && Date.now() - discoveryUpdatedAtRef.current < STALE_AFTER_MS) return Promise.resolve();

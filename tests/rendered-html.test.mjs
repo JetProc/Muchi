@@ -654,7 +654,7 @@ test("anchors modal backdrops to the mobile app frame", async () => {
   const css = await readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8");
   const appleTheme = getAppleTheme(css);
 
-  assert.match(appleTheme, /\.dialog-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;/s);
+  assert.match(appleTheme, /\.dialog-backdrop,[\s\S]*?\.player-backdrop\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0(?:\s+0\s+var\(--keyboard-inset\))?;/s);
   assert.match(appleTheme, /\.dialog,[\s\S]*?\.tag-picker-panel\s*\{[^}]*border:\s*1px solid var\(--apple-hairline\);[^}]*border-radius:\s*var\(--apple-radius-lg\) !important;[^}]*box-shadow:\s*none !important;/s);
 });
 

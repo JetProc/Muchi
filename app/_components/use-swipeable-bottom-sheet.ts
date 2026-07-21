@@ -87,10 +87,14 @@ export function useSwipeableBottomSheet({
   useEffect(() => {
     const appShell = getSheetFrame();
     if (!appShell) return;
-    const updateFrame = () => setFrame({
-      width: appShell.getBoundingClientRect().width,
-      height: appShell.getBoundingClientRect().height,
-    });
+    const updateFrame = () => {
+      const shellFrame = appShell.getBoundingClientRect();
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      setFrame({
+        width: shellFrame.width,
+        height: Math.min(shellFrame.height, viewportHeight),
+      });
+    };
     updateFrame();
     const observer = new ResizeObserver(updateFrame);
     observer.observe(appShell);

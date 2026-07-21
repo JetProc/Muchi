@@ -40,6 +40,7 @@
   --app-canvas-width: 430px;
   --app-frame-inset: 16px;
   --app-frame-radius: 28px;
+  --keyboard-inset: 0px;
   color-scheme: light;
 }
 
@@ -3560,7 +3561,7 @@ button.tag {
 .player-backdrop {
   position: fixed;
   z-index: 300;
-  inset: 0;
+  inset: 0 0 var(--keyboard-inset);
   display: grid;
   place-items: center;
   padding: var(--apple-space-5);
@@ -5015,7 +5016,7 @@ button.tag {
   .dialog,
   .full-player {
     width: 100%;
-    max-height: 88dvh;
+    max-height: calc(100% - 12px);
     padding: var(--apple-space-5);
     padding-bottom: calc(var(--apple-space-5) + env(safe-area-inset-bottom));
     border-right: 0;
@@ -5044,10 +5045,10 @@ button.tag {
 
   .tag-picker-panel {
     right: 0;
-    bottom: 0;
+    bottom: var(--keyboard-inset);
     left: 0;
     width: 100%;
-    max-height: 82dvh;
+    max-height: calc(100% - 12px);
     border-right: 0;
     border-bottom: 0;
     border-left: 0;

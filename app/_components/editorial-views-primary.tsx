@@ -7,7 +7,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { Check, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import {
   ARCHIVE_LIMITS,
   captureTrackToInbox,
@@ -46,6 +46,7 @@ import {
   ChapterCover,
   LoadingDots,
 } from "./editorial-media";
+import { MusicServiceIcon } from "./editorial-service-icon";
 import {
   ChapterChoice,
   EmptyState,
@@ -923,21 +924,32 @@ export function Capture({
         <div className="dialog-backdrop" role="presentation" onClick={() => setLinkDialogOpen(false)}>
           <div ref={linkDialogRef} className="dialog link-import-dialog" role="dialog" aria-modal="true" aria-labelledby="link-import-title" onClick={(event) => event.stopPropagation()}>
             <h2 id="link-import-title">음악 앱에서 가져오기</h2>
-            <p className="link-import-description">YouTube Music 또는 Apple Music 앱에서 곡을 공유해 뮤키로 보내 주세요. 분석이 끝나면 바로 같은 기록 화면으로 이어져요.</p>
             {!manualFallback ? (
-              <>
-                <form className="form-stack link-import-form" onSubmit={importLink}>
-                  <div className="field">
-                    <label htmlFor="music-url">YouTube Music 또는 Apple Music 곡 링크</label>
-                    <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="https://music.youtube.com/watch?v=… 또는 music.apple.com/…" required autoComplete="url" />
+              <form className="form-stack link-import-form" onSubmit={importLink}>
+                <div className="link-import-services" aria-label="지원 음악 앱">
+                  <div className="link-import-service is-supported">
+                    <span className="link-import-service-icon"><MusicServiceIcon service="apple" size={17} /></span>
+                    <div className="link-import-service-meta"><strong>Apple Music</strong><small>지원</small></div>
+                    <p>공유 링크로 바로 기록</p>
                   </div>
+                  <div className="link-import-service is-supported">
+                    <span className="link-import-service-icon"><MusicServiceIcon service="youtube" size={17} /></span>
+                    <div className="link-import-service-meta"><strong>YouTube Music</strong><small>지원</small></div>
+                    <p>공유 링크로 바로 기록</p>
+                  </div>
+                  <div className="link-import-service is-unsupported">
+                    <span className="link-import-service-icon"><MusicServiceIcon service="spotify" size={17} /></span>
+                    <div className="link-import-service-meta"><strong>Spotify</strong><small>미지원</small></div>
+                    <p>아직 준비 중이에요</p>
+                  </div>
+                </div>
+                <div className="link-import-input-row">
+                  <label className="sr-only" htmlFor="music-url">음악 앱 곡 링크</label>
+                  <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="https://music.apple.com/... 또는 https://music.youtube.com/..." required autoComplete="url" />
+                  <button className="link-import-submit" type="submit" aria-label="곡 분석하기" disabled={linkLoading || !online || !musicUrl.trim()}>{linkLoading ? <LoadingDots /> : <ArrowRight size={19} aria-hidden="true" />}</button>
+                </div>
                   {linkError ? <div className="notice notice-danger" role="alert">{linkError}</div> : null}
-                  <div className="dialog-actions">
-                    <button className="button button-ghost" type="button" onClick={() => setLinkDialogOpen(false)}>취소</button>
-                    <button className="button button-primary" type="submit" disabled={linkLoading || !online}>{linkLoading ? <LoadingDots /> : "곡 분석하기"}</button>
-                  </div>
-                </form>
-              </>
+              </form>
             ) : (
               <form className="form-stack link-import-form" onSubmit={finishManualImport}>
                 <div className="form-grid"><div className="field"><label htmlFor="manual-title">곡명 *</label><input id="manual-title" className="input" value={manualTitle} onChange={(event) => setManualTitle(event.target.value)} maxLength={200} required /></div><div className="field"><label htmlFor="manual-artist">아티스트 *</label><input id="manual-artist" className="input" value={manualArtist} onChange={(event) => setManualArtist(event.target.value)} maxLength={200} required /></div></div>

@@ -164,10 +164,21 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(source, /className="capture-link-action"[\s\S]*?>\s*링크로 가져오기\s*<\/button>/s);
   assert.match(source, /className="dialog link-import-dialog"/);
   assert.match(source, /<h2 id="link-import-title">음악 앱에서 가져오기<\/h2>/);
-  assert.match(source, /className="link-import-description"[\s\S]*?YouTube Music 또는 Apple Music 앱에서 곡을 공유/s);
+  assert.match(source, /className="link-import-services"/);
+  assert.match(source, /MusicServiceIcon service="apple"/);
+  assert.match(source, /MusicServiceIcon service="youtube"/);
+  assert.match(source, /MusicServiceIcon service="spotify"/);
+  assert.match(source, /<strong>Apple Music<\/strong>/);
+  assert.match(source, /<strong>YouTube Music<\/strong>/);
+  assert.match(source, /<strong>Spotify<\/strong>/);
+  assert.match(source, /공유 링크로 바로 기록/);
+  assert.match(source, /아직 준비 중이에요/);
+  assert.match(source, /<small>지원<\/small>/);
+  assert.match(source, /<small>미지원<\/small>/);
+  assert.match(source, /className="link-import-input-row"/);
   assert.doesNotMatch(source, /ADD BY LINK/);
   assert.match(source, /aria-modal="true" aria-labelledby="link-import-title"/);
-  assert.doesNotMatch(source, /playlist-import-prototype|기존 플레이리스트 가져오기|MusicServiceIcon/);
+  assert.doesNotMatch(source, /playlist-import-prototype|기존 플레이리스트 가져오기/);
   assert.doesNotMatch(source, /<details className="capture-secondary">/);
   assert.doesNotMatch(source, />CLOSE<\/Link>/);
   assert.doesNotMatch(source, /검색 및 30초 미리듣기는 iTunes에서 제공됩니다/);
@@ -1216,7 +1227,7 @@ test("keeps archive search compact with the shared tag picker", async () => {
   assert.match(css, /\.search-view \.track-info em,[\s\S]*?\.recap-view \.track-info em\s*\{[^}]*-webkit-line-clamp:\s*2;/s);
 });
 
-test("builds a mobile playlist export UI with Apple Music pending and YouTube Music connected", async () => {
+test("keeps playlist export services visibly pending while their API routes remain isolated", async () => {
   const [chapterSource, playlistSource, serviceIconSource, appSource, typesSource, routeSource, css, appleIcon, youtubeIcon, appleRoute, youtubeRoute] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),
@@ -1233,11 +1244,10 @@ test("builds a mobile playlist export UI with Apple Music pending and YouTube Mu
   const appleTheme = getAppleTheme(css);
 
   assert.match(chapterSource, /className="chapter-service-grid"/);
-  assert.match(chapterSource, /playlistHref\("youtube"\)/);
   assert.match(chapterSource, /className="chapter-service-actions" aria-label="플레이리스트로 내보내기"/);
   assert.match(chapterSource, /Apple Music 내보내기 준비 중/);
   assert.match(chapterSource, /Apple Music 준비 중/);
-  assert.match(chapterSource, /YouTube Music으로 내보내기/);
+  assert.match(chapterSource, /YouTube Music 준비 중/);
   assert.doesNotMatch(chapterSource, /Spotify/);
   assert.match(playlistSource, /Apple Music/);
   assert.match(playlistSource, /YouTube Music/);

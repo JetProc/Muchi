@@ -196,6 +196,7 @@ export function PublicChapterDetail({
     tags: item.visibility === "public"
       ? item.tags.map((tag) => ({ id: `${item.id}:${tag}`, label: tag }))
       : [],
+    affection: item.visibility === "public" ? item.affection : null,
     privateRecord: item.visibility === "private",
     action: item.visibility === "private"
       ? <span className="chapter-memory-status">기록 비공개</span>

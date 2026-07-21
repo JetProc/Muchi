@@ -1484,6 +1484,64 @@ button.tag {
   white-space: nowrap;
 }
 
+.affection-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 999px;
+  vertical-align: 2px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #1e1a16 12%, transparent);
+}
+
+.affection-dot.is-red { background: #dd6159; }
+.affection-dot.is-orange { background: #ec9b4f; }
+.affection-dot.is-yellow { background: #e3c95a; }
+
+.affection-selector {
+  padding: 2px 0;
+}
+
+.affection-selector-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.affection-selector-heading > span {
+  color: var(--dust-text);
+  font-size: 11px;
+}
+
+.affection-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.affection-option {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid var(--apple-divider-soft);
+  border-radius: 999px;
+  color: var(--apple-ink-muted-48);
+  background: var(--apple-canvas);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.affection-option .affection-dot { margin-left: 0; vertical-align: baseline; }
+.affection-option.is-selected { color: var(--apple-ink); background: var(--apple-surface-pearl); }
+.affection-option.is-red.is-selected { border-color: color-mix(in srgb, #dd6159 55%, var(--apple-divider-soft)); }
+.affection-option.is-orange.is-selected { border-color: color-mix(in srgb, #ec9b4f 55%, var(--apple-divider-soft)); }
+.affection-option.is-yellow.is-selected { border-color: color-mix(in srgb, #e3c95a 65%, var(--apple-divider-soft)); }
+
 .track-info small,
 .track-info em {
   margin-top: 2px;
@@ -2794,6 +2852,23 @@ button.tag {
   font-size: 18px;
 }
 
+.chapter-track-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chapter-track-sort select {
+  min-height: 30px;
+  padding: 4px 22px 4px 8px;
+  border: 1px solid var(--apple-divider-soft);
+  border-radius: 6px;
+  color: var(--apple-ink-muted-48);
+  background: var(--apple-canvas);
+  font: inherit;
+  font-size: 10px;
+}
+
 .chapter-compact-track-list {
   border-top: 1px solid var(--apple-hairline);
 }
@@ -2854,6 +2929,7 @@ button.tag {
 }
 
 .chapter-compact-track-copy strong,
+.chapter-compact-track-title,
 .chapter-compact-track-copy > span {
   min-width: 0;
   overflow: hidden;
@@ -2866,6 +2942,17 @@ button.tag {
   font-size: 14px;
   font-weight: 750;
   line-height: 1.25;
+}
+
+.chapter-compact-track-title {
+  display: flex;
+  align-items: center;
+}
+
+.chapter-compact-track-title .affection-dot {
+  flex: 0 0 auto;
+  margin: 0 0 0 6px;
+  vertical-align: baseline;
 }
 
 .chapter-compact-track-copy > span {

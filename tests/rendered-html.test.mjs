@@ -973,7 +973,7 @@ test("defers new memory tags until the memory form is saved", async () => {
   assert.doesNotMatch(addTagSource, /commit\(/);
   assert.match(saveSource, /createTags\(archive, selectedPendingLabels\)/);
   assert.match(saveSource, /setCubeTrackTagIds\(created\.archive/);
-  assert.doesNotMatch(saveSource, /updateCubeTrack\(/);
+  assert.match(saveSource, /setCubeTrackAffection\(next, activeCubeTrack\.id, affection\)/);
   assert.doesNotMatch(saveSource, /\bcharacter\b|\bmemoryPeriod\b/);
   assert.match(saveSource, /commit\(next/);
 });
@@ -2855,7 +2855,8 @@ test("keeps the memory form focused on tags, an optional dated memo, and one com
   assert.doesNotMatch(memoryFormSource, /htmlFor="character"|id="character"|memory-period-|기억한 시기|더 남기기/);
   assert.doesNotMatch(memoryFormSource, /나중에 이어서|다른 챕터에도 기록|기록하고 .*으로 돌아가기/);
   assert.doesNotMatch(memoryPanelSource, /PreviewButton|target="_blank"|기록 이미지 만들기 · 실험|memory-preview-actions/);
-  assert.doesNotMatch(persistSource, /updateCubeTrack\(|\bcharacter\b|\bmemoryPeriod\b/);
+  assert.doesNotMatch(persistSource, /\bcharacter\b|\bmemoryPeriod\b/);
+  assert.match(persistSource, /setCubeTrackAffection\(next, activeCubeTrack\.id, affection\)/);
   assert.match(persistSource, /setCubeTrackTagIds\(created\.archive/);
   assert.match(persistSource, /if \(noteBody\.trim\(\)\) \{/);
   assert.match(persistSource, /editingNote\?\.listenedOn === null[\s\S]*?updateCubeTrackNoteBody/s);

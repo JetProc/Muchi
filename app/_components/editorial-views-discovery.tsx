@@ -17,7 +17,7 @@ import {
 import { MotionLink as Link } from "./editorial-motion";
 import type { MotionRouter } from "./editorial-motion";
 import { useModalFocus } from "./editorial-accessibility";
-import { CenteredEmptyMessage, EmptyState, PageHeader, TrackLine } from "./editorial-ui";
+import { AffectionDot, CenteredEmptyMessage, EmptyState, PageHeader, TrackLine } from "./editorial-ui";
 import { AlbumArtwork } from "./editorial-media";
 import {
   formatChapterTitle,
@@ -70,7 +70,7 @@ function SearchResultLine({
       >
         <AlbumArtwork track={result.track} sharedId={result.cubeTrack.id} decorative />
         <span className="search-track-copy">
-          <strong>{result.track.title}</strong>
+          <strong>{result.track.title}{result.cubeTrack.affection ? <AffectionDot affection={result.cubeTrack.affection} /> : null}</strong>
           <small>{result.track.artist}</small>
           {context ? <em>{context}</em> : null}
         </span>
@@ -312,6 +312,7 @@ function RecapLine({
       index={index}
       sharedId={entry.cubeTrack.id}
       tags={entry.tags}
+      affection={entry.cubeTrack.affection}
       context={`${reason} · ${dateContext} · ${formatChapterTitle(entry.cube)}`}
       actions={<Link className="button" href={`/memory?id=${encodeURIComponent(entry.cubeTrack.id)}`} intent="shared" sharedId={entry.cubeTrack.id}>기억 열기</Link>}
     />

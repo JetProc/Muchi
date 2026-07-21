@@ -42,10 +42,12 @@ import {
   reorderCubeTracks,
   setCubeTrackTagIds,
   setCubeTrackRecordVisibility,
+  setCubeTrackAffection,
   updateCube,
   updateCubeTrackNote,
   updateCubeTrackNoteBody,
   type ArchiveEnvelopeV1,
+  type AffectionLevel,
   type Cube,
   type CubeTrack,
   type ChapterVisibility,
@@ -68,6 +70,8 @@ import {
   EmptyState,
   InlineChapterCreate,
   PageHeader,
+  AffectionDot,
+  AffectionSelector,
 } from "./editorial-ui";
 import {
   chapterColorStyle,
@@ -108,6 +112,7 @@ export type ChapterTrackDetailItem = {
   collapsible?: boolean;
   privateRecord?: boolean;
   sharedId?: string;
+  affection?: AffectionLevel | null;
 };
 
 export function ChapterDetailHero({
@@ -196,7 +201,7 @@ export function ChapterTrackSection({
                   >
                     <AlbumArtwork track={item.track} sharedId={item.sharedId ?? item.id} decorative />
                     <span className="chapter-compact-track-copy">
-                      <strong>{item.track.title}</strong>
+                      <span className="chapter-compact-track-title"><strong>{item.track.title}</strong>{item.affection ? <AffectionDot affection={item.affection} /> : null}</span>
                       <span>{item.track.artist}</span>
                     </span>
                     <ChevronDown size={15} aria-hidden="true" />
@@ -205,7 +210,7 @@ export function ChapterTrackSection({
                   <div className="chapter-compact-track-toggle is-static">
                     <AlbumArtwork track={item.track} sharedId={item.sharedId ?? item.id} decorative />
                     <span className="chapter-compact-track-copy">
-                      <strong>{item.track.title}</strong>
+                      <span className="chapter-compact-track-title"><strong>{item.track.title}</strong>{item.affection ? <AffectionDot affection={item.affection} /> : null}</span>
                       <span>{item.track.artist}</span>
                       {inlineSummary ? <small>{inlineSummary}</small> : null}
                     </span>
@@ -488,6 +493,7 @@ export function ChapterDetail({
     ? candidateChapter
     : null;
   const entries = chapter ? getCubeTracks(archive, chapter.id) : [];
+  const [trackSort, setTrackSort] = useState<"added" | "affection">("added");
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -621,7 +627,15 @@ export function ChapterDetail({
     );
   }
 
-  const trackItems: ChapterTrackDetailItem[] = entries.map((entry, index) => ({
+  const sortedEntries = trackSort === "affection"
+    ? [...entries].sort((left, right) => {
+        const ranks: Record<AffectionLevel, number> = { red: 0, orange: 1, yellow: 2 };
+        return (ranks[left.cubeTrack.affection ?? "yellow"] + (left.cubeTrack.affection ? 0 : 1))
+          - (ranks[right.cubeTrack.affection ?? "yellow"] + (right.cubeTrack.affection ? 0 : 1))
+          || left.cubeTrack.sortOrder - right.cubeTrack.sortOrder;
+      })
+    : entries;
+  const trackItems: ChapterTrackDetailItem[] = sortedEntries.map((entry, index) => ({
     id: entry.cubeTrack.id,
     track: entry.track,
     sharedId: entry.cubeTrack.id,
@@ -629,6 +643,7 @@ export function ChapterDetail({
       || entry.tags.slice(0, 2).map((tag) => `#${tag.label}`).join(" · ")
       || `${entry.track.artist}${entry.track.album ? ` · ${entry.track.album}` : ""}`,
     tags: entry.tags,
+    affection: entry.cubeTrack.affection,
     action: managing ? (
       <div className="chapter-compact-track-manage">
         <button type="button" disabled={index === 0} onClick={() => move(entry.cubeTrack, -1)} aria-label={`${entry.track.title} 위로 이동`}>위</button>
@@ -691,12 +706,21 @@ export function ChapterDetail({
           items={trackItems}
           label={`${entries.length}곡`}
           title="수록곡"
-          action={!monthlyChapter ? (
-            <Link className="text-button compact-section-action" href="/capture" intent="modal">
-              <Plus size={15} aria-hidden="true" />
-              추가
-            </Link>
-          ) : undefined}
+          action={(
+            <div className="chapter-track-actions">
+              <label className="chapter-track-sort">
+                <span className="sr-only">곡 정렬</span>
+                <select value={trackSort} onChange={(event) => setTrackSort(event.target.value as "added" | "affection")}>
+                  <option value="added">추가순</option>
+                  <option value="affection">애정도 높은 순</option>
+                </select>
+              </label>
+              {!monthlyChapter ? <Link className="text-button compact-section-action" href="/capture" intent="modal">
+                <Plus size={15} aria-hidden="true" />
+                추가
+              </Link> : null}
+            </div>
+          )}
           tagHref={(tag) => `/search?tag=${encodeURIComponent(tag.id)}`}
         />
       ) : <section className="section chapter-track-section"><div className="section-head"><div className="chapter-section-heading"><h2>수록곡</h2><span className="section-label">0곡</span></div>{!monthlyChapter ? <Link className="text-button compact-section-action" href="/capture" intent="modal"><Plus size={15} aria-hidden="true" />추가</Link> : null}</div><EmptyState title="이 순간의 첫 곡을 담아보세요" /></section>}
@@ -818,7 +842,7 @@ export function MemoryPanel({
       <AlbumArtwork track={track} sharedId={cubeTrack.id} priority />
       <div className="memory-art-copy">
         <span className="section-label">{latestNote?.listenedOn ? formatCalendarDate(latestNote.listenedOn) : `최초 기록 · ${formatDate(cubeTrack.createdAt)}`}</span>
-        <h2>{track.title}</h2>
+        <h2>{track.title}{cubeTrack.affection ? <AffectionDot affection={cubeTrack.affection} /> : null}</h2>
         <p>{track.artist}{track.album ? ` · ${track.album}` : ""}</p>
         {recordVisibilityAction ? <div className="memory-art-record-visibility">{recordVisibilityAction}</div> : null}
       </div>
@@ -888,6 +912,7 @@ export function Memory({
   const cube = cubeTrack ? archive.data.cubes[cubeTrack.cubeId] : null;
   const today = todayInSeoul();
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [affection, setAffection] = useState<AffectionLevel | null>(null);
   const [noteDate, setNoteDate] = useState(today);
   const [noteBody, setNoteBody] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -923,6 +948,7 @@ export function Memory({
     const hydrationTimer = window.setTimeout(() => {
       baselineTagIdsRef.current = cubeTrack.tagIds;
       setSelectedTagIds(cubeTrack.tagIds.filter((tagId) => Boolean(archive.data.tags[tagId])));
+      setAffection(cubeTrack.affection);
       setNoteDate(today);
       setNoteBody("");
       setEditingNoteId(null);
@@ -936,6 +962,7 @@ export function Memory({
             noteBody: string;
             editingNoteId: string | null;
             pendingTags: TagDefinition[];
+            affection: AffectionLevel | null;
           }>;
           const restoredPendingTags = Array.isArray(draft.pendingTags)
             ? draft.pendingTags.filter((tag) => (
@@ -952,6 +979,7 @@ export function Memory({
           ]);
           setSelectedTagIds((draft.selectedTagIds ?? cubeTrack.tagIds)
             .filter((tagId) => knownTagIds.has(tagId)));
+          setAffection(draft.affection ?? cubeTrack.affection);
           setPendingTags(restoredPendingTags);
           const restoredEditingNote = draft.editingNoteId
             ? cubeTrack.notes.find((note) => note.id === draft.editingNoteId)
@@ -982,6 +1010,7 @@ export function Memory({
           noteBody,
           editingNoteId,
           pendingTags,
+          affection,
         }));
       } catch {
         // Session-only drafts are best effort.
@@ -990,7 +1019,7 @@ export function Memory({
     return () => {
       window.clearTimeout(saveTimer);
     };
-  }, [cubeTrackId, editingNoteId, noteBody, noteDate, pendingTags, selectedTagIds]);
+  }, [affection, cubeTrackId, editingNoteId, noteBody, noteDate, pendingTags, selectedTagIds]);
 
   if (!cubeTrackId || !cubeTrack || !track || !cube) return <div className="page-content"><EmptyState title="곡의 기억을 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
   const activeCubeTrack = cubeTrack;
@@ -1074,6 +1103,7 @@ export function Memory({
         return;
       }
       let next = setCubeTrackTagIds(created.archive, activeCubeTrack.id, resolvedTagIds);
+      next = setCubeTrackAffection(next, activeCubeTrack.id, affection);
       if (noteBody.trim()) {
         if (editingNoteId) {
           next = editingNote?.listenedOn === null
@@ -1214,6 +1244,7 @@ export function Memory({
             addTag={addTag}
             memoryReturnId={activeCubeTrack.id}
           />
+          <AffectionSelector value={affection} onChange={setAffection} />
           <section className="memory-note-composer memory-note-composer-compact" aria-labelledby="memory-note-title">
             <div className="memory-note-heading">
               <h2 id="memory-note-title" className="field-label">메모</h2>

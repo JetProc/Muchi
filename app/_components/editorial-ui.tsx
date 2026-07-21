@@ -5,6 +5,7 @@ import { Check, Plus, X } from "lucide-react";
 import {
   ARCHIVE_LIMITS,
   type ArchiveEnvelopeV1,
+  type AffectionLevel,
   type Cube,
   type TagDefinition,
   type TrackReference,
@@ -146,6 +147,7 @@ export function TrackLine({
   showAlbum = true,
   showIndex = true,
   onRowClick,
+  affection = null,
 }: {
   track: TrackReference;
   index: number;
@@ -160,6 +162,7 @@ export function TrackLine({
   showAlbum?: boolean;
   showIndex?: boolean;
   onRowClick?: () => void;
+  affection?: AffectionLevel | null;
 }) {
   function onRowKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (!selectable || !onRowClick || (event.key !== "Enter" && event.key !== " ")) return;
@@ -181,7 +184,7 @@ export function TrackLine({
       {showIndex ? <span className="track-number">{String(index + 1).padStart(2, "0")}</span> : null}
       <AlbumArtwork track={track} sharedId={sharedId} decorative />
       <div className="track-info">
-        <strong>{track.title}</strong>
+        <strong>{track.title}{affection ? <AffectionDot affection={affection} /> : null}</strong>
         <small>{track.artist}{showAlbum && track.album ? ` · ${track.album}` : ""}</small>
         {context ? <em>{context}</em> : null}
         {tags.length ? (
@@ -204,5 +207,54 @@ export function TrackLine({
         {actions}
       </div>
     </article>
+  );
+}
+
+const AFFECTION_LABELS: Record<AffectionLevel, string> = {
+  red: "최애",
+  orange: "자주 찾음",
+  yellow: "좋아함",
+};
+
+export function AffectionDot({ affection }: { affection: AffectionLevel }) {
+  return <span className={`affection-dot is-${affection}`} title={AFFECTION_LABELS[affection]} aria-label={`애정도: ${AFFECTION_LABELS[affection]}`} />;
+}
+
+export function AffectionSelector({
+  value,
+  onChange,
+}: {
+  value: AffectionLevel | null;
+  onChange: (value: AffectionLevel | null) => void;
+}) {
+  const options: Array<{ value: AffectionLevel; label: string }> = [
+    { value: "red", label: "최애" },
+    { value: "orange", label: "자주 찾음" },
+    { value: "yellow", label: "좋아함" },
+  ];
+  return (
+    <section className="affection-selector" aria-labelledby="affection-title">
+      <div className="affection-selector-heading">
+        <h2 id="affection-title" className="field-label">애정도</h2>
+        <span>선택 사항</span>
+      </div>
+      <div className="affection-options" role="group" aria-label="곡 애정도">
+        {options.map((option) => {
+          const selected = value === option.value;
+          return (
+            <button
+              className={`affection-option${selected ? " is-selected" : ""} is-${option.value}`}
+              type="button"
+              key={option.value}
+              onClick={() => onChange(selected ? null : option.value)}
+              aria-pressed={selected}
+            >
+              <AffectionDot affection={option.value} />
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

@@ -350,6 +350,7 @@ export function Home({ archive }: {
                   key={memory.cubeTrack.id}
                   track={memory.track}
                   index={index}
+                  affection={memory.cubeTrack.affection}
                   context={formatChapterTitle(memory.chapter)}
                   sharedId={memory.cubeTrack.id}
                   actions={(

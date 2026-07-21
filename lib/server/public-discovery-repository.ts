@@ -120,6 +120,7 @@ export async function readPublicDiscoveryCatalog(supabase: SupabaseClient, userI
   const { data, error } = await supabase
     .from("published_chapters")
     .select("author_id, chapter_id, author_name, payload, like_count")
+    .neq("author_id", userId)
     .order("published_at", { ascending: false })
     .limit(60);
   if (error) throw error;

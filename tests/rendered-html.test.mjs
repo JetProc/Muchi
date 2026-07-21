@@ -2995,6 +2995,18 @@ test("builds a published public discovery catalog with explainable similarity an
   });
 });
 
+test("excludes the signed-in user's own chapters from the public discovery query", async () => {
+  const source = await readFile(new URL("../lib/server/public-discovery-repository.ts", import.meta.url), "utf8");
+  const catalogReader = sliceBetween(
+    source,
+    "export async function readPublicDiscoveryCatalog",
+    "export async function setChapterLike",
+    "public discovery catalog reader",
+  );
+
+  assert.match(catalogReader, /\.neq\("author_id", userId\)/);
+});
+
 test("uses shared chapter components for public discovery details and playlist export", async () => {
   const [typesSource, shellSource, appSource, dataProviderSource, discoverySource, chapterSource, playlistSource, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-types.ts", import.meta.url), "utf8"),

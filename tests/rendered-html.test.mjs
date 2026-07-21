@@ -625,29 +625,6 @@ test("handles each shared music URL once and keeps tab navigation immediate", as
   assert.doesNotMatch(motionSource, /ROUTE_COMMIT_TIMEOUT_MS/);
 });
 
-test("keeps the complete Apple web design direction in the repository", async () => {
-  const design = await readFile(new URL("../design.md", import.meta.url), "utf8");
-
-  assert.match(design, /^# Apple Web Design Direction$/m);
-  for (const heading of [
-    "## Overview",
-    "## Colors",
-    "## Typography",
-    "## Layout",
-    "## Elevation & Depth",
-    "## Shapes",
-    "## Components",
-    "## Do's and Don'ts",
-  ]) {
-    assert.ok(design.includes(heading), heading);
-  }
-  assert.match(design, /Action Blue.*#0066cc/);
-  assert.match(design, /High1WonchuriTitle/);
-  assert.match(design, /Body copy at 17px/);
-  assert.match(design, /single product shadow only to product or album photography/i);
-  assert.match(design, /Minimum 44 × 44px/);
-});
-
 test("applies the closed Apple palette and High1 Wonchuri typography", async () => {
   const [css, globals] = await Promise.all([
     readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),

@@ -1809,15 +1809,22 @@ button.tag {
   background: var(--apple-primary);
 }
 
+.inbox-view.has-selection {
+  padding-bottom: calc(118px + env(safe-area-inset-bottom));
+}
+
 .inbox-selection-bar {
-  position: sticky;
-  z-index: 3;
-  bottom: calc(var(--apple-space-4) + env(safe-area-inset-bottom));
+  position: fixed;
+  z-index: 20;
+  right: max(var(--apple-space-4), calc((100dvw - var(--app-max-width)) / 2 + var(--apple-space-4)));
+  bottom: calc(70px + var(--apple-space-4) + env(safe-area-inset-bottom));
+  left: max(var(--apple-space-4), calc((100dvw - var(--app-max-width)) / 2 + var(--apple-space-4)));
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--apple-space-3);
-  margin: var(--apple-space-4) 0;
+  max-width: calc(var(--app-max-width) - (var(--apple-space-4) * 2));
+  margin: 0 auto;
   padding: 10px 12px 10px 14px;
   border: 1px solid var(--apple-hairline);
   border-radius: var(--apple-radius-lg) !important;

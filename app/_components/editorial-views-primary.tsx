@@ -1200,7 +1200,7 @@ export function Inbox({
   });
 
   return (
-    <div className="page-content inbox-view">
+    <div className={`page-content inbox-view${selectedTrackIds.size ? " has-selection" : ""}`}>
       <PageHeader
         eyebrow={`${entries.length}곡`}
         title="보관함"

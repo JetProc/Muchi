@@ -32,10 +32,20 @@ type TransitionDocument = Document & {
   ) => ViewTransitionHandle;
 };
 
-const ROUTE_COMMIT_TIMEOUT_MS = 600;
 let activeTransition: ViewTransitionHandle | null = null;
 let fallbackTimer: number | null = null;
 let navigationSequence = 0;
+let appHistoryDepth = 0;
+let cancelRouteCommitWait: (() => void) | null = null;
+let programmaticBackInFlight = false;
+
+function recordInternalPush() {
+  appHistoryDepth += 1;
+}
+
+export function canGoBackInApp() {
+  return appHistoryDepth > 0;
+}
 
 function clearSharedTransitionElements() {
   document.querySelectorAll<HTMLElement>(".has-shared-transition")
@@ -91,7 +101,10 @@ function setMotionIntent(intent: MotionIntent, sharedId?: string) {
 function cancelActiveTransition() {
   activeTransition?.skipTransition?.call(activeTransition);
   activeTransition = null;
+  cancelRouteCommitWait?.();
+  cancelRouteCommitWait = null;
   document.documentElement.classList.remove("has-native-transition");
+  document.documentElement.classList.remove("is-navigating");
   clearSharedTransitionElements();
   if (fallbackTimer !== null) {
     window.clearTimeout(fallbackTimer);
@@ -141,22 +154,22 @@ function finishNavigation(root: HTMLElement, sequence: number) {
   focusDestination();
 }
 
-function navigateAndWaitForRouteCommit(navigate: () => void): Promise<void> {
+function waitForRouteCommit(navigate?: () => void): Promise<void> {
   const previousStage = document.querySelector(".route-stage");
   const previousRouteKey = previousStage?.getAttribute("data-route-key");
 
   return new Promise((resolve) => {
     let settled = false;
-    let timeoutId = 0;
     const observer = new MutationObserver(() => checkForCommit());
 
     const settle = () => {
       if (settled) return;
       settled = true;
       observer.disconnect();
-      window.clearTimeout(timeoutId);
+      if (cancelRouteCommitWait === cancel) cancelRouteCommitWait = null;
       resolve();
     };
+    const cancel = () => settle();
 
     const checkForCommit = () => {
       const currentStage = document.querySelector(".route-stage");
@@ -177,8 +190,8 @@ function navigateAndWaitForRouteCommit(navigate: () => void): Promise<void> {
       attributes: true,
       attributeFilter: ["data-route-key"],
     });
-    timeoutId = window.setTimeout(settle, ROUTE_COMMIT_TIMEOUT_MS);
-    navigate();
+    cancelRouteCommitWait = cancel;
+    navigate?.();
     window.requestAnimationFrame(checkForCommit);
   });
 }
@@ -187,58 +200,36 @@ function runNavigation(
   navigate: () => void,
   intent: MotionIntent,
   sharedId?: string,
-  sourceElement?: HTMLElement,
 ) {
   const root = document.documentElement;
-  const reduced = root.dataset.reduceMotion === "true";
-  const transitionDocument = document as TransitionDocument;
 
   cancelActiveTransition();
   const sequence = ++navigationSequence;
   setMotionIntent(intent, sharedId);
-  root.classList.add("is-navigating");
 
-  if (!reduced && canUseNativeTransition(transitionDocument)) {
-    try {
-      root.classList.add("has-native-transition");
-      markSharedTransitionElement(sharedId, sourceElement);
-      const transition = transitionDocument.startViewTransition(async () => {
-        await navigateAndWaitForRouteCommit(navigate);
-        markSharedTransitionElement(sharedId);
-      });
-      consumeTransitionRejections(transition);
-      activeTransition = transition;
-      void transition.finished
-        .catch(() => undefined)
-        .finally(() => finishNavigation(root, sequence));
-      return;
-    } catch {
-      activeTransition = null;
-      root.classList.remove("has-native-transition");
-    }
+  if (intent === "tab") {
+    navigate();
+    return;
   }
 
-  window.requestAnimationFrame(() => {
-    navigate();
-    fallbackTimer = window.setTimeout(
-      () => finishNavigation(root, sequence),
-      reduced ? 140 : 560,
-    );
-  });
+  root.classList.add("is-navigating");
+  void waitForRouteCommit(navigate).then(() => finishNavigation(root, sequence));
 }
 
 export function MotionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleHistoryNavigation = () => {
+      const handlingProgrammaticBack = programmaticBackInFlight;
+      programmaticBackInFlight = false;
+      appHistoryDepth = Math.max(0, appHistoryDepth - 1);
+      if (handlingProgrammaticBack) return;
+
       cancelActiveTransition();
       const sequence = ++navigationSequence;
       const root = document.documentElement;
       setMotionIntent("back");
       root.classList.add("is-navigating");
-      fallbackTimer = window.setTimeout(
-        () => finishNavigation(root, sequence),
-        root.dataset.reduceMotion === "true" ? 140 : 560,
-      );
+      window.requestAnimationFrame(() => finishNavigation(root, sequence));
     };
     window.addEventListener("popstate", handleHistoryNavigation);
     return () => window.removeEventListener("popstate", handleHistoryNavigation);
@@ -293,7 +284,10 @@ export function useMotionRouter() {
 
   const push = useCallback(
     (href: string, intent: MotionIntent = "forward", sharedId?: string) => {
-      runNavigation(() => router.push(href), intent, sharedId);
+      runNavigation(() => {
+        recordInternalPush();
+        router.push(href);
+      }, intent, sharedId);
     },
     [router],
   );
@@ -306,7 +300,10 @@ export function useMotionRouter() {
   );
 
   const back = useCallback(() => {
-    runNavigation(() => router.back(), "back");
+    runNavigation(() => {
+      programmaticBackInFlight = true;
+      router.back();
+    }, "back");
   }, [router]);
 
   return useMemo(
@@ -351,7 +348,10 @@ export function MotionLink({
     ) return;
 
     event.preventDefault();
-    runNavigation(() => router.push(href), intent, sharedId, event.currentTarget);
+    runNavigation(() => {
+      recordInternalPush();
+      router.push(href);
+    }, intent, sharedId);
   }
 
   return (

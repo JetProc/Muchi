@@ -423,7 +423,7 @@ export function Capture({
   const [guideVisible, setGuideVisible] = useState(guideMode);
   const suggestedTags = getTagGroups(archive).slice(0, 5).map((group) => group.tag);
   const draftReady = useRef(false);
-  const shareHandled = useRef(false);
+  const handledSharedUrl = useRef<string | null>(null);
   const searchRequestRef = useRef(0);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const visibleResults = resultSource === "search"
@@ -444,6 +444,10 @@ export function Capture({
   );
 
   useEffect(() => {
+    if (sharedUrl) {
+      draftReady.current = true;
+      return;
+    }
     const frame = window.requestAnimationFrame(() => {
       try {
         const raw = window.sessionStorage.getItem(CAPTURE_DRAFT_KEY);
@@ -475,7 +479,7 @@ export function Capture({
       draftReady.current = true;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [sharedUrl]);
 
   useEffect(() => {
     if (!draftReady.current) return;
@@ -617,11 +621,12 @@ export function Capture({
   }, [online, startDetailedRecord]);
 
   useEffect(() => {
-    if (!sharedUrl || shareHandled.current) return;
+    if (!sharedUrl) return;
     const matchedUrl = sharedUrl.match(/https?:\/\/\S+/)?.[0]?.replace(/[),.]+$/, "") ?? sharedUrl;
+    if (handledSharedUrl.current === matchedUrl) return;
     setMusicUrl(matchedUrl);
     setLinkDialogOpen(true);
-    shareHandled.current = true;
+    handledSharedUrl.current = matchedUrl;
     void importMusicLink(matchedUrl);
   }, [importMusicLink, sharedUrl]);
 

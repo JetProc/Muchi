@@ -315,32 +315,32 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "inbox":
       case "recap":
       case "settings":
-        return { label: "홈으로", href: "/" };
+        return { label: "홈으로", fallbackHref: "/" };
       case "guide":
-        return { label: "설정으로", href: "/settings" };
+        return { label: "설정으로", fallbackHref: "/settings" };
       case "space":
-        return { label: "내 공간으로", href: "/" };
+        return { label: "내 공간으로", fallbackHref: "/" };
       case "chapter":
         return requestedChapter?.parentId
           ? {
             label: "상위 챕터로",
-            href: `/chapter?id=${encodeURIComponent(requestedChapter.parentId)}`,
+            fallbackHref: `/chapter?id=${encodeURIComponent(requestedChapter.parentId)}`,
             sharedId: requestedChapter.parentId,
           }
-          : { label: "챕터로", href: "/chapters" };
+          : { label: "챕터로", fallbackHref: "/chapters" };
       case "memory":
-        if (!requestedMemoryChapter) return { label: "챕터로", href: "/chapters" };
-        if (requestedMemoryChapter.kind === "capture") return { label: "미분류 기록으로", href: "/tags" };
+        if (!requestedMemoryChapter) return { label: "챕터로", fallbackHref: "/chapters" };
+        if (requestedMemoryChapter.kind === "capture") return { label: "미분류 기록으로", fallbackHref: "/tags" };
         return {
           label: "챕터로",
-          href: `/chapter?id=${encodeURIComponent(requestedMemoryChapter.id)}`,
+          fallbackHref: `/chapter?id=${encodeURIComponent(requestedMemoryChapter.id)}`,
           sharedId: requestedMemoryChapter.id,
         };
       case "search":
         if (fromMemoryId && archive.data.cubeTracks[fromMemoryId]) {
           return {
             label: "곡 기록으로",
-            href: `/memory?id=${encodeURIComponent(fromMemoryId)}`,
+            fallbackHref: `/memory?id=${encodeURIComponent(fromMemoryId)}`,
             sharedId: fromMemoryId,
           };
         }
@@ -354,22 +354,22 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         }
         return {
           label: "챕터로",
-          href: publicPlaylistSource?.returnHref
+          fallbackHref: publicPlaylistSource?.returnHref
             ?? (queryId ? `/chapter?id=${encodeURIComponent(queryId)}` : "/chapters"),
           sharedId: queryId ?? undefined,
         };
       case "discoverChapter":
       case "discoverProfile":
-        return { label: "탐색으로", href: "/discover" };
+        return { label: "탐색으로", fallbackHref: "/discover" };
       case "tags":
         if (fromMemoryId && archive.data.cubeTracks[fromMemoryId]) {
           return {
             label: "곡 기록으로",
-            href: `/memory?id=${encodeURIComponent(fromMemoryId)}`,
+            fallbackHref: `/memory?id=${encodeURIComponent(fromMemoryId)}`,
             sharedId: fromMemoryId,
           };
         }
-        return { label: "설정으로", href: "/settings" };
+        return { label: "설정으로", fallbackHref: "/settings" };
       default:
         return null;
     }
@@ -641,7 +641,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       ) : null}
       <RouteStage
         view={view}
-        queryKey={view === "search" || view === "discover" ? searchParams.toString() : queryId}
+        queryKey={view === "search" || view === "discover" || view === "capture" ? searchParams.toString() : queryId}
       >
         {content}
       </RouteStage>

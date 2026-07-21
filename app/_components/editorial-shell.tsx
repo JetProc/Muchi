@@ -22,7 +22,9 @@ import { ITUNES_PREVIEW_ATTRIBUTION } from "@/lib/itunes";
 import { useModalFocus } from "./editorial-accessibility";
 import {
   MotionLink as Link,
+  canGoBackInApp,
   transitionEditorialUI,
+  useMotionRouter,
 } from "./editorial-motion";
 import { AlbumArtwork, type PreviewControls } from "./editorial-media";
 import type { AppView, ToastMessage } from "./editorial-types";
@@ -67,10 +69,11 @@ const MOBILE_NAV_ICON = {
 const scrollPositions = new Map<string, number>();
 
 export type ContextBackAction =
-  | { label: string; href: string; sharedId?: string; onActivate?: never }
-  | { label: string; onActivate: () => void; href?: never; sharedId?: never };
+  | { label: string; fallbackHref: string; sharedId?: string; onActivate?: never }
+  | { label: string; onActivate: () => void; sharedId?: never };
 
 function ContextBackControl({ action }: { action: ContextBackAction }) {
+  const router = useMotionRouter();
   const content = (
     <>
       <ChevronLeft aria-hidden="true" size={16} strokeWidth={2} />
@@ -79,10 +82,15 @@ function ContextBackControl({ action }: { action: ContextBackAction }) {
   );
   return (
     <div className="content-back-row">
-      {action.href ? (
-        <Link className="content-back-button" href={action.href} intent="back" sharedId={action.sharedId} aria-label={action.label}>
+      {"fallbackHref" in action ? (
+        <button
+          className="content-back-button"
+          type="button"
+          onClick={() => (canGoBackInApp() ? router.back() : router.replace(action.fallbackHref, "back", action.sharedId))}
+          aria-label={action.label}
+        >
           {content}
-        </Link>
+        </button>
       ) : (
         <button className="content-back-button" type="button" onClick={action.onActivate} aria-label={action.label}>
           {content}

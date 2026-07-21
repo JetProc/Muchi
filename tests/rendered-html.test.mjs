@@ -299,9 +299,9 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.match(mediaSource, /data-shared-transition-id=\{sharedArtworkKey\(sharedId\)\}/);
   assert.match(mediaSource, /data-shared-transition-id=\{sharedArtworkKey\(coverId\)\}/);
   assert.doesNotMatch(mediaSource, /has-shared-transition/);
-  assert.match(motionSource, /markSharedTransitionElement\(sharedId, sourceElement\)/);
-  assert.match(motionSource, /await navigateAndWaitForRouteCommit\(navigate\);\s*markSharedTransitionElement\(sharedId\);/s);
-  assert.match(motionSource, /event\.currentTarget/);
+  assert.doesNotMatch(motionSource, /navigateAndWaitForRouteCommit|ROUTE_COMMIT_TIMEOUT_MS/);
+  assert.match(motionSource, /void waitForRouteCommit\(navigate\)\.then\(\(\) => finishNavigation\(root, sequence\)\);/);
+  assert.match(motionSource, /if \(intent === "tab"\) \{\s*navigate\(\);\s*return;/s);
   assert.match(motionSource, /clearSharedTransitionElements\(\)/);
   assert.match(shellSource, /transitionEditorialUI\([\s\S]*?`player-\$\{preview\.state\.track\.id\}`/s);
   assert.match(globalStyles, /::view-transition-old\(root\),[\s\S]*?::view-transition-new\(root\)\s*\{[^}]*animation:\s*none;/s);
@@ -536,27 +536,47 @@ test("connects onboarding, the settings guide, and first-record hints", async ()
   assert.match(guideRouteSource, /MusicWorldApp view="guide"/);
 });
 
-test("keeps the global header stable and places contextual back actions inside secondary content", async () => {
-  const [shellSource, appSource, css] = await Promise.all([
+test("keeps the global header stable and makes contextual back actions history-aware", async () => {
+  const [shellSource, appSource, motionSource, css] = await Promise.all([
     readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-motion.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(shellSource, /export type ContextBackAction[\s\S]*?label: string; href: string[\s\S]*?label: string; onActivate:/s);
+  assert.match(shellSource, /export type ContextBackAction[\s\S]*?label: string; fallbackHref: string[\s\S]*?label: string; onActivate:/s);
   assert.match(shellSource, /function ContextBackControl/);
-  assert.match(shellSource, /<Link className="content-back-button" href=\{action\.href\} intent="back"/);
+  assert.match(shellSource, /useMotionRouter\(\)/);
+  assert.match(shellSource, /canGoBackInApp\(\) \? router\.back\(\) : router\.replace\(action\.fallbackHref, "back", action\.sharedId\)/);
   assert.match(shellSource, /<button className="content-back-button"[^>]*onClick=\{action\.onActivate\}/);
   assert.doesNotMatch(shellSource, /className="header-back-button"/);
   assert.equal((appSource.match(/backAction=\{contextBackAction\}/g) ?? []).length, 2);
-  assert.match(appSource, /case "discoverChapter":[\s\S]*?label: "탐색으로", href: "\/discover"/s);
-  assert.match(appSource, /case "memory":[\s\S]*?href: `\/chapter\?id=\$\{encodeURIComponent\(requestedMemoryChapter\.id\)\}`/s);
+  assert.match(appSource, /case "discoverChapter":[\s\S]*?label: "탐색으로", fallbackHref: "\/discover"/s);
+  assert.match(appSource, /case "memory":[\s\S]*?fallbackHref: `\/chapter\?id=\$\{encodeURIComponent\(requestedMemoryChapter\.id\)\}`/s);
   assert.match(appSource, /case "search":[\s\S]*?fromMemoryId[\s\S]*?label: "곡 기록으로"/s);
   assert.match(appSource, /case "playlist":[\s\S]*?label: "이전 단계"[\s\S]*?onActivate:/s);
-  assert.doesNotMatch(appSource, /router\.back\(\)/);
+  assert.match(motionSource, /export function canGoBackInApp\(\)/);
+  assert.match(motionSource, /router\.back\(\)/);
   assert.match(css, /\.content-back-row\s*\{[^}]*min-height:\s*44px;/s);
   assert.match(css, /\.content-back-button\s*\{[^}]*min-height:\s*40px;[^}]*background:\s*transparent;/s);
   assert.match(css, /\.content-back-button:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--apple-primary-focus\);/s);
+});
+
+test("handles each shared music URL once and keeps tab navigation immediate", async () => {
+  const [captureSource, appSource, motionSource] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-views-primary.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-motion.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(captureSource, /const handledSharedUrl = useRef<string \| null>\(null\)/);
+  assert.match(captureSource, /if \(!sharedUrl\) return;/);
+  assert.match(captureSource, /if \(handledSharedUrl\.current === matchedUrl\) return;/);
+  assert.match(captureSource, /handledSharedUrl\.current = matchedUrl;/);
+  assert.match(appSource, /view === "search" \|\| view === "discover" \|\| view === "capture" \? searchParams\.toString\(\) : queryId/);
+  assert.match(motionSource, /if \(intent === "tab"\) \{\s*navigate\(\);\s*return;/s);
+  assert.match(motionSource, /const handlingProgrammaticBack = programmaticBackInFlight;/);
+  assert.doesNotMatch(motionSource, /ROUTE_COMMIT_TIMEOUT_MS/);
 });
 
 test("keeps the complete Apple web design direction in the repository", async () => {

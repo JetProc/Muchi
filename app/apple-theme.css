@@ -4631,9 +4631,13 @@ button.tag {
 }
 
 .public-chapter-detail .chapter-hero-copy > .section-label {
-  grid-column: 1;
+  grid-column: 1 / -1;
   grid-row: 1;
+  width: 100%;
+  justify-self: stretch;
   align-self: center;
+  margin: 0 !important;
+  text-align: left !important;
 }
 
 .public-chapter-detail .chapter-detail-meta-row .chapter-detail-meta {

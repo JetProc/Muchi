@@ -1905,6 +1905,23 @@ button.tag {
   margin-top: var(--apple-space-3);
 }
 
+.chapter-detail-utility-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--apple-space-3);
+  margin: 0;
+}
+
+.chapter-detail-utility-row .chapter-detail-visibility {
+  margin-top: 0;
+}
+
+.chapter-detail-utility-row .chapter-detail-utilities {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .chapter-detail-meta-action {
   display: inline-flex;
   flex: 0 0 auto;

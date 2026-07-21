@@ -128,6 +128,7 @@ export function ChapterDetailHero({
   utilities,
   actionsOutsideCopy = false,
   utilitiesOutsideCopy = false,
+  compactUtilityRow = false,
   style,
 }: {
   cover: ReactNode;
@@ -142,8 +143,10 @@ export function ChapterDetailHero({
   utilities?: ReactNode;
   actionsOutsideCopy?: boolean;
   utilitiesOutsideCopy?: boolean;
+  compactUtilityRow?: boolean;
   style?: CSSProperties;
 }) {
+  const showMetaRow = Boolean(meta || (!compactUtilityRow && !utilitiesOutsideCopy && utilities) || (!actionsOutsideCopy && actions));
   return (
     <section className="chapter-hero chapter-detail-hero" style={style}>
       {cover}
@@ -153,12 +156,16 @@ export function ChapterDetailHero({
         {leading}
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
-        {visibilityAction ? <div className="chapter-detail-visibility">{visibilityAction}</div> : null}
-        <div className="chapter-detail-meta-row">
-          <p className="chapter-detail-meta">{meta}</p>
-          {!utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities is-inline">{utilities}</div> : null}
+        {compactUtilityRow && (visibilityAction || utilities) ? <div className="chapter-detail-utility-row">
+          {visibilityAction ? <div className="chapter-detail-visibility">{visibilityAction}</div> : null}
+          {utilities ? <div className="chapter-detail-utilities is-inline">{utilities}</div> : null}
+        </div> : null}
+        {!compactUtilityRow && visibilityAction ? <div className="chapter-detail-visibility">{visibilityAction}</div> : null}
+        {showMetaRow ? <div className="chapter-detail-meta-row">
+          {meta ? <p className="chapter-detail-meta">{meta}</p> : null}
+          {!compactUtilityRow && !utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities is-inline">{utilities}</div> : null}
           {!actionsOutsideCopy && actions ? <div className="chapter-detail-meta-action">{actions}</div> : null}
-        </div>
+        </div> : null}
       </div>
       {actionsOutsideCopy && actions ? <div className="chapter-detail-meta-action is-outside-copy">{actions}</div> : null}
       {utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities is-outside-copy">{utilities}</div> : null}
@@ -221,7 +228,7 @@ export function ChapterTrackSection({
               {canExpand ? (
                 <div className="chapter-compact-track-detail" id={`chapter-track-detail-${item.id}`} aria-hidden={!expanded}>
                   <div>
-                    <p>{item.summary}</p>
+                    {item.summary ? <p>{item.summary}</p> : null}
                     {item.tags?.length ? (
                       <div className="chapter-compact-track-tags" aria-label="곡 태그">
                         {item.tags.slice(0, 6).map((tag) => tagHref ? (
@@ -639,9 +646,7 @@ export function ChapterDetail({
     id: entry.cubeTrack.id,
     track: entry.track,
     sharedId: entry.cubeTrack.id,
-    summary: getLatestCubeTrackNote(entry.cubeTrack)?.body
-      || entry.tags.slice(0, 2).map((tag) => `#${tag.label}`).join(" · ")
-      || `${entry.track.artist}${entry.track.album ? ` · ${entry.track.album}` : ""}`,
+    summary: getLatestCubeTrackNote(entry.cubeTrack)?.body ?? null,
     tags: entry.tags,
     affection: entry.cubeTrack.affection,
     action: managing ? (
@@ -659,7 +664,7 @@ export function ChapterDetail({
     <div className="page-content chapter-view chapter-detail-compact">
       <ChapterDetailHero
         cover={<ChapterCover archive={archive} chapter={chapter} />}
-        eyebrow={formatDate(chapter.updatedAt)}
+        eyebrow={<>{formatDate(chapter.updatedAt)} <span className="chapter-detail-date-count">· {entries.length}곡</span></>}
         title={formatChapterTitle(chapter)}
         description={chapter.description}
         visibilityAction={!monthlyChapter ? (
@@ -674,7 +679,7 @@ export function ChapterDetail({
             <span>{activeChapter.visibility === "public" ? "챕터 공개" : "챕터 비공개"}</span>
           </button>
         ) : undefined}
-        meta={`${entries.length}곡`}
+        meta={null}
         menu={!monthlyChapter ? (
           <div className="chapter-menu" ref={menuRef}>
             <button
@@ -699,6 +704,7 @@ export function ChapterDetail({
           </div>
         ) : undefined}
         utilities={entries.length ? <ChapterPlaylistActions chapterId={chapter.id} /> : undefined}
+        compactUtilityRow
         style={chapterColorStyle(chapter.color)}
       />
       {entries.length ? (

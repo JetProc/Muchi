@@ -705,6 +705,8 @@ test("uses a compact accordion inside chapters and unified rows elsewhere", asyn
   assert.match(chapterSource, /setExpandedTrackId/);
   assert.match(chapterSource, /className="chapter-memory-link"/);
   assert.match(chapterSource, /const canExpand = item\.collapsible \?\? !item\.privateRecord/);
+  assert.match(chapterSource, /\{item\.summary \? <p>\{item\.summary\}<\/p> : null\}/);
+  assert.match(chapterSource, /summary: getLatestCubeTrackNote\(entry\.cubeTrack\)\?\.body \?\? null/);
   assert.match(chapterSource, /className="chapter-compact-track-toggle is-static"/);
   assert.match(chapterSource, /item\.tags\.slice\(0, 6\)/);
   assert.doesNotMatch(globals, /@media \(max-width:\s*0px\)/);
@@ -752,7 +754,8 @@ test("keeps chapter actions compact and puts playlist import before the track li
   const chapterDetail = sliceBetween(chapterSource, "export function ChapterDetail(", "export function MemoryPanel(", "ChapterDetail source");
 
   assert.match(chapterDetail, /utilities=\{entries\.length \? <ChapterPlaylistActions chapterId=\{chapter\.id\} \/>/);
-  assert.match(chapterDetail, /meta=\{`\$\{entries\.length\}곡`\}/);
+  assert.match(chapterDetail, /chapter-detail-date-count">· \{entries\.length\}곡/);
+  assert.match(chapterDetail, /meta=\{null\}/);
   assert.doesNotMatch(chapterDetail, /개 태그|개 메모/);
   assert.doesNotMatch(chapterDetail, /챕터 ·/);
   assert.doesNotMatch(chapterDetail, /href="\/capture" intent="modal">곡 기록<\/Link>/);
@@ -1789,6 +1792,10 @@ test("keeps interview-driven capture paths while simplifying memory completion",
   assert.match(chapterSource, /aria-label=\{`챕터 \$\{activeChapter\.visibility === "public" \? "공개" : "비공개"\}`\}/);
   assert.match(chapterSource, /activeChapter\.visibility === "public" \? "챕터 공개" : "챕터 비공개"/);
   assert.match(chapterSource, /className="chapter-detail-visibility"/);
+  assert.match(chapterSource, /compactUtilityRow/);
+  assert.match(chapterSource, /chapter-detail-date-count">· \{entries\.length\}곡/);
+  assert.match(chapterSource, /meta=\{null\}/);
+  assert.match(appleThemeSource, /\.chapter-detail-utility-row\s*\{[^}]*align-items:\s*baseline;[^}]*justify-content:\s*space-between;[^}]*margin:\s*0;/s);
   assert.match(appleThemeSource, /\.chapter-detail-meta-row\s*\{[^}]*justify-content:\s*space-between;[^}]*margin-top:\s*auto;/s);
   assert.match(chapterSource, /\sinline\s/);
   assert.match(pickerSource, /tag-picker-inline-list/);

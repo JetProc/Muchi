@@ -241,7 +241,6 @@ export function TagPicker({
                 </button>
               );
             })}
-            {!sortedTags.length ? <p className="tag-picker-empty">아직 만든 태그가 없어요.</p> : null}
           </div>
           {inlineHasOverflow ? (
             <button

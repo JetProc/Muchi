@@ -285,6 +285,9 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.doesNotMatch(motionSource, /window\.matchMedia\("\(max-width: 479px\)"\)\.matches/);
   assert.match(motionSource, /return Boolean\(transitionDocument\.startViewTransition\);/);
   assert.match(layoutSource, /<MuchiDataProvider>\{children\}<\/MuchiDataProvider>/);
+  assert.match(layoutSource, /<Script id="microsoft-clarity" strategy="afterInteractive">/);
+  assert.match(layoutSource, /https:\/\/www\.clarity\.ms\/tag\//);
+  assert.match(layoutSource, /xprfs0qhlb/);
   assert.match(dataProviderSource, /useState<ArchiveEnvelopeV1>\(\(\) => createEmptyArchive\(\)\)/);
   assert.match(dataProviderSource, /Promise\.all\(\[\s*fetchArchive\(\),\s*fetchOnboardingStatus\(\),\s*\]\)/s);
   assert.match(dataProviderSource, /ensureDiscoveryData[\s\S]*?Promise\.all\(\[fetchPublicDiscoveryCatalog\(\), fetchDiscoveryState\(\)\]\)/s);

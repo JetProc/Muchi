@@ -5488,10 +5488,21 @@ button.tag {
   background: var(--apple-ink);
   font-size: 12px;
   font-weight: 700;
+  overflow: hidden;
+}
+
+.music-room-owner-self > span img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .music-room-owner-self strong {
+  min-width: 0;
+  overflow: hidden;
   font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .theme-midnight .music-room-owner-self > span {

@@ -110,10 +110,15 @@ export function PersonalSpace({
   archive,
   commit,
   notify,
+  profile,
 }: {
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
   notify: Notify;
+  profile?: {
+    displayName: string;
+    avatarUrl: string | null;
+  } | null;
 }) {
   const [customizing, setCustomizing] = useState(false);
   const roots = useMemo(() => getRootCubes(archive), [archive]);
@@ -130,11 +135,20 @@ export function PersonalSpace({
     artwork: <ChapterCover archive={archive} chapter={chapter} />,
     href: chapterHref(chapter.id),
   }));
+  const ownerName = profile?.displayName.trim() || "뮤키 사용자";
+  const ownerInitial = Array.from(ownerName)[0] ?? "뮤";
   return <>
     <MusicRoomFrame
       eyebrow="MY MUSIC ROOM"
       title="나의 음악 서재"
-      owner={<span className="music-room-owner-self"><span aria-hidden="true">나</span><strong>나</strong></span>}
+      owner={(
+        <span className="music-room-owner-self">
+          <span className="music-room-owner-avatar" aria-hidden="true">
+            {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" /> : ownerInitial}
+          </span>
+          <strong>{ownerName}</strong>
+        </span>
+      )}
       themeId={archive.data.space.themeId}
       layoutId={archive.data.space.layoutId}
       items={items}

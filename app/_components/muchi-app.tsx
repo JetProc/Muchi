@@ -555,7 +555,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "space":
         return searchParams.get("view") === "visitor"
           ? <VisitorSpace archive={archive} chapterId={queryId} />
-          : <PersonalSpace archive={archive} commit={commit} notify={notify} />;
+          : <PersonalSpace archive={archive} commit={commit} notify={notify} profile={onboarding} />;
       case "inbox":
         return <Inbox archive={archive} commit={commit} notify={notify} router={router} />;
       case "chapters":
@@ -615,7 +615,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "tags":
         return <TagManager archive={archive} commit={commit} notify={notify} />;
       default:
-        return <PersonalSpace archive={archive} commit={commit} notify={notify} />;
+        return <PersonalSpace archive={archive} commit={commit} notify={notify} profile={onboarding} />;
     }
   })();
 

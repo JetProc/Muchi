@@ -45,6 +45,8 @@ import {
   AlbumArtwork,
   ChapterCover,
   LoadingDots,
+  PreviewButton,
+  type PreviewControls,
 } from "./editorial-media";
 import { MusicServiceIcon } from "./editorial-service-icon";
 import {
@@ -386,6 +388,7 @@ export function Capture({
   archive,
   commit,
   notify,
+  preview,
   online,
   router,
   sharedUrl,
@@ -394,6 +397,7 @@ export function Capture({
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
   notify: Notify;
+  preview: PreviewControls;
   online: boolean;
   router: MotionRouter;
   sharedUrl: string | null;
@@ -410,6 +414,7 @@ export function Capture({
   const [error, setError] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkSupportOpen, setLinkSupportOpen] = useState(false);
   const [assigning, setAssigning] = useState<TrackReference | null>(null);
   const [batchAssigning, setBatchAssigning] = useState<TrackReference[]>([]);
   const [recordMode, setRecordMode] = useState<"choose" | "tag" | "chapter" | "complete">("choose");
@@ -443,6 +448,7 @@ export function Capture({
     linkDialogOpen,
     () => {
       setLinkDialogOpen(false);
+      setLinkSupportOpen(false);
       setManualFallback(null);
       setLinkError(null);
     },
@@ -517,6 +523,7 @@ export function Capture({
       setError(null);
       setLinkError(null);
       setLinkDialogOpen(false);
+      setLinkSupportOpen(false);
       setManualFallback(null);
       setManualTitle("");
       setManualArtist("");
@@ -881,6 +888,7 @@ export function Capture({
           onClick={() => {
             setLinkError(null);
             setManualFallback(null);
+            setLinkSupportOpen(false);
             setLinkDialogOpen(true);
           }}
         >
@@ -915,6 +923,7 @@ export function Capture({
                         <strong>{track.title}</strong>
                         <span>{track.artist}</span>
                       </span>
+                      <PreviewButton track={track} preview={preview} />
                       <button
                         className="capture-track-select"
                         type="button"
@@ -961,22 +970,23 @@ export function Capture({
             <h2 id="link-import-title">음악 앱에서 가져오기</h2>
             {!manualFallback ? (
               <form className="form-stack link-import-form" onSubmit={importLink}>
-                <div className="link-import-services" aria-label="지원 음악 앱">
-                  <div className="link-import-service is-supported">
-                    <span className="link-import-service-icon"><MusicServiceIcon service="apple" size={17} /></span>
-                    <div className="link-import-service-meta"><strong>Apple Music</strong><small>지원</small></div>
-                    <p>공유 링크로 바로 기록</p>
-                  </div>
-                  <div className="link-import-service is-supported">
-                    <span className="link-import-service-icon"><MusicServiceIcon service="youtube" size={17} /></span>
-                    <div className="link-import-service-meta"><strong>YouTube Music</strong><small>지원</small></div>
-                    <p>공유 링크로 바로 기록</p>
-                  </div>
-                  <div className="link-import-service is-unsupported">
-                    <span className="link-import-service-icon"><MusicServiceIcon service="spotify" size={17} /></span>
-                    <div className="link-import-service-meta"><strong>Spotify</strong><small>준비 중</small></div>
-                    <p>아직 준비 중이에요</p>
-                  </div>
+                <div className="link-import-support">
+                  <p>Apple Music과 YouTube Music 링크를 가져올 수 있어요.</p>
+                  <button className="text-button link-import-support-toggle" type="button" aria-expanded={linkSupportOpen} aria-controls="link-import-support-table" onClick={() => setLinkSupportOpen((current) => !current)}>
+                    지원 가능한 앱 보기
+                  </button>
+                  {linkSupportOpen ? (
+                    <div id="link-import-support-table" className="link-import-support-table" role="region" aria-label="음악 앱 지원 범위" tabIndex={0}>
+                      <table>
+                        <thead><tr><th scope="col">앱</th><th scope="col">단일 곡</th><th scope="col">플레이리스트</th><th scope="col">내보내기</th></tr></thead>
+                        <tbody>
+                          <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="youtube" size={15} />YouTube Music</span></th><td>지원</td><td>지원</td><td>준비 중</td></tr>
+                          <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="apple" size={15} />Apple Music</span></th><td>지원</td><td>MusicKit 키 필요</td><td>준비 중</td></tr>
+                          <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="spotify" size={15} />Spotify</span></th><td colSpan={3}>준비 중</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="link-import-input-row">
                   <label className="sr-only" htmlFor="music-url">음악 앱 곡 링크</label>

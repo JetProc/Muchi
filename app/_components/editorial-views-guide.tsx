@@ -1,17 +1,8 @@
 "use client";
 
-import { ArrowRight, Download, ExternalLink, Link2, Smartphone, Upload } from "lucide-react";
+import { ArrowRight, Download, ExternalLink, Link2, Smartphone } from "lucide-react";
 import { MotionLink as Link } from "./editorial-motion";
 import { PageHeader } from "./editorial-ui";
-
-const SUPPORTS = [
-  ["YouTube Music", "가져오기", "지원"],
-  ["Apple Music", "가져오기", "지원"],
-  ["Spotify", "가져오기", "준비 중"],
-  ["YouTube Music", "내보내기", "준비 중"],
-  ["Apple Music", "내보내기", "준비 중"],
-  ["Spotify", "내보내기", "준비 중"],
-] as const;
 
 export function Guide() {
   return (
@@ -27,7 +18,8 @@ export function Guide() {
       </section>
       <section className="guide-section" aria-labelledby="guide-link-title">
         <h2 id="guide-link-title">음악 앱 링크로 가져오기</h2>
-        <div className="guide-panel"><Link2 aria-hidden="true" size={20} /><div><strong>서비스 안에서 검색하는 것과 같은 기록 화면으로 이어져요.</strong><p>곡 링크를 분석한 뒤 태그와 기억을 남기고, 보관함 또는 챕터로 정리할 수 있어요.</p></div></div>
+        <div className="guide-panel"><Link2 aria-hidden="true" size={20} /><div><strong>서비스 안에서 검색하는 것과 같은 기록 화면으로 이어져요.</strong><p>곡 링크를 분석한 뒤 태그와 기억을 남기고, 여러 곡은 한 챕터에 함께 정리할 수 있어요.</p></div></div>
+        <div className="guide-link-note"><strong>YouTube Music은 단일 곡과 플레이리스트 가져오기를 모두 지원해요.</strong><p>Apple Music은 단일 곡만 바로 가져올 수 있고, 플레이리스트 가져오기는 MusicKit 키 설정 후 지원할 예정이에요.</p></div>
         <div className="guide-platforms">
           <article><Smartphone aria-hidden="true" size={18} /><strong>Android PWA</strong><p>뮤키를 설치한 뒤 YouTube Music에서 곡을 공유하고 <b>뮤키</b>를 선택하세요. 곡 링크가 바로 열려요.</p></article>
           <article><ExternalLink aria-hidden="true" size={18} /><strong>iPhone / iPad</strong><p>공유에서 곡 링크를 복사한 뒤 뮤키의 <b>링크로 가져오기</b>에 붙여 넣어 주세요. 스트리밍 앱에서 뮤키를 직접 선택하는 공유는 아직 지원하지 않아요.</p></article>
@@ -39,10 +31,17 @@ export function Guide() {
       </section>
       <section className="guide-section" aria-labelledby="guide-support-title">
         <h2 id="guide-support-title">스트리밍 서비스 지원 현황</h2>
-        <div className="guide-support-list" role="list">
-          {SUPPORTS.map(([service, action, status]) => <div key={`${service}-${action}`} role="listitem"><strong>{service}</strong><span>{action === "가져오기" ? <Upload aria-hidden="true" size={14} /> : <ExternalLink aria-hidden="true" size={14} />}{action}</span><em className={`is-${status.replace(" ", "-")}`}>{status}</em></div>)}
+        <div className="guide-support-table" role="region" aria-label="스트리밍 서비스 지원 현황" tabIndex={0}>
+          <table>
+            <thead><tr><th scope="col">앱</th><th scope="col">단일 곡</th><th scope="col">플레이리스트</th><th scope="col">내보내기</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">YouTube Music</th><td>지원</td><td>지원</td><td>준비 중</td></tr>
+              <tr><th scope="row">Apple Music</th><td>지원</td><td>MusicKit 키 필요</td><td>준비 중</td></tr>
+              <tr><th scope="row">Spotify</th><td colSpan={3}>준비 중</td></tr>
+            </tbody>
+          </table>
         </div>
-        <p className="guide-footnote">Spotify 가져오기는 준비 중이에요. 지금은 직접 검색으로 같은 곡을 찾아 기록할 수 있어요.</p>
+        <p className="guide-footnote">Spotify는 직접 검색으로 같은 곡을 찾아 기록할 수 있어요. Apple Music 플레이리스트는 MusicKit 키가 등록되기 전까지 직접 검색을 이용해 주세요.</p>
       </section>
       <section className="guide-cta" aria-label="첫 기록 시작">
         <span>이제 한 곡을 골라 볼까요?</span>

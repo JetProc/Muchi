@@ -207,17 +207,15 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(source, /className="capture-link-action"[\s\S]*?>\s*링크로 가져오기\s*<\/button>/s);
   assert.match(source, /className="dialog link-import-dialog"/);
   assert.match(source, /<h2 id="link-import-title">음악 앱에서 가져오기<\/h2>/);
-  assert.match(source, /className="link-import-services"/);
+  assert.match(source, /const \[linkSupportOpen, setLinkSupportOpen\] = useState\(false\)/);
+  assert.match(source, /지원 가능한 앱 보기/);
+  assert.match(source, /aria-controls="link-import-support-table"/);
+  assert.match(source, /id="link-import-support-table" className="link-import-support-table"/);
   assert.match(source, /MusicServiceIcon service="apple"/);
   assert.match(source, /MusicServiceIcon service="youtube"/);
   assert.match(source, /MusicServiceIcon service="spotify"/);
-  assert.match(source, /<strong>Apple Music<\/strong>/);
-  assert.match(source, /<strong>YouTube Music<\/strong>/);
-  assert.match(source, /<strong>Spotify<\/strong>/);
-  assert.match(source, /공유 링크로 바로 기록/);
-  assert.match(source, /아직 준비 중이에요/);
-  assert.match(source, /<small>지원<\/small>/);
-  assert.match(source, /<small>준비 중<\/small>/);
+  assert.match(source, /YouTube Music<\/span><\/th><td>지원<\/td><td>지원<\/td><td>준비 중/);
+  assert.match(source, /Apple Music<\/span><\/th><td>지원<\/td><td>MusicKit 키 필요<\/td><td>준비 중/);
   assert.match(source, /className="link-import-input-row"/);
   assert.doesNotMatch(source, /ADD BY LINK/);
   assert.match(source, /aria-modal="true" aria-labelledby="link-import-title"/);
@@ -256,7 +254,7 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(appleTheme, /\.capture-search-form\s*\{[^}]*position:\s*relative;[^}]*display:\s*block;/s);
   assert.match(appleTheme, /\.capture-search-submit\s*\{[^}]*position:\s*absolute;[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
   assert.match(appleTheme, /\.track-line\.is-selected\s*\{[^}]*border-color:\s*color-mix\(in srgb, var\(--apple-primary\) 54%, var\(--apple-hairline\)\);/s);
-  assert.match(appleTheme, /\.capture-track-row\s*\{[^}]*grid-template-columns:\s*52px minmax\(0, 1fr\) 44px;/s);
+  assert.match(appleTheme, /\.capture-track-row\s*\{[^}]*grid-template-columns:\s*52px minmax\(0, 1fr\) 44px 44px;/s);
   assert.match(appleTheme, /\.capture-track-select\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*border-radius:\s*50% !important;/s);
   assert.match(appleTheme, /\.capture-floating-action\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*calc\(70px \+ 12px \+ env\(safe-area-inset-bottom\)\);/s);
   assert.match(source, /muchi:reset-capture/);
@@ -616,8 +614,8 @@ test("connects onboarding, the settings guide, and first-record hints", async ()
   assert.match(appSource, /guideMode=\{searchParams\.get\("guide"\) === "1"\}/);
   assert.match(captureSource, /className="capture-mini-guide"/);
   assert.match(captureSource, /className="record-tag-guide"/);
-  assert.match(guideSource, /YouTube Music[\s\S]*?가져오기[\s\S]*?지원/s);
-  assert.match(guideSource, /Apple Music[\s\S]*?내보내기[\s\S]*?준비 중/s);
+  assert.match(guideSource, /YouTube Music[\s\S]*?<td>지원<\/td><td>지원<\/td><td>준비 중/s);
+  assert.match(guideSource, /Apple Music[\s\S]*?<td>지원<\/td><td>MusicKit 키 필요<\/td><td>준비 중/s);
   assert.match(guideSource, /Spotify[\s\S]*?준비 중/s);
   assert.match(guideSource, /Android PWA[\s\S]*?YouTube Music[\s\S]*?뮤키/s);
   assert.match(guideSource, /iPhone \/ iPad[\s\S]*?직접 선택하는 공유는 아직 지원하지 않아요/s);
@@ -867,7 +865,7 @@ test("shares chapter hierarchy choices, fields, and delete confirmation across f
 
   assert.equal((chapterSource.match(/<ChapterFields/g) ?? []).length, 3);
   assert.equal((chapterSource.match(/<ChapterDeleteDialog/g) ?? []).length, 2);
-  assert.equal((primarySource.match(/<ChapterChoice/g) ?? []).length, 2);
+  assert.equal((primarySource.match(/<ChapterChoice/g) ?? []).length, 3);
   assert.equal((chapterSource.match(/<ChapterChoice/g) ?? []).length, 1);
   assert.match(primarySource, /getCubesInTreeOrder\(archive\)/);
   assert.match(chapterSource, /getCubesInTreeOrder\(archive\)/);
@@ -1172,7 +1170,7 @@ test("uses a compact swipe-first mobile home without primary playback", async ()
   assert.match(heroSource, /aria-label="이전 음악"/);
   assert.match(heroSource, /aria-label="다음 음악"/);
   assert.match(heroSource, /aria-live="polite"/);
-  assert.doesNotMatch(source, /showPreview|preview=\{preview\}/);
+  assert.doesNotMatch(source, /showPreview/);
   assert.doesNotMatch(uiSource, /showPreview|PreviewButton|PreviewControls/);
   assert.match(source, /className="chapter-preview-art"/);
   assert.match(source, /className="chapter-preview-art"[\s\S]*?<ChapterCover archive=\{archive\} chapter=\{chapter\} \/>/);
@@ -1224,6 +1222,7 @@ test("removes redundant helper copy and keeps preview controls compact outside m
   const sources = componentSources;
   const source = sources.join("\n");
   const mediaSource = sources[0];
+  const primarySource = sources[2];
   const chapterSource = sources[3];
   const appleTheme = getAppleTheme(css);
 
@@ -1241,6 +1240,8 @@ test("removes redundant helper copy and keeps preview controls compact outside m
   assert.match(mediaSource, /aria-label=\{previewLabel\}/);
   assert.match(mediaSource, /playing \? <Pause[^>]*aria-hidden="true"[^>]*\/> : <Play[^>]*aria-hidden="true"[^>]*\/>/);
   assert.doesNotMatch(mediaSource, /\{playing \? "정지" : "미리듣기"\}/);
+  assert.match(primarySource, /<PreviewButton track=\{track\} preview=\{preview\} \/>[\s\S]*?className="capture-track-select"/);
+  assert.match(appleTheme, /\.capture-track-row\s*\{[^}]*grid-template-columns:\s*52px minmax\(0,\s*1fr\) 44px 44px;/s);
   assert.match(appleTheme, /\.icon-button,\s*\.preview-icon-button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*padding:\s*0;/s);
   assert.doesNotMatch(appleTheme, /\.memory-preview-actions\s*\{/s);
 });
@@ -3355,7 +3356,7 @@ test("keeps record photos private after visibility changes and proxies only appr
     readFile(new URL("../app/api/public-record-media/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/share-image/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/share/link.ts", import.meta.url), "utf8"),
-    readFile(new URL("../supabase/migrations/20260723103000_private_record_photos.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260723062240_private_record_photos.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(publicMediaSource, /"Cache-Control": "private, no-store"/);

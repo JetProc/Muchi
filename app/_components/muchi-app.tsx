@@ -633,7 +633,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const content = (() => {
     switch (view) {
       case "capture":
-        return <Capture archive={archive} commit={commit} notify={notify} online={online} router={router} sharedUrl={sharedUrl} guideMode={searchParams.get("guide") === "1"} />;
+        return <Capture archive={archive} commit={commit} notify={notify} preview={preview} online={online} router={router} sharedUrl={sharedUrl} guideMode={searchParams.get("guide") === "1"} />;
       case "space":
         return searchParams.get("view") === "visitor"
           ? <VisitorSpace archive={archive} chapterId={queryId} />

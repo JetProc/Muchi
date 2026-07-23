@@ -35,8 +35,8 @@ export function Guide() {
           <table>
             <thead><tr><th scope="col">앱</th><th scope="col">단일 곡</th><th scope="col">플레이리스트</th><th scope="col">내보내기</th></tr></thead>
             <tbody>
-              <tr><th scope="row">YouTube Music</th><td>지원</td><td>지원</td><td>준비 중</td></tr>
-              <tr><th scope="row">Apple Music</th><td>지원</td><td>MusicKit 키 필요</td><td>준비 중</td></tr>
+              <tr><th scope="row">YouTube Music</th><td>지원</td><td>지원</td><td>지원</td></tr>
+              <tr><th scope="row">Apple Music</th><td>지원</td><td>준비 중</td><td>준비 중</td></tr>
               <tr><th scope="row">Spotify</th><td colSpan={3}>준비 중</td></tr>
             </tbody>
           </table>

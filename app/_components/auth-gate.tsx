@@ -9,15 +9,29 @@ function currentDestination() {
 
 export async function startGoogleSignIn(destination = currentDestination()) {
   const callback = new URL("/auth/callback", window.location.origin);
-  if (destination.startsWith("/") && !destination.startsWith("//")) {
+  if (
+    destination !== "/"
+    && destination.startsWith("/")
+    && !destination.startsWith("//")
+  ) {
     callback.searchParams.set("next", destination);
   }
   const supabase = createSupabaseBrowserClient();
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: callback.toString() },
+    options: {
+      redirectTo: callback.toString(),
+      // Keep the redirect target generated from the current browser origin.
+      // This matters when the same Supabase project serves both local and
+      // production environments.
+      skipBrowserRedirect: true,
+    },
   });
   if (error) throw error;
+  if (!data.url) throw new Error("Google 로그인 주소를 만들지 못했어요.");
+  const oauthUrl = new URL(data.url);
+  oauthUrl.searchParams.set("redirect_to", callback.toString());
+  window.location.assign(oauthUrl.toString());
 }
 
 function GoogleMark() {

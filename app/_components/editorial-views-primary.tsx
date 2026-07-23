@@ -62,6 +62,7 @@ import { useSwipeableBottomSheet } from "./use-swipeable-bottom-sheet";
 import {
   formatChapterTitle,
   formatDate,
+  formatTrackArtist,
   isAssignableChapter,
   isVisibleChapter,
 } from "./editorial-format";
@@ -139,7 +140,7 @@ export function AlbumHero({
           <div className="album-feature-copy">
             <span className="section-label">최근 기억 · {formatChapterTitle(featured.chapter)}</span>
             <h1 id="featured-memory-title">{featured.track.title}</h1>
-            <p className="album-artist">{featured.track.artist}</p>
+            <p className="album-artist">{formatTrackArtist(featured.track)}</p>
             <div className="album-actions">
               <button
                 className="text-button"
@@ -195,7 +196,7 @@ export function AlbumHero({
         </div>
       ) : null}
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {featured ? `${safeActiveIndex + 1} / ${memories.length}, ${featured.track.title}, ${featured.track.artist}` : ""}
+        {featured ? `${safeActiveIndex + 1} / ${memories.length}, ${featured.track.title}, ${formatTrackArtist(featured.track)}` : ""}
       </p>
     </section>
   );
@@ -445,13 +446,17 @@ export function Capture({
     () => setBatchAssigning([]),
   );
   const linkDialogRef = useModalFocus<HTMLDivElement>(
-    linkDialogOpen,
+    linkDialogOpen && !linkSupportOpen,
     () => {
       setLinkDialogOpen(false);
       setLinkSupportOpen(false);
       setManualFallback(null);
       setLinkError(null);
     },
+  );
+  const linkSupportDialogRef = useModalFocus<HTMLDivElement>(
+    linkSupportOpen,
+    () => setLinkSupportOpen(false),
   );
 
   useEffect(() => {
@@ -921,7 +926,7 @@ export function Capture({
                       <AlbumArtwork track={track} decorative />
                       <span className="capture-track-copy">
                         <strong>{track.title}</strong>
-                        <span>{track.artist}</span>
+                        <span>{formatTrackArtist(track)}</span>
                       </span>
                       <PreviewButton track={track} preview={preview} />
                       <button
@@ -972,21 +977,9 @@ export function Capture({
               <form className="form-stack link-import-form" onSubmit={importLink}>
                 <div className="link-import-support">
                   <p>Apple Music과 YouTube Music 링크를 가져올 수 있어요.</p>
-                  <button className="text-button link-import-support-toggle" type="button" aria-expanded={linkSupportOpen} aria-controls="link-import-support-table" onClick={() => setLinkSupportOpen((current) => !current)}>
+                  <button className="text-button link-import-support-toggle" type="button" aria-haspopup="dialog" aria-expanded={linkSupportOpen} aria-controls="link-import-support-dialog" onClick={() => setLinkSupportOpen(true)}>
                     지원 가능한 앱 보기
                   </button>
-                  {linkSupportOpen ? (
-                    <div id="link-import-support-table" className="link-import-support-table" role="region" aria-label="음악 앱 지원 범위" tabIndex={0}>
-                      <table>
-                        <thead><tr><th scope="col">앱</th><th scope="col">단일 곡</th><th scope="col">플레이리스트</th><th scope="col">내보내기</th></tr></thead>
-                        <tbody>
-                          <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="youtube" size={15} />YouTube Music</span></th><td>지원</td><td>지원</td><td>준비 중</td></tr>
-                          <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="apple" size={15} />Apple Music</span></th><td>지원</td><td>MusicKit 키 필요</td><td>준비 중</td></tr>
-                          <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="spotify" size={15} />Spotify</span></th><td colSpan={3}>준비 중</td></tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : null}
                 </div>
                 <div className="link-import-input-row">
                   <label className="sr-only" htmlFor="music-url">음악 앱 곡 링크</label>
@@ -1002,6 +995,37 @@ export function Capture({
                 <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={() => setManualFallback(null)}>뒤로</button><button className="button button-primary" type="submit">이 곡 확인하기</button></div>
               </form>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {linkDialogOpen && linkSupportOpen ? (
+        <div className="dialog-backdrop link-support-backdrop" role="presentation" onClick={() => setLinkSupportOpen(false)}>
+          <div
+            ref={linkSupportDialogRef}
+            id="link-import-support-dialog"
+            className="dialog link-support-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="link-import-support-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="link-support-dialog-head">
+              <h2 id="link-import-support-title">지원 가능한 앱</h2>
+              <button className="icon-button" type="button" onClick={() => setLinkSupportOpen(false)} aria-label="지원 가능한 앱 닫기" data-modal-autofocus>
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="link-import-support-table" role="region" aria-label="음악 앱 지원 범위" tabIndex={0}>
+              <table>
+                <thead><tr><th scope="col">앱</th><th scope="col">단일 곡</th><th scope="col">플레이리스트</th><th scope="col">내보내기</th></tr></thead>
+                <tbody>
+                  <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="youtube" size={14} />YouTube Music</span></th><td>지원</td><td>지원</td><td>지원</td></tr>
+                  <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="apple" size={14} />Apple Music</span></th><td>지원</td><td>준비 중</td><td>준비 중</td></tr>
+                  <tr><th scope="row"><span className="link-import-app-name"><MusicServiceIcon service="spotify" size={14} />Spotify</span></th><td colSpan={3}>준비 중</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       ) : null}
@@ -1040,7 +1064,7 @@ export function Capture({
             <h2 id="assign-title">{recordMode === "choose" ? "기록" : recordMode === "tag" ? "태그" : recordMode === "chapter" ? "챕터" : "기록 완료"}</h2>
             <div className="record-dialog-track">
               <AlbumArtwork track={assigning} decorative />
-              <p><strong>{assigning.title}</strong><span>{assigning.artist}</span></p>
+              <p><strong>{assigning.title}</strong><span>{formatTrackArtist(assigning)}</span></p>
             </div>
             {recordMode === "choose" ? (
               <div className="record-mode-list">

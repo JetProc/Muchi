@@ -312,10 +312,11 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     && requestedChapter?.kind === "capture";
   const monthlyMemoryRoute = view === "memory"
     && requestedMemoryChapter?.kind === "monthly";
+  const youtubeAuthGranted = searchParams.get("youtubeAuth") === "granted";
   const playlistRouteKey = `${searchParams.get("source") ?? "local"}:${queryId ?? ""}:${searchParams.get("service") ?? ""}`;
   const playlistStep = playlistProgress.routeKey === playlistRouteKey
     ? playlistProgress.step
-    : 1;
+    : youtubeAuthGranted ? 3 : 1;
   const publicPlaylistSource = searchParams.get("source") === "discover" && requestedPublicChapter
     ? { ...toPlaylistSource(requestedPublicChapter), returnHref: `/discover/chapter?id=${encodeURIComponent(requestedPublicChapter.id)}` }
     : null;
@@ -664,6 +665,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
             chapterId={queryId}
             playlistSource={publicPlaylistSource}
             initialServiceId={searchParams.get("service")}
+            youtubeAuthGranted={youtubeAuthGranted}
             step={playlistStep}
             onStepChange={handlePlaylistStepChange}
           />

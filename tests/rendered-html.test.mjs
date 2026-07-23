@@ -1627,12 +1627,13 @@ test("serializes archive edits as bounded patches and rejects unsafe paths", asy
 });
 
 test("batches optimistic archive patches and returns a compact save acknowledgement", async () => {
-  const [providerSource, clientSource, repositorySource, routeSource, migrationSource] = await Promise.all([
+  const [providerSource, clientSource, repositorySource, routeSource, migrationSource, resetMigrationSource] = await Promise.all([
     readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/client/archive-api.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/server/archive-repository.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/archive/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260723005919_reduce_archive_save_response.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260723120000_allow_empty_public_projection_reset.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(providerSource, /ARCHIVE_SAVE_DEBOUNCE_MS\s*=\s*250/);
@@ -1642,6 +1643,20 @@ test("batches optimistic archive patches and returns a compact save acknowledgem
   assert.match(repositorySource, /return \{ status: "ok", revision: result\.revision \}/);
   assert.match(routeSource, /Response\.json\(\{ revision: result\.revision \}/);
   assert.match(migrationSource, /return query select 'ok'::text, null::jsonb, p_expected_revision \+ 1/);
+  assert.match(repositorySource, /syncPublicProjection && getVisitorSpaceChapters\(archive\)\.length > 0/);
+  assert.match(resetMigrationSource, /jsonb_array_length\(p_projection\) > 0/);
+  assert.match(resetMigrationSource, /and archive\.revision = p_expected_revision/);
+  assert.match(resetMigrationSource, /delete from public\.published_chapters/);
+});
+
+test("allows archive reset to remove public chapters without a public profile payload", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const initial = archiveDomain.createEmptyArchive("2026-07-23T00:00:00.000Z");
+  const created = archiveDomain.createCube(initial, { name: "공개 챕터", visibility: "public" });
+  const reset = archiveDomain.createEmptyArchive("2026-07-23T00:01:00.000Z");
+
+  assert.equal(archiveDomain.getVisitorSpaceChapters(created.archive).length, 1);
+  assert.equal(archiveDomain.getVisitorSpaceChapters(reset).length, 0);
 });
 
 test("keeps the same song's tags and memory independent in each cube", async () => {
@@ -3318,6 +3333,13 @@ test("adds a dedicated chapter share editor route with persisted mobile share co
   assert.match(shareSource, /normalizeChapterShareStyle/);
   assert.match(css, /\.chapter-share-view\s*\{/);
   assert.match(css, /\.chapter-share-export-actions\s*\{/);
+  assert.match(shareSource, /SHARE_EDITOR_STEPS/);
+  assert.match(shareSource, /id: "layout"[\s\S]*id: "mood"[\s\S]*id: "tracks"[\s\S]*id: "details"[\s\S]*id: "complete"/);
+  assert.match(shareSource, /aria-label="설정 단계"/);
+  assert.match(shareSource, /function moveStep\(direction: -1 \| 1\)/);
+  assert.match(css, /\.chapter-share-workspace\s*\{/);
+  assert.match(css, /\.chapter-share-step-nav\s*\{/);
+  assert.match(css, /\.chapter-share-preview-section\s*\{[^}]*position:\s*sticky;/s);
 });
 
 test("keeps record photos private after visibility changes and proxies only approved export images", async () => {

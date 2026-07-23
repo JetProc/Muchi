@@ -1,4 +1,4 @@
-import { createEmptyArchive, parseArchive, type ArchiveEnvelopeV1 } from "@/lib/archive";
+import { createEmptyArchive, getVisitorSpaceChapters, parseArchive, type ArchiveEnvelopeV1 } from "@/lib/archive";
 import { applyArchivePatch, type ArchivePatchOperation } from "@/lib/archive-patch";
 import { createPublicProjectionInput } from "./public-discovery-repository";
 import { createDeferredRecordPhotoSweepPlan, deleteRecordPhotos, listRemovedRecordPhotoPaths } from "./record-photo-repository";
@@ -53,7 +53,9 @@ export async function patchArchive(
   const current = await readArchive(supabase, userId);
   if (current.revision !== expectedRevision) return { status: "conflict", value: current };
   const archive = applyArchivePatch(current.archive, operations);
-  const projection = syncPublicProjection
+  // An empty projection only removes existing public chapters. It must not depend
+  // on profile completeness, otherwise archive reset can fail before deletion.
+  const projection = syncPublicProjection && getVisitorSpaceChapters(archive).length > 0
     ? await createPublicProjectionInput(supabase, userId, archive)
     : null;
   const { data, error } = await supabase.rpc("save_archive_with_public_projection", {

@@ -507,7 +507,7 @@ export function Settings({
       <section className="settings-group" aria-labelledby="settings-guide-title">
         <h2 id="settings-guide-title">사용 가이드</h2>
         <div className="panel settings-list">
-          <div className="setting-row"><div><h3>인터랙티브 투어 다시 보기</h3><small>데모 기록으로 주요 기능 20가지를 다시 둘러봐요.</small></div><button className="button" type="button" onClick={onStartGuidedTour}>시작</button></div>
+          <div className="setting-row"><div><h3>인터랙티브 투어 다시 보기</h3><small>데모 기록으로 주요 기능 19가지를 다시 둘러봐요.</small></div><button className="button" type="button" onClick={onStartGuidedTour}>시작</button></div>
           <div className="setting-row"><div><h3>뮤키 사용 방법</h3><small>첫 기록, 링크 가져오기, 홈 화면 추가</small></div><Link className="button" href="/guide" intent="forward">보기</Link></div>
         </div>
       </section>

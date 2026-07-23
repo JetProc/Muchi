@@ -6546,7 +6546,7 @@ button.tag {
   padding:
     max(18px, env(safe-area-inset-top))
     max(16px, env(safe-area-inset-right))
-    max(18px, env(safe-area-inset-bottom))
+    calc(88px + env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
   pointer-events: auto;
   isolation: isolate;
@@ -6599,6 +6599,23 @@ button.tag {
   box-shadow: 0 24px 80px rgb(0 0 0 / 30%) !important;
 }
 
+.app-shell:has(.guided-tour-layer) .footer-band {
+  z-index: 1301;
+  pointer-events: none;
+}
+
+.app-shell:has(.guided-tour-layer) .text-navigation a {
+  opacity: .48;
+}
+
+.app-shell:has(.guided-tour-layer) .text-navigation a.is-active {
+  border: 2px solid var(--apple-primary);
+  color: var(--apple-primary);
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 0 0 4px rgb(0 102 204 / 18%) !important;
+  opacity: 1;
+}
+
 .guided-tour-progress-row,
 .guided-tour-actions {
   display: flex;
@@ -6608,13 +6625,22 @@ button.tag {
 }
 
 .guided-tour-progress-row {
-  color: var(--apple-ink-muted-48);
+  color: var(--apple-ink);
   font-size: 12px;
   letter-spacing: .06em;
 }
 
-.guided-tour-progress-row span {
-  font-weight: 700;
+.guided-tour-section-label {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--apple-primary);
+  background: rgb(0 102 204 / 10%);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -.01em;
 }
 
 .guided-tour-progress-row strong {
@@ -6639,7 +6665,8 @@ button.tag {
 
 .guided-tour-card h2 {
   margin: 0;
-  font-size: clamp(20px, 4.8cqw, 25px);
+  font-size: clamp(22px, 5.2cqw, 27px);
+  font-weight: 700;
   line-height: 1.25;
   letter-spacing: -.025em;
 }
@@ -6678,7 +6705,7 @@ button.tag {
 @media (min-width: 760px) {
   .guided-tour-layer {
     place-items: end end;
-    padding: 28px;
+    padding: 28px 20px calc(98px + env(safe-area-inset-bottom));
   }
 
   .guided-tour-layer[data-card-placement="top"] {

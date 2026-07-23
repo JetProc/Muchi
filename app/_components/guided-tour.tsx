@@ -136,7 +136,7 @@ export function GuidedTourOverlay() {
         aria-describedby="guided-tour-description"
       >
         <div className="guided-tour-progress-row">
-          <span>{step.eyebrow}</span>
+          <span className="guided-tour-section-label">{step.eyebrow}</span>
           <strong>{guidedTourStep + 1} / {GUIDED_TOUR_STEPS.length}</strong>
         </div>
         <div

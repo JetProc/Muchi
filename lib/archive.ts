@@ -34,7 +34,7 @@ export {
 export { isRecordPhotoStoragePath } from "./record-photo-contract";
 
 export const ARCHIVE_SCHEMA_VERSION = 11 as const;
-export const ARCHIVE_SEED_VERSION = 2 as const;
+export const ARCHIVE_SEED_VERSION = 3 as const;
 
 export const ARCHIVE_LIMITS = {
   cubeName: 40,
@@ -468,6 +468,34 @@ const SEED_MEMORY_FIXTURES: Record<string, ReadonlyArray<{
   "sunday-l": [
     { listenedOn: "2024-08-11", body: "카페에 갈지 고민하다 집에 남아 앨범을 다시 들었다." },
     { listenedOn: "2026-02-15", body: "아무것도 하지 않는 시간에 가장 집중해서 듣게 되는 곡." },
+  ],
+  "dawn-yaeji": [
+    { listenedOn: "2024-04-18", body: "가로등만 남은 도로에서 전자음의 빈 공간이 유난히 크게 들렸다." },
+    { listenedOn: "2026-06-07", body: "목적지 없이 한 블록 더 돌아도 좋겠다고 생각한 새벽." },
+  ],
+  "past-tomboy": [
+    { listenedOn: "2020-11-22", body: "처음 들은 날부터 기타 리프를 따라 치고 싶었던 곡." },
+    { listenedOn: "2025-10-10", body: "오래된 플레이리스트에서 다시 만나도 여전히 거칠고 선명했다." },
+  ],
+  "winter-near-light": [
+    { listenedOn: "2019-01-05", body: "눈이 오던 저녁, 피아노가 방 안의 소리를 모두 잠재웠다." },
+    { listenedOn: "2026-01-12", body: "바쁜 날의 끝에서 호흡을 고르게 해 준 짧은 휴식." },
+  ],
+  "workout-feather": [
+    { listenedOn: "2024-10-15", body: "박자를 따라 뛰다 보면 발걸음이 조금 더 가벼워진다." },
+    { listenedOn: "2026-05-19", body: "지치기 직전에도 미소가 나는 드럼 루프." },
+  ],
+  "rain-friday": [
+    { listenedOn: "2023-06-29", body: "젖은 횡단보도와 느긋한 베이스가 이상하게 잘 맞았다." },
+    { listenedOn: "2026-07-01", body: "비가 그친 뒤에도 우산을 접지 않고 조금 더 걸었다." },
+  ],
+  "room-lamp": [
+    { listenedOn: "2022-02-16", body: "작은 스탠드 하나만 켜 둔 방에서 코러스가 유난히 따뜻했다." },
+    { listenedOn: "2025-12-14", body: "낡은 책장을 정리하며 한 면을 반복해 들었다." },
+  ],
+  "sunday-voodoo": [
+    { listenedOn: "2023-08-27", body: "늦은 아침 커피를 내리는 동안 부엌이 작은 클럽처럼 느껴졌다." },
+    { listenedOn: "2026-03-22", body: "아무 약속 없는 오후에 거실을 빙글빙글 돌게 만든 리듬." },
   ],
 };
 const SEED_ALBUM_ART =
@@ -1139,6 +1167,83 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
         "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/07/13/b3/0713b3ef-969f-2b1f-3cf9-c45505a3c90e/mzaf_13557796651863244619.plus.aac.p.m4a",
       externalUrl: "https://music.apple.com/kr/album/psycho/1752456040?i=1752456349",
     }),
+    seedTrack({
+      providerTrackId: 900000001,
+      title: "For Granted",
+      artist: "Yaeji",
+      album: "With A Hammer",
+      genre: "일렉트로닉",
+      durationMs: 199_000,
+      artworkUrl: null,
+      previewUrl: null,
+      externalUrl: null,
+    }),
+    seedTrack({
+      providerTrackId: 900000002,
+      title: "TOMBOY",
+      artist: "혁오",
+      album: "22",
+      genre: "인디 록",
+      durationMs: 240_000,
+      artworkUrl: null,
+      previewUrl: null,
+      externalUrl: null,
+    }),
+    seedTrack({
+      providerTrackId: 900000003,
+      title: "Near Light",
+      artist: "Ólafur Arnalds",
+      album: "...And They Have Escaped the Weight of Darkness",
+      genre: "네오클래식",
+      durationMs: 238_000,
+      artworkUrl: null,
+      previewUrl: null,
+      externalUrl: null,
+    }),
+    seedTrack({
+      providerTrackId: 900000004,
+      title: "Feather",
+      artist: "Nujabes feat. Cise Starr & Akin",
+      album: "Modal Soul",
+      genre: "힙합",
+      durationMs: 206_000,
+      artworkUrl: null,
+      previewUrl: null,
+      externalUrl: null,
+    }),
+    seedTrack({
+      providerTrackId: 900000005,
+      title: "Friday Morning",
+      artist: "Khruangbin",
+      album: "The Universe Smiles Upon You",
+      genre: "사이키델릭 소울",
+      durationMs: 222_000,
+      artworkUrl: null,
+      previewUrl: null,
+      externalUrl: null,
+    }),
+    seedTrack({
+      providerTrackId: 900000006,
+      title: "For Lovers",
+      artist: "Lamp",
+      album: "For Lovers",
+      genre: "시티 팝",
+      durationMs: 285_000,
+      artworkUrl: null,
+      previewUrl: null,
+      externalUrl: null,
+    }),
+    seedTrack({
+      providerTrackId: 900000007,
+      title: "Voodoo?",
+      artist: "L'Impératrice",
+      album: "Matahari",
+      genre: "프렌치 하우스",
+      durationMs: 231_000,
+      artworkUrl: null,
+      previewUrl: null,
+      externalUrl: null,
+    }),
   ];
 
   const tracks = Object.fromEntries(seedTracks.map((track) => [track.id, track])) as Record<
@@ -1282,6 +1387,13 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
     ["late-bus", "막차에서"],
     ["headphones", "이어폰으로 크게 듣고 싶을 때"],
     ["after-work", "퇴근 직후"],
+    ["late-night-electronic", "새벽 전자음"],
+    ["indie-band", "기타 밴드"],
+    ["quiet-classical", "조용히 가라앉고 싶을 때"],
+    ["head-nod", "고개를 끄덕이게 하는 비트"],
+    ["soul-groove", "느슨한 그루브"],
+    ["city-pop", "저녁 불빛"],
+    ["dance-floor", "춤추고 싶은 밤"],
   ];
   const tags = Object.fromEntries(
     tagSeeds.map(([slug, label]) => {
@@ -1528,6 +1640,83 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       ["no-plan", "headphones", "solitary"],
       2,
       "아무것도 하지 않을 때 가장 집중해서 듣는 곡",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:dawn-yaeji": seedCubeTrack(
+      "dawn-yaeji",
+      "seed:cube:dawn-drive",
+      makeTrackId(900000001),
+      ["urban", "late-night-electronic", "open-road"],
+      3,
+      "가로등 아래에서 더 선명해지는 전자음",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:past-tomboy": seedCubeTrack(
+      "past-tomboy",
+      "seed:cube:past-favorites",
+      makeTrackId(900000002),
+      ["old-guitar", "indie-band", "nostalgic"],
+      3,
+      "처음 좋아한 밴드 음악의 거친 온도",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:winter-near-light": seedCubeTrack(
+      "winter-near-light",
+      "seed:cube:winter-2018",
+      makeTrackId(900000003),
+      ["quiet-classical", "hazy", "uneasy-youth"],
+      3,
+      "눈 오는 저녁의 피아노와 잔향",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:workout-feather": seedCubeTrack(
+      "workout-feather",
+      "seed:cube:workout",
+      makeTrackId(900000004),
+      ["rushing", "head-nod", "restart-workout"],
+      3,
+      "발걸음을 가볍게 만드는 재즈 힙합 리듬",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:rain-friday": seedCubeTrack(
+      "rain-friday",
+      "seed:cube:rainy-commute",
+      makeTrackId(900000005),
+      ["rainy-commute", "soul-groove", "after-work"],
+      3,
+      "젖은 골목을 느긋하게 걷게 하는 베이스",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:room-lamp": seedCubeTrack(
+      "room-lamp",
+      "seed:cube:first-room",
+      makeTrackId(900000006),
+      ["bedroom", "city-pop", "warm"],
+      3,
+      "작은 스탠드 불빛에 어울리는 코러스",
+      null,
+      "",
+      "",
+    ),
+    "seed:cube-track:sunday-voodoo": seedCubeTrack(
+      "sunday-voodoo",
+      "seed:cube:slow-sunday",
+      makeTrackId(900000007),
+      ["no-plan", "dance-floor", "restless"],
+      3,
+      "아무 계획 없는 거실을 춤추게 하는 리듬",
       null,
       "",
       "",
@@ -4249,7 +4438,10 @@ export function migrateArchive(value: unknown): MigrationResult {
       ? { status: "ok", archive: migrated, migrated: true }
       : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
-  if (value.schemaVersion === ARCHIVE_SCHEMA_VERSION && value.seedVersion === 1) {
+  if (
+    value.schemaVersion === ARCHIVE_SCHEMA_VERSION
+    && (value.seedVersion === 1 || value.seedVersion === 2)
+  ) {
     const candidate = addLegacyChapterShareDefaults(
       prepareLegacyEnvelope({ ...value, seedVersion: ARCHIVE_SEED_VERSION }),
     );

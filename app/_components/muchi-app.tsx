@@ -21,6 +21,7 @@ import {
   markActivityRead,
 } from "@/lib/public-discovery";
 import { saveChapterLike, saveProfileFollow } from "@/lib/client/public-discovery-api";
+import { GUIDED_TOUR_STEPS } from "@/lib/guided-tour";
 import {
   EditorialShell,
   type ContextBackAction,
@@ -267,6 +268,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     guidedTourArchive,
     guidedTourCatalog,
     guidedTourActive,
+    guidedTourStep,
     online,
     ensureDiscoveryData,
     updatePublicChapterLike,
@@ -279,6 +281,9 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   } = useMuchiData();
   const archive = guidedTourActive ? guidedTourArchive : persistedArchive;
   const catalog = guidedTourActive ? guidedTourCatalog : persistedCatalog;
+  const guidedTourStepId = guidedTourActive
+    ? GUIDED_TOUR_STEPS[guidedTourStep]?.stepId
+    : null;
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [systemReduce, setSystemReduce] = useState(false);
   const [previewState, setPreviewState] = useState<PreviewState | null>(null);
@@ -642,7 +647,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const content = (() => {
     switch (view) {
       case "capture":
-        return <Capture archive={archive} commit={commit} notify={notify} preview={preview} online={online} router={router} sharedUrl={sharedUrl} guideMode={searchParams.get("guide") === "1"} />;
+        return <Capture archive={archive} commit={commit} notify={notify} preview={preview} online={online} router={router} sharedUrl={sharedUrl} guideMode={searchParams.get("guide") === "1"} suppressAutoFocus={guidedTourActive} guidedTourQuery={guidedTourStepId === "capture-results" ? "한로로" : null} />;
       case "space":
         return searchParams.get("view") === "visitor"
           ? <VisitorSpace archive={archive} chapterId={queryId} />

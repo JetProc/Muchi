@@ -24,7 +24,6 @@ export type GuidedTourStep = {
 
 export const GUIDED_TOUR_STEPS: readonly GuidedTourStep[] = [
   { stepId: "navigation", href: "/", target: "navigation", eyebrow: "둘러보기", title: "다섯 탭에서 음악 세계를 만들어요", description: "홈, 탐색, 기록, 챕터, 찾기를 차례로 둘러볼게요. 아래의 이전·다음 버튼으로 이동할 수 있어요." },
-  { stepId: "home-featured", href: "/", target: "home-featured", eyebrow: "홈", title: "대표 음악을 다시 들어보세요", description: "가장 선명한 기억을 홈에서 바로 열고, 30초 미리듣기를 재생할 수 있어요." },
   { stepId: "home-library", href: "/", target: "home-library", eyebrow: "홈", title: "기록이 태그와 챕터로 쌓여요", description: "정리 대기 곡, 자주 쓴 태그, 최근 챕터와 다시 듣고 싶은 순간을 한곳에서 확인해요." },
   { stepId: "discover", href: "/discover", target: "discover-feed", eyebrow: "탐색", title: "다른 뮤커의 챕터를 둘러보세요", description: "비슷한 곡과 태그를 가진 공개 챕터를 추천받고 팔로잉의 새 글도 확인할 수 있어요." },
   { stepId: "public-actions", href: `/discover/chapter?id=${encodeURIComponent(GUIDED_TOUR_PUBLIC_CHAPTER_ID)}`, target: "public-actions", eyebrow: "탐색", title: "좋아요와 팔로우로 취향을 이어가요", description: "공개된 태그·메모·사진을 보고 챕터에 좋아요를 누르거나 작성자를 팔로우할 수 있어요." },

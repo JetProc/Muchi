@@ -711,7 +711,8 @@ test("connects the mandatory guided tour to onboarding, demo data, and manual re
 
   assert.match(tourConfigSource, /CURRENT_GUIDED_TOUR_VERSION\s*=\s*1/);
   assert.match(tourConfigSource, /export const GUIDED_TOUR_STEPS/);
-  assert.equal((tourConfigSource.match(/\bstepId:\s*"[^"]+"/g) ?? []).length, 20);
+  assert.equal((tourConfigSource.match(/\bstepId:\s*"[^"]+"/g) ?? []).length, 19);
+  assert.doesNotMatch(tourConfigSource, /stepId:\s*"home-featured"|대표 음악을 다시 들어보세요/);
   assert.match(tourConfigSource, /createSeedArchive\(\)/);
   assert.match(providerSource, /guidedTourActive/);
   assert.match(providerSource, /startGuidedTour/);
@@ -721,8 +722,12 @@ test("connects the mandatory guided tour to onboarding, demo data, and manual re
   assert.match(shellSource, /<GuidedTourOverlay/);
   assert.match(settingsSource, /인터랙티브 투어 다시 보기/);
   assert.match(tourSource, /aria-modal="true"/);
+  assert.match(tourSource, /className="guided-tour-section-label"/);
   assert.match(tourSource, /투어 다시 시도/);
   assert.doesNotMatch(tourSource, /건너뛰기|투어 닫기/);
+  assert.match(appSource, /guidedTourStepId === "capture-results" \? "한로로" : null/);
+  assert.match(appSource, /suppressAutoFocus=\{guidedTourActive\}/);
+  assert.match(settingsSource, /주요 기능 19가지를 다시 둘러봐요/);
   assert.match(tourApiSource, /CURRENT_GUIDED_TOUR_VERSION/);
   assert.match(migrationSource, /guided_tour_version integer not null default 0/);
   assert.match(migrationSource, /update public\.profiles\s+set guided_tour_version = 1/);
@@ -1936,7 +1941,7 @@ test("keeps the same song's tags and memory independent in each cube", async () 
   );
 
   assert.equal(Object.keys(seed.data.cubes).length, 7);
-  assert.equal(Object.keys(seed.data.tracks).length, 7);
+  assert.equal(Object.keys(seed.data.tracks).length, 14);
   assert.equal(radioContexts.length, 4);
 
   const dawnRadio = seed.data.cubeTracks["seed:cube-track:dawn-radio"];
@@ -2704,7 +2709,7 @@ test("seeds dated listening history and refreshes legacy seed records without lo
   const seedRecords = Object.values(seed.data.cubeTracks)
     .filter((cubeTrack) => cubeTrack.source === "seed");
 
-  assert.equal(seedRecords.length, 21);
+  assert.equal(seedRecords.length, 28);
   assert.ok(seedRecords.every((cubeTrack) => cubeTrack.notes.length >= 2));
   assert.ok(seedRecords.every((cubeTrack) => (
     cubeTrack.notes.every((note) => /^\d{4}-\d{2}-\d{2}$/.test(note.listenedOn ?? ""))
@@ -2741,7 +2746,7 @@ test("ships a contextual sample archive and upgrades older local archives withou
     name: "내가 만든 챕터",
   }).archive;
   const legacySeed = structuredClone(userChapter);
-  legacySeed.seedVersion = 1;
+  legacySeed.seedVersion = 2;
   delete legacySeed.data.cubes["seed:cube:workout"];
   Object.entries(legacySeed.data.cubeTracks).forEach(([id, cubeTrack]) => {
     if (cubeTrack.cubeId === "seed:cube:workout") delete legacySeed.data.cubeTracks[id];
@@ -2757,10 +2762,16 @@ test("ships a contextual sample archive and upgrades older local archives withou
   assert.ok(parsed.archive.data.cubes["seed:cube:workout"]);
   assert.equal(parsed.archive.data.preferences.seedDismissed, false);
   assert.equal(Object.values(parsed.archive.data.cubes).filter((cube) => cube.source === "seed").length, 7);
-  assert.equal(Object.values(parsed.archive.data.cubeTracks).filter((item) => item.source === "seed").length, 21);
-  assert.equal(Object.values(parsed.archive.data.tags).filter((tag) => tag.source === "seed").length, 20);
+  assert.equal(Object.values(parsed.archive.data.cubeTracks).filter((item) => item.source === "seed").length, 28);
+  assert.equal(Object.values(parsed.archive.data.tags).filter((tag) => tag.source === "seed").length, 27);
   assert.equal(parsed.archive.data.cubes["seed:cube:winter-2018"].parentId, "seed:cube:past-favorites");
   assert.ok(Object.values(parsed.archive.data.cubeTracks).every((item) => item.source !== "seed" || item.notes.length >= 2));
+  const seedTracks = Object.values(parsed.archive.data.tracks).filter((track) => track.id.startsWith("itunes:"));
+  assert.ok(new Set(seedTracks.map((track) => track.artist)).size >= 8);
+  assert.deepEqual(
+    new Set(["록", "일렉트로닉", "인디 록", "네오클래식", "힙합", "사이키델릭 소울", "시티 팝", "프렌치 하우스"]),
+    new Set(seedTracks.map((track) => track.genre)),
+  );
 
   const radioContexts = Object.values(parsed.archive.data.cubeTracks)
     .filter((item) => item.trackId === archiveDomain.makeTrackId(1569294423));

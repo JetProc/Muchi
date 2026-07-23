@@ -394,6 +394,8 @@ export function Capture({
   router,
   sharedUrl,
   guideMode = false,
+  suppressAutoFocus = false,
+  guidedTourQuery = null,
 }: {
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
@@ -403,6 +405,8 @@ export function Capture({
   router: MotionRouter;
   sharedUrl: string | null;
   guideMode?: boolean;
+  suppressAutoFocus?: boolean;
+  guidedTourQuery?: string | null;
 }) {
   const [musicUrl, setMusicUrl] = useState("");
   const [query, setQuery] = useState("");
@@ -431,6 +435,7 @@ export function Capture({
   const suggestedTags = getTagGroups(archive).slice(0, 5).map((group) => group.tag);
   const draftReady = useRef(false);
   const handledSharedUrl = useRef<string | null>(null);
+  const handledGuidedTourQuery = useRef<string | null>(null);
   const searchRequestRef = useRef(0);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const visibleResults = resultSource === "search"
@@ -460,6 +465,10 @@ export function Capture({
   );
 
   useEffect(() => {
+    if (suppressAutoFocus) {
+      draftReady.current = true;
+      return;
+    }
     if (sharedUrl) {
       draftReady.current = true;
       return;
@@ -495,7 +504,7 @@ export function Capture({
       draftReady.current = true;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [sharedUrl]);
+  }, [sharedUrl, suppressAutoFocus]);
 
   useEffect(() => {
     if (!draftReady.current) return;
@@ -686,13 +695,11 @@ export function Capture({
     startDetailedRecord(track);
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  const runSearch = useCallback(async (submittedQuery: string) => {
     if (!online) {
       setError("오프라인에서는 새 음악을 검색할 수 없어요.");
       return;
     }
-    const submittedQuery = query.trim();
     const requestId = searchRequestRef.current + 1;
     searchRequestRef.current = requestId;
     setLoading(true);
@@ -712,6 +719,18 @@ export function Capture({
     } finally {
       if (requestId === searchRequestRef.current) setLoading(false);
     }
+  }, [online]);
+
+  useEffect(() => {
+    if (!guidedTourQuery || handledGuidedTourQuery.current === guidedTourQuery) return;
+    handledGuidedTourQuery.current = guidedTourQuery;
+    setQuery(guidedTourQuery);
+    void runSearch(guidedTourQuery);
+  }, [guidedTourQuery, runSearch]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await runSearch(query.trim());
   }
 
   function saveInbox(track: TrackReference) {
@@ -878,7 +897,7 @@ export function Capture({
       <section className="capture-search-compact" aria-label="음악 검색" data-tour="capture-search">
         <form className="search-form capture-search-form" onSubmit={submit}>
           <label className="sr-only" htmlFor="itunes-query">외부 음악에서 기록할 곡 찾기</label>
-          <input id="itunes-query" className="input" type="search" name="music-search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="기록할 곡이나 아티스트" minLength={1} enterKeyHint="search" autoComplete="off" autoFocus data-route-autofocus />
+          <input id="itunes-query" className="input" type="search" name="music-search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="기록할 곡이나 아티스트" minLength={1} enterKeyHint="search" autoComplete="off" autoFocus={!suppressAutoFocus} data-route-autofocus={suppressAutoFocus ? undefined : true} />
           <button className="capture-search-submit" type="submit" aria-label="외부 음악 검색" disabled={loading || !online || !query.trim()}>{loading ? <LoadingDots /> : <Search aria-hidden="true" size={20} />}</button>
         </form>
       </section>
@@ -901,11 +920,10 @@ export function Capture({
         </button>
       </div>
 
-      <div data-tour="capture-results">
       {error ? <div className="notice notice-danger" style={{ marginTop: 18 }} role="alert">{error}</div> : null}
 
       {resultSource ? (
-        <section className="section capture-results" aria-busy={loadingMore}>
+        <section className="section capture-results" aria-busy={loadingMore} data-tour="capture-results">
           <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
             {resultSource === "link" ? `가져온 음악 ${results.length}곡` : `찾은 음악 ${results.length}곡`}
           </p>
@@ -961,7 +979,6 @@ export function Capture({
           ) : null}
         </section>
       ) : null}
-      </div>
 
       {selectedResults.length ? (
         <div className="capture-floating-action" aria-live="polite">

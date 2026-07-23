@@ -44,6 +44,7 @@ import {
   setCubeTrackRecordVisibility,
   setCubeTrackAffection,
   updateCube,
+  updateCubeTrack,
   updateCubeTrackNote,
   updateCubeTrackNoteBody,
   type ArchiveEnvelopeV1,
@@ -57,12 +58,18 @@ import {
   type TrackReference,
 } from "@/lib/archive";
 import {
+  deleteUploadedRecordPhoto,
+  uploadRecordPhoto,
+  type RecordPhotoUploadResult,
+} from "@/lib/client/record-photo-api";
+import {
   MotionLink as Link,
   type MotionRouter,
 } from "./editorial-motion";
 import {
   AlbumArtwork,
   ChapterCover,
+  getOwnedRecordPhotoUrl,
 } from "./editorial-media";
 import {
   ChapterChoice,
@@ -105,6 +112,7 @@ function todayInSeoul(): string {
 export type ChapterTrackDetailItem = {
   id: string;
   track: TrackReference;
+  customImageUrl?: string | null;
   summary: ReactNode;
   tags?: Array<Pick<TagDefinition, "id" | "label">>;
   action?: ReactNode;
@@ -206,7 +214,7 @@ export function ChapterTrackSection({
                     aria-expanded={expanded}
                     aria-controls={`chapter-track-detail-${item.id}`}
                   >
-                    <AlbumArtwork track={item.track} sharedId={item.sharedId ?? item.id} decorative />
+                    <AlbumArtwork track={item.track} customImageUrl={item.customImageUrl} sharedId={item.sharedId ?? item.id} decorative />
                     <span className="chapter-compact-track-copy">
                       <span className="chapter-compact-track-title"><strong>{item.track.title}</strong>{item.affection ? <AffectionDot affection={item.affection} /> : null}</span>
                       <span>{item.track.artist}</span>
@@ -215,7 +223,7 @@ export function ChapterTrackSection({
                   </button>
                 ) : (
                   <div className="chapter-compact-track-toggle is-static">
-                    <AlbumArtwork track={item.track} sharedId={item.sharedId ?? item.id} decorative />
+                    <AlbumArtwork track={item.track} customImageUrl={item.customImageUrl} sharedId={item.sharedId ?? item.id} decorative />
                     <span className="chapter-compact-track-copy">
                       <span className="chapter-compact-track-title"><strong>{item.track.title}</strong>{item.affection ? <AffectionDot affection={item.affection} /> : null}</span>
                       <span>{item.track.artist}</span>
@@ -646,6 +654,7 @@ export function ChapterDetail({
     id: entry.cubeTrack.id,
     track: entry.track,
     sharedId: entry.cubeTrack.id,
+    customImageUrl: getOwnedRecordPhotoUrl(entry.cubeTrack.id, entry.cubeTrack.customImageVersion),
     summary: getLatestCubeTrackNote(entry.cubeTrack)?.body ?? null,
     tags: entry.tags,
     affection: entry.cubeTrack.affection,
@@ -833,17 +842,108 @@ export function ChapterDetail({
   );
 }
 
+type MemoryPhotoDraft = {
+  upload: RecordPhotoUploadResult | null;
+  previewUrl: string | null;
+  previewUsesObjectUrl: boolean;
+  removed: boolean;
+};
+
+function emptyMemoryPhotoDraft(): MemoryPhotoDraft {
+  return {
+    upload: null,
+    previewUrl: null,
+    previewUsesObjectUrl: false,
+    removed: false,
+  };
+}
+
+function revokePreviewUrl(draft: MemoryPhotoDraft) {
+  if (draft.previewUsesObjectUrl && draft.previewUrl) {
+    URL.revokeObjectURL(draft.previewUrl);
+  }
+}
+
+function discardPendingRecordPhoto(draft: MemoryPhotoDraft) {
+  revokePreviewUrl(draft);
+  if (draft.upload) {
+    void deleteUploadedRecordPhoto(draft.upload.customImagePath).catch(() => {
+      // Best-effort cleanup; the deferred server sweep remains the fallback.
+    });
+  }
+}
+
+function RecordPhotoField({
+  previewUrl,
+  uploading,
+  error,
+  onSelect,
+  onRemove,
+  removable,
+}: {
+  previewUrl: string | null;
+  uploading: boolean;
+  error: string | null;
+  onSelect: (file: File) => void;
+  onRemove: () => void;
+  removable: boolean;
+}) {
+  return (
+    <section className="field memory-photo-field" aria-labelledby="memory-photo-title">
+      <div className="memory-photo-head">
+        <div>
+          <h2 id="memory-photo-title" className="field-label">기록 사진</h2>
+          <p className="field-hint">JPG, PNG, WEBP 한 장만 올릴 수 있어요. 저장 전에도 미리 볼 수 있어요.</p>
+        </div>
+        {uploading ? <span className="memory-photo-progress" role="status">업로드 중…</span> : null}
+      </div>
+      <div className={`memory-photo-card${previewUrl ? " has-photo" : ""}${uploading ? " is-uploading" : ""}`}>
+        {previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="memory-photo-preview" src={previewUrl} alt="선택한 기록 사진 미리보기" />
+        ) : (
+          <div className="memory-photo-empty">
+            <strong>이 곡과 함께 남기고 싶은 장면이 있나요?</strong>
+            <span>없어도 괜찮아요. 사진 없이 태그와 메모만 저장할 수 있어요.</span>
+          </div>
+        )}
+        <div className="memory-photo-actions">
+          <label className="button button-ghost" htmlFor="memory-photo-input" aria-disabled={uploading}>
+            {uploading ? "올리는 중" : previewUrl ? "사진 바꾸기" : "사진 선택"}
+          </label>
+          {removable ? <button className="text-button" type="button" onClick={onRemove}>사진 제거</button> : null}
+        </div>
+      </div>
+      <input
+        id="memory-photo-input"
+        className="sr-only"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        disabled={uploading}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) onSelect(file);
+        }}
+      />
+      {error ? <p className="field-error" role="alert">{error}</p> : null}
+    </section>
+  );
+}
+
 export function MemoryPanel({
   cubeTrack,
   track,
+  customImageUrl,
 }: {
   cubeTrack: CubeTrack;
   track: TrackReference;
+  customImageUrl?: string | null;
 }) {
   const latestNote = getLatestCubeTrackNote(cubeTrack);
   return (
     <aside className="memory-art-panel">
-      <AlbumArtwork track={track} sharedId={cubeTrack.id} priority />
+      <AlbumArtwork track={track} customImageUrl={customImageUrl} sharedId={cubeTrack.id} priority />
       <div className="memory-art-copy">
         <span className="section-label">{latestNote?.listenedOn ? formatCalendarDate(latestNote.listenedOn) : `최초 기록 · ${formatDate(cubeTrack.createdAt)}`}</span>
         <h2>{track.title}{cubeTrack.affection ? <AffectionDot affection={cubeTrack.affection} /> : null}</h2>
@@ -920,9 +1020,13 @@ export function Memory({
   const [noteBody, setNoteBody] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [pendingTags, setPendingTags] = useState<TagDefinition[]>([]);
+  const [photoDraft, setPhotoDraft] = useState<MemoryPhotoDraft>(() => emptyMemoryPhotoDraft());
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(openChapterMove);
   const draftReady = useRef(false);
   const baselineTagIdsRef = useRef<string[]>([]);
+  const photoDraftRef = useRef<MemoryPhotoDraft>(emptyMemoryPhotoDraft());
   const availableTags = [...Object.values(archive.data.tags), ...pendingTags]
     .sort((left, right) => left.label.localeCompare(right.label, "ko"));
   const tagGroups = useMemo(
@@ -956,6 +1060,12 @@ export function Memory({
       setNoteBody("");
       setEditingNoteId(null);
       setPendingTags([]);
+      setPhotoError(null);
+      setPhotoUploading(false);
+      discardPendingRecordPhoto(photoDraftRef.current);
+      const emptyPhotoDraft = emptyMemoryPhotoDraft();
+      photoDraftRef.current = emptyPhotoDraft;
+      setPhotoDraft(emptyPhotoDraft);
       try {
         const raw = window.sessionStorage.getItem(`muchi:memory-draft:v1:${cubeTrack.id}`);
         if (raw) {
@@ -1024,10 +1134,22 @@ export function Memory({
     };
   }, [affection, cubeTrackId, editingNoteId, noteBody, noteDate, pendingTags, selectedTagIds]);
 
+  useEffect(() => {
+    photoDraftRef.current = photoDraft;
+  }, [photoDraft]);
+
+  useEffect(() => () => {
+    discardPendingRecordPhoto(photoDraftRef.current);
+  }, []);
+
   if (!cubeTrackId || !cubeTrack || !track || !cube) return <div className="page-content"><EmptyState title="곡의 기억을 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
   const activeCubeTrack = cubeTrack;
   const activeTrack = track;
   const activeCube = cube;
+  const existingPhotoUrl = photoDraft.removed
+    ? null
+    : getOwnedRecordPhotoUrl(activeCubeTrack.id, activeCubeTrack.customImageVersion);
+  const currentPhotoUrl = photoDraft.previewUrl ?? existingPhotoUrl;
   const notes = getCubeTrackNotes(activeCubeTrack);
   const editingNote = editingNoteId
     ? activeCubeTrack.notes.find((note) => note.id === editingNoteId) ?? null
@@ -1081,6 +1203,42 @@ export function Memory({
     }
   }
 
+  async function selectRecordPhoto(file: File) {
+    const previewUrl = URL.createObjectURL(file);
+    setPhotoError(null);
+    setPhotoUploading(true);
+    try {
+      const upload = await uploadRecordPhoto(file, activeCubeTrack.id);
+      discardPendingRecordPhoto(photoDraftRef.current);
+      const nextPhotoDraft = {
+        upload,
+        previewUrl,
+        previewUsesObjectUrl: true,
+        removed: false,
+      };
+      photoDraftRef.current = nextPhotoDraft;
+      setPhotoDraft(nextPhotoDraft);
+    } catch (error) {
+      URL.revokeObjectURL(previewUrl);
+      setPhotoError(error instanceof Error ? error.message : "기록 사진을 올리지 못했어요.");
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  function removeRecordPhoto() {
+    setPhotoError(null);
+    discardPendingRecordPhoto(photoDraftRef.current);
+    const removedPhotoDraft = {
+      upload: null,
+      previewUrl: null,
+      previewUsesObjectUrl: false,
+      removed: true,
+    };
+    photoDraftRef.current = removedPhotoDraft;
+    setPhotoDraft(removedPhotoDraft);
+  }
+
   function persist() {
     try {
       if (activeCube.kind === "capture") {
@@ -1107,6 +1265,17 @@ export function Memory({
       }
       let next = setCubeTrackTagIds(created.archive, activeCubeTrack.id, resolvedTagIds);
       next = setCubeTrackAffection(next, activeCubeTrack.id, affection);
+      if (photoDraft.upload) {
+        next = updateCubeTrack(next, activeCubeTrack.id, {
+          customImagePath: photoDraft.upload.customImagePath,
+          customImageVersion: photoDraft.upload.customImageVersion,
+        });
+      } else if (photoDraft.removed) {
+        next = updateCubeTrack(next, activeCubeTrack.id, {
+          customImagePath: null,
+          customImageVersion: null,
+        });
+      }
       if (noteBody.trim()) {
         if (editingNoteId) {
           next = editingNote?.listenedOn === null
@@ -1125,6 +1294,10 @@ export function Memory({
             : "곡을 기록했어요.";
       if (commit(next, message)) {
         clearDraft();
+        const committedPhotoDraft = photoDraftRef.current;
+        photoDraftRef.current = emptyMemoryPhotoDraft();
+        revokePreviewUrl(committedPhotoDraft);
+        setPhotoDraft(photoDraftRef.current);
         router.push(`/chapter?id=${encodeURIComponent(activeCube.id)}`, "back", activeCube.id);
       }
     } catch (error) {
@@ -1238,8 +1411,17 @@ export function Memory({
         <MemoryPanel
           cubeTrack={cubeTrack}
           track={track}
+          customImageUrl={currentPhotoUrl}
         />
         <form className="memory-form form-stack" onSubmit={save}>
+          <RecordPhotoField
+            previewUrl={currentPhotoUrl}
+            uploading={photoUploading}
+            error={photoError}
+            onSelect={(file) => { void selectRecordPhoto(file); }}
+            onRemove={removeRecordPhoto}
+            removable={Boolean(currentPhotoUrl)}
+          />
           <TagEditor
             tags={availableTags}
             selectedTagIds={selectedTagIds}

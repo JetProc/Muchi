@@ -196,6 +196,7 @@ export function PublicChapterDetail({
   const trackItems: ChapterTrackDetailItem[] = chapter.tracks.map((item) => ({
     id: item.id,
     track: item.track,
+    customImageUrl: item.visibility === "public" ? item.recordPhoto?.displayUrl ?? null : null,
     summary: item.visibility === "public" ? item.note : "기록이 비공개입니다",
     tags: item.visibility === "public"
       ? item.tags.map((tag) => ({ id: `${item.id}:${tag}`, label: tag }))

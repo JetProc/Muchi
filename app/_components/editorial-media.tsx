@@ -9,6 +9,7 @@ import {
   type CubeColor,
   type TrackReference,
 } from "@/lib/archive";
+import { createOwnedRecordPhotoUrl } from "@/lib/record-photo-contract";
 import { sharedArtworkKey, sharedArtworkStyle } from "./editorial-motion";
 import {
   chapterColorStyle,
@@ -28,14 +29,47 @@ export interface PreviewControls {
   close: () => void;
 }
 
+export const getOwnedRecordPhotoUrl = createOwnedRecordPhotoUrl;
+
 export function AlbumArtwork({
   track,
+  customImageUrl,
   sharedId,
   className = "",
   priority = false,
   decorative = false,
 }: {
   track: TrackReference;
+  customImageUrl?: string | null;
+  sharedId?: string;
+  className?: string;
+  priority?: boolean;
+  decorative?: boolean;
+}) {
+  const preferredSource = customImageUrl ?? track.artworkUrl;
+  return (
+    <AlbumArtworkFrame
+      key={preferredSource ?? "__default-art__"}
+      track={track}
+      customImageUrl={customImageUrl}
+      sharedId={sharedId}
+      className={className}
+      priority={priority}
+      decorative={decorative}
+    />
+  );
+}
+
+function AlbumArtworkFrame({
+  track,
+  customImageUrl,
+  sharedId,
+  className = "",
+  priority = false,
+  decorative = false,
+}: {
+  track: TrackReference;
+  customImageUrl?: string | null;
   sharedId?: string;
   className?: string;
   priority?: boolean;
@@ -43,8 +77,9 @@ export function AlbumArtwork({
 }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const source = track.artworkUrl && !failed
-    ? track.artworkUrl
+  const preferredSource = customImageUrl ?? track.artworkUrl;
+  const source = preferredSource && !failed
+    ? preferredSource
     : "/assets/default-album.jpg";
   return (
     <div

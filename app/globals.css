@@ -3069,6 +3069,15 @@ button.tag {
   color: var(--apple-primary);
 }
 
+.chapter-compact-track-photo {
+  width: calc(100% - 60px);
+  max-height: 240px;
+  display: block;
+  margin: 0 8px 12px 52px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
 .chapter-compact-track-manage {
   display: flex;
   gap: 3px;
@@ -3139,5 +3148,10 @@ button.tag {
   .chapter-compact-track-detail p,
   .chapter-compact-track-tags {
     padding-left: 46px;
+  }
+
+  .chapter-compact-track-photo {
+    width: calc(100% - 54px);
+    margin-left: 46px;
   }
 }

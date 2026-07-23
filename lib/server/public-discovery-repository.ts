@@ -2,6 +2,7 @@ import {
   getLatestCubeTrackNote,
   getVisitorSpaceChapters,
   isChapterCoverStorageUrl,
+  sortChapterTrackEntries,
   type ArchiveEnvelopeV1,
 } from "@/lib/archive";
 import {
@@ -66,33 +67,37 @@ function toPublicRecordPhotoMedia(chapterId: string, cubeTrack: { id: string } &
 }
 
 function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ chapterId: string; payload: PublicChapter }> {
-  return getVisitorSpaceChapters(archive).map(({ chapter, tracks }) => ({
-    chapterId: chapter.id,
-    payload: {
-      id: `public:${authorId}:${chapter.id}`,
-      profileId: authorId,
-      name: chapter.name,
-      description: chapter.description,
-      color: chapter.color,
-      // Legacy data URLs stay private. Public feeds only ever receive a CDN-backed cover URL.
-      artworkUrl: safePublicCoverUrl(chapter.coverImageUrl),
-      createdAt: chapter.createdAt,
-      likeCount: 0,
-      likedByViewer: false,
-      tracks: tracks.map(({ cubeTrack, track, tags, privateRecord }) => {
-        const trackChapterId = `public:${authorId}:${chapter.id}`;
-        return {
-          id: cubeTrack.id,
-          track,
-          visibility: privateRecord ? "private" : "public",
-          note: privateRecord ? null : getLatestCubeTrackNote(cubeTrack)?.body ?? null,
-          tags: privateRecord ? [] : tags.map((tag) => tag.label),
-          affection: privateRecord ? null : cubeTrack.affection,
-          recordPhoto: privateRecord ? null : toPublicRecordPhotoMedia(trackChapterId, cubeTrack as typeof cubeTrack & Record<string, unknown>),
-        };
-      }),
-    },
-  }));
+  return getVisitorSpaceChapters(archive).map(({ chapter, tracks }) => {
+    const sortedTracks = sortChapterTrackEntries(tracks, chapter.trackSort);
+    return {
+      chapterId: chapter.id,
+      payload: {
+        id: `public:${authorId}:${chapter.id}`,
+        profileId: authorId,
+        name: chapter.name,
+        description: chapter.description,
+        color: chapter.color,
+        // Legacy data URLs stay private. Public feeds only ever receive a CDN-backed cover URL.
+        artworkUrl: safePublicCoverUrl(chapter.coverImageUrl),
+        createdAt: chapter.createdAt,
+        trackSort: chapter.trackSort,
+        likeCount: 0,
+        likedByViewer: false,
+        tracks: sortedTracks.map(({ cubeTrack, track, tags, privateRecord }) => {
+          const trackChapterId = `public:${authorId}:${chapter.id}`;
+          return {
+            id: cubeTrack.id,
+            track,
+            visibility: privateRecord ? "private" : "public",
+            note: privateRecord ? null : getLatestCubeTrackNote(cubeTrack)?.body ?? null,
+            tags: privateRecord ? [] : tags.map((tag) => tag.label),
+            affection: privateRecord ? null : cubeTrack.affection,
+            recordPhoto: privateRecord ? null : toPublicRecordPhotoMedia(trackChapterId, cubeTrack as typeof cubeTrack & Record<string, unknown>),
+          };
+        }),
+      },
+    };
+  });
 }
 
 function safePublicCoverUrl(value: unknown): string | null {

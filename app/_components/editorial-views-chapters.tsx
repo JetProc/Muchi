@@ -41,13 +41,13 @@ import {
   removeCubeTrackNote,
   reconcileTagSelection,
   reorderCubeTracks,
+  setChapterTrackSort,
   setCubeTrackTagIds,
   setCubeTrackRecordVisibility,
   setCubeTrackAffection,
+  sortChapterTrackEntries,
   updateCube,
-  updateCubeTrack,
   updateCubeTrackNote,
-  updateCubeTrackNoteBody,
   type ArchiveEnvelopeV1,
   type AffectionLevel,
   type Cube,
@@ -86,6 +86,7 @@ import {
   formatChapterTitle,
   formatCalendarDate,
   formatDate,
+  formatTrackArtist,
   isAssignableChapter,
   isMonthlyChapter,
   isVisibleChapter,
@@ -160,17 +161,17 @@ export function ChapterDetailHero({
   const showMetaRow = Boolean(meta || (!compactUtilityRow && !utilitiesOutsideCopy && utilities) || (!actionsOutsideCopy && !actionsBelowCopy && actions));
   return (
     <section className="chapter-hero chapter-detail-hero" style={style}>
-      {cover}
+      {compactUtilityRow ? <div className="chapter-detail-cover-column">
+        {cover}
+        {visibilityAction ? <div className="chapter-detail-visibility">{visibilityAction}</div> : null}
+        {utilities ? <div className="chapter-detail-utilities is-inline">{utilities}</div> : null}
+      </div> : cover}
       {menu ? <div className="chapter-hero-menu">{menu}</div> : null}
       <div className="chapter-hero-copy">
         <span className="section-label">{eyebrow}</span>
         {leading}
         <h1>{title}</h1>
         {description ? <p>{description}</p> : null}
-        {compactUtilityRow && (visibilityAction || utilities) ? <div className="chapter-detail-utility-row">
-          {visibilityAction ? <div className="chapter-detail-visibility">{visibilityAction}</div> : null}
-          {utilities ? <div className="chapter-detail-utilities is-inline">{utilities}</div> : null}
-        </div> : null}
         {!compactUtilityRow && visibilityAction ? <div className="chapter-detail-visibility">{visibilityAction}</div> : null}
         {showMetaRow ? <div className="chapter-detail-meta-row">
           {meta ? <p className="chapter-detail-meta">{meta}</p> : null}
@@ -221,7 +222,7 @@ export function ChapterTrackSection({
                     <AlbumArtwork track={item.track} customImageUrl={item.customImageUrl} sharedId={item.sharedId ?? item.id} decorative />
                     <span className="chapter-compact-track-copy">
                       <span className="chapter-compact-track-title"><strong>{item.track.title}</strong>{item.affection ? <AffectionDot affection={item.affection} /> : null}</span>
-                      <span>{item.track.artist}</span>
+                      <span>{formatTrackArtist(item.track)}</span>
                     </span>
                     <ChevronDown size={15} aria-hidden="true" />
                   </button>
@@ -230,7 +231,7 @@ export function ChapterTrackSection({
                     <AlbumArtwork track={item.track} customImageUrl={item.customImageUrl} sharedId={item.sharedId ?? item.id} decorative />
                     <span className="chapter-compact-track-copy">
                       <span className="chapter-compact-track-title"><strong>{item.track.title}</strong>{item.affection ? <AffectionDot affection={item.affection} /> : null}</span>
-                      <span>{item.track.artist}</span>
+                      <span>{formatTrackArtist(item.track)}</span>
                       {inlineSummary ? <small>{inlineSummary}</small> : null}
                     </span>
                   </div>
@@ -249,6 +250,16 @@ export function ChapterTrackSection({
                         {item.tags.length > 6 ? <span>+{item.tags.length - 6}</span> : null}
                       </div>
                     ) : null}
+                    {expanded && item.customImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        className="chapter-compact-track-photo"
+                        src={item.customImageUrl}
+                        alt={`${item.track.title} 기록 사진`}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : null}
                     {item.detailActions ? <div className="chapter-compact-track-detail-actions">{item.detailActions}</div> : null}
                   </div>
                 </div>
@@ -261,10 +272,11 @@ export function ChapterTrackSection({
   );
 }
 
-export function ChapterPlaylistActions({}: {
+export function ChapterPlaylistActions({ chapterId, source }: {
   chapterId: string;
   source?: "discover";
 }) {
+  const youtubeHref = `/playlist?id=${encodeURIComponent(chapterId)}&service=youtube${source ? `&source=${source}` : ""}`;
   return (
     <nav className="chapter-service-actions" aria-label="플레이리스트로 내보내기">
       <div className="chapter-service-grid">
@@ -272,10 +284,10 @@ export function ChapterPlaylistActions({}: {
           <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="apple" /></span>
           <span>Apple Music 준비 중</span>
         </button>
-        <button className="chapter-service-link is-youtube" type="button" disabled aria-label="YouTube Music 내보내기 준비 중">
+        <Link className="chapter-service-link is-youtube" href={youtubeHref} intent="forward">
           <span className="chapter-service-icon" aria-hidden="true"><MusicServiceIcon service="youtube" /></span>
-          <span>YouTube Music 준비 중</span>
-        </button>
+          <span>YouTube Music으로 내보내기</span>
+        </Link>
       </div>
     </nav>
   );
@@ -512,7 +524,6 @@ export function ChapterDetail({
     ? candidateChapter
     : null;
   const entries = chapter ? getCubeTracks(archive, chapter.id) : [];
-  const [trackSort, setTrackSort] = useState<"added" | "affection">("added");
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -646,14 +657,14 @@ export function ChapterDetail({
     );
   }
 
-  const sortedEntries = trackSort === "affection"
-    ? [...entries].sort((left, right) => {
-        const ranks: Record<AffectionLevel, number> = { red: 0, orange: 1, yellow: 2 };
-        return (ranks[left.cubeTrack.affection ?? "yellow"] + (left.cubeTrack.affection ? 0 : 1))
-          - (ranks[right.cubeTrack.affection ?? "yellow"] + (right.cubeTrack.affection ? 0 : 1))
-          || left.cubeTrack.sortOrder - right.cubeTrack.sortOrder;
-      })
-    : entries;
+  function changeTrackSort(trackSort: "added" | "affection") {
+    commit(
+      setChapterTrackSort(archive, activeChapter.id, trackSort),
+      trackSort === "affection" ? "애정도 높은 순으로 정렬했어요." : "추가순으로 정렬했어요.",
+    );
+  }
+
+  const sortedEntries = sortChapterTrackEntries(entries, activeChapter.trackSort);
   const trackItems: ChapterTrackDetailItem[] = sortedEntries.map((entry, index) => ({
     id: entry.cubeTrack.id,
     track: entry.track,
@@ -741,9 +752,9 @@ export function ChapterDetail({
             <div className="chapter-track-actions">
               <label className="chapter-track-sort">
                 <span className="sr-only">곡 정렬</span>
-                <select value={trackSort} onChange={(event) => setTrackSort(event.target.value as "added" | "affection")}>
-                  <option value="added">추가순</option>
+                <select value={activeChapter.trackSort} onChange={(event) => changeTrackSort(event.target.value as "added" | "affection")}>
                   <option value="affection">애정도 높은 순</option>
+                  <option value="added">추가순</option>
                 </select>
               </label>
               {!monthlyChapter ? <Link className="text-button compact-section-action" href="/capture" intent="modal">
@@ -890,6 +901,7 @@ function discardPendingRecordPhoto(draft: MemoryPhotoDraft) {
 }
 
 function RecordPhotoField({
+  title,
   previewUrl,
   uploading,
   error,
@@ -897,6 +909,7 @@ function RecordPhotoField({
   onRemove,
   removable,
 }: {
+  title: string;
   previewUrl: string | null;
   uploading: boolean;
   error: string | null;
@@ -908,8 +921,8 @@ function RecordPhotoField({
     <section className="field memory-photo-field" aria-labelledby="memory-photo-title">
       <div className="memory-photo-head">
         <div>
-          <h2 id="memory-photo-title" className="field-label">기록 사진</h2>
-          <p className="field-hint">JPG, PNG, WEBP 한 장만 올릴 수 있어요. 저장 전에도 미리 볼 수 있어요.</p>
+          <h2 id="memory-photo-title" className="field-label">{title}</h2>
+          <p className="field-hint">JPG, PNG, WEBP 한 장을 이 날짜의 메모와 함께 남길 수 있어요.</p>
         </div>
         {uploading ? <span className="memory-photo-progress" role="status">업로드 중…</span> : null}
       </div>
@@ -925,7 +938,7 @@ function RecordPhotoField({
         )}
         <div className="memory-photo-actions">
           <label className="button button-ghost" htmlFor="memory-photo-input" aria-disabled={uploading}>
-            {uploading ? "올리는 중" : previewUrl ? "사진 바꾸기" : "사진 선택"}
+            {uploading ? "올리는 중" : previewUrl ? "사진 바꾸기" : "사진 추가"}
           </label>
           {removable ? <button className="text-button" type="button" onClick={onRemove}>사진 제거</button> : null}
         </div>
@@ -950,20 +963,18 @@ function RecordPhotoField({
 export function MemoryPanel({
   cubeTrack,
   track,
-  customImageUrl,
 }: {
   cubeTrack: CubeTrack;
   track: TrackReference;
-  customImageUrl?: string | null;
 }) {
   const latestNote = getLatestCubeTrackNote(cubeTrack);
   return (
     <aside className="memory-art-panel">
-      <AlbumArtwork track={track} customImageUrl={customImageUrl} sharedId={cubeTrack.id} priority />
+      <AlbumArtwork track={track} sharedId={cubeTrack.id} priority />
       <div className="memory-art-copy">
         <span className="section-label">{latestNote?.listenedOn ? formatCalendarDate(latestNote.listenedOn) : `최초 기록 · ${formatDate(cubeTrack.createdAt)}`}</span>
         <h2>{track.title}{cubeTrack.affection ? <AffectionDot affection={cubeTrack.affection} /> : null}</h2>
-        <p>{track.artist}{track.album ? ` · ${track.album}` : ""}</p>
+        <p>{formatTrackArtist(track)}{track.album ? ` · ${track.album}` : ""}</p>
       </div>
     </aside>
   );
@@ -1162,14 +1173,14 @@ export function Memory({
   const activeCubeTrack = cubeTrack;
   const activeTrack = track;
   const activeCube = cube;
-  const existingPhotoUrl = photoDraft.removed
-    ? null
-    : getOwnedRecordPhotoUrl(activeCubeTrack.id, activeCubeTrack.customImageVersion);
-  const currentPhotoUrl = photoDraft.previewUrl ?? existingPhotoUrl;
   const notes = getCubeTrackNotes(activeCubeTrack);
   const editingNote = editingNoteId
     ? activeCubeTrack.notes.find((note) => note.id === editingNoteId) ?? null
     : null;
+  const existingPhotoUrl = photoDraft.removed
+    ? null
+    : getOwnedRecordPhotoUrl(activeCubeTrack.id, editingNote?.customImageVersion ?? null);
+  const currentPhotoUrl = photoDraft.previewUrl ?? existingPhotoUrl;
   function toggleTag(tagId: string) {
     setSelectedTagIds((current) => current.includes(tagId)
       ? current.filter((item) => item !== tagId)
@@ -1275,35 +1286,35 @@ export function Memory({
         ...selectedExistingTagIds,
         ...created.tags.map((tag) => tag.id),
       ])];
-      if (editingNoteId && !noteBody.trim()) {
-        notify("수정할 메모 내용을 입력해 주세요.");
-        return;
-      }
       let next = setCubeTrackTagIds(created.archive, activeCubeTrack.id, resolvedTagIds);
       next = setCubeTrackAffection(next, activeCubeTrack.id, affection);
-      if (photoDraft.upload) {
-        next = updateCubeTrack(next, activeCubeTrack.id, {
-          customImagePath: photoDraft.upload.customImagePath,
-          customImageVersion: photoDraft.upload.customImageVersion,
-        });
-      } else if (photoDraft.removed) {
-        next = updateCubeTrack(next, activeCubeTrack.id, {
-          customImagePath: null,
-          customImageVersion: null,
-        });
-      }
-      if (noteBody.trim()) {
+      const shouldSaveNote = Boolean(noteBody.trim() || photoDraft.upload || (editingNote && photoDraft.removed));
+      if (shouldSaveNote) {
+        const photoInput = photoDraft.upload
+          ? {
+              customImagePath: photoDraft.upload.customImagePath,
+              customImageVersion: photoDraft.upload.customImageVersion,
+            }
+          : photoDraft.removed
+            ? { customImagePath: null, customImageVersion: null }
+            : {};
         if (editingNoteId) {
-          next = editingNote?.listenedOn === null
-            ? updateCubeTrackNoteBody(next, activeCubeTrack.id, editingNoteId, noteBody)
-            : updateCubeTrackNote(next, activeCubeTrack.id, editingNoteId, { listenedOn: noteDate, body: noteBody });
+          next = updateCubeTrackNote(next, activeCubeTrack.id, editingNoteId, {
+            listenedOn: noteDate,
+            body: noteBody,
+            ...photoInput,
+          });
         } else {
-          next = addCubeTrackNote(next, activeCubeTrack.id, { listenedOn: noteDate, body: noteBody });
+          next = addCubeTrackNote(next, activeCubeTrack.id, {
+            listenedOn: noteDate,
+            body: noteBody,
+            ...photoInput,
+          });
         }
       }
       const message = editingNoteId
         ? "날짜별 감상을 수정했어요."
-        : noteBody.trim()
+        : shouldSaveNote
           ? "이 곡의 새로운 감상을 기록했어요."
           : resolvedTagIds.length
             ? "이 곡의 태그를 기록했어요."
@@ -1314,7 +1325,9 @@ export function Memory({
         photoDraftRef.current = emptyMemoryPhotoDraft();
         revokePreviewUrl(committedPhotoDraft);
         setPhotoDraft(photoDraftRef.current);
-        router.push(`/chapter?id=${encodeURIComponent(activeCube.id)}`, "back", activeCube.id);
+        setEditingNoteId(null);
+        setNoteDate(today);
+        setNoteBody("");
       }
     } catch (error) {
       notify(error instanceof Error ? error.message : "기억을 기록하지 못했어요.");
@@ -1327,6 +1340,10 @@ export function Memory({
   }
 
   function editNote(note: MemoryNote) {
+    discardPendingRecordPhoto(photoDraftRef.current);
+    const emptyPhotoDraft = emptyMemoryPhotoDraft();
+    photoDraftRef.current = emptyPhotoDraft;
+    setPhotoDraft(emptyPhotoDraft);
     setEditingNoteId(note.id);
     setNoteDate(note.listenedOn ?? today);
     setNoteBody(note.body);
@@ -1334,6 +1351,10 @@ export function Memory({
   }
 
   function cancelNoteEdit() {
+    discardPendingRecordPhoto(photoDraftRef.current);
+    const emptyPhotoDraft = emptyMemoryPhotoDraft();
+    photoDraftRef.current = emptyPhotoDraft;
+    setPhotoDraft(emptyPhotoDraft);
     setEditingNoteId(null);
     setNoteDate(today);
     setNoteBody("");
@@ -1427,17 +1448,8 @@ export function Memory({
         <MemoryPanel
           cubeTrack={cubeTrack}
           track={track}
-          customImageUrl={currentPhotoUrl}
         />
         <form className="memory-form form-stack" onSubmit={save}>
-          <RecordPhotoField
-            previewUrl={currentPhotoUrl}
-            uploading={photoUploading}
-            error={photoError}
-            onSelect={(file) => { void selectRecordPhoto(file); }}
-            onRemove={removeRecordPhoto}
-            removable={Boolean(currentPhotoUrl)}
-          />
           <TagEditor
             tags={availableTags}
             selectedTagIds={selectedTagIds}
@@ -1450,7 +1462,7 @@ export function Memory({
           <AffectionSelector value={affection} onChange={setAffection} />
           <section className="memory-note-composer memory-note-composer-compact" aria-labelledby="memory-note-title">
             <div className="memory-note-heading">
-              <h2 id="memory-note-title" className="field-label">메모</h2>
+              <div><span className="section-label">{editingNoteId ? "감상 수정" : "새 감상"}</span><h2 id="memory-note-title" className="field-label">날짜별 감상</h2></div>
               <div className="memory-note-heading-actions">
                 {editingNoteId ? <button className="text-button" type="button" onClick={cancelNoteEdit}>수정 취소</button> : null}
               </div>
@@ -1460,32 +1472,20 @@ export function Memory({
               <textarea id="memory-note-body" className="textarea" value={noteBody} onChange={(event) => setNoteBody(event.target.value)} maxLength={ARCHIVE_LIMITS.memo} placeholder="오늘 이 곡에서 새롭게 들린 것" />
               <span className="field-hint">{noteBody.length} / {ARCHIVE_LIMITS.memo}</span>
             </div>
-            {editingNote?.listenedOn === null ? (
-              <div className="memory-note-date-row">
-                <span>감상 날짜</span>
-                <span className="memory-note-undated">날짜 미지정 · 기존 기록</span>
-              </div>
-            ) : (
-              <label className="memory-note-date-row" htmlFor="memory-note-date">
-                <span>감상 날짜</span>
-                <input id="memory-note-date" className="memory-note-date-input" type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} required />
-              </label>
-            )}
+            <label className="memory-note-date-row" htmlFor="memory-note-date">
+              <span>감상 날짜</span>
+              <input id="memory-note-date" className="memory-note-date-input" type="date" value={noteDate} onChange={(event) => setNoteDate(event.target.value)} required />
+            </label>
+            <RecordPhotoField
+              title="이 날짜의 사진"
+              previewUrl={currentPhotoUrl}
+              uploading={photoUploading}
+              error={photoError}
+              onSelect={(file) => { void selectRecordPhoto(file); }}
+              onRemove={removeRecordPhoto}
+              removable={Boolean(currentPhotoUrl)}
+            />
           </section>
-          {notes.length ? (
-            <section className="memory-note-history" aria-labelledby="memory-note-history-title">
-              <div className="memory-note-heading"><div><span className="section-label">{notes.length}개의 감상</span><h2 id="memory-note-history-title">지금까지의 메모</h2></div></div>
-              <ol className="memory-note-list">
-                {notes.map((note) => (
-                  <li className="memory-note-item" key={note.id}>
-                    <time dateTime={note.listenedOn ?? note.createdAt}>{note.listenedOn ? formatCalendarDate(note.listenedOn) : `날짜 미지정 · 최초 기록 ${formatDate(activeCubeTrack.createdAt)}`}</time>
-                    <p>{note.body}</p>
-                    <div className="memory-note-actions"><button type="button" onClick={() => editNote(note)}>수정</button><button type="button" onClick={() => deleteNote(note)}>삭제</button></div>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
           <div className="memory-record-footer">
             <button className="button memory-record-delete" type="button" onClick={deleteCurrentMemory}>
               <Trash2 size={16} aria-hidden="true" />
@@ -1493,6 +1493,24 @@ export function Memory({
             </button>
             <button className="button button-primary memory-record-submit" type="submit">{editingNoteId ? "수정 완료" : "기록하기"}</button>
           </div>
+          {notes.length ? (
+            <section className="memory-note-history" aria-labelledby="memory-note-history-title">
+              <div className="memory-note-heading"><div><span className="section-label">{notes.length}개의 감상</span><h2 id="memory-note-history-title">날짜별 감상</h2></div></div>
+              <ol className="memory-note-list">
+                {notes.map((note) => (
+                  <li className="memory-note-item" key={note.id}>
+                    <time dateTime={note.listenedOn ?? note.createdAt}>{note.listenedOn ? formatCalendarDate(note.listenedOn) : `날짜 미지정 · 최초 기록 ${formatDate(activeCubeTrack.createdAt)}`}</time>
+                    {note.customImageVersion ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img className="memory-note-photo" src={getOwnedRecordPhotoUrl(activeCubeTrack.id, note.customImageVersion) ?? undefined} alt={`${note.listenedOn ?? "날짜 미지정"} 감상 사진`} />
+                    ) : null}
+                    {note.body ? <p>{note.body}</p> : <p className="memory-note-photo-only">사진만 남긴 감상</p>}
+                    <div className="memory-note-actions"><button type="button" onClick={() => editNote(note)}>수정</button><button type="button" onClick={() => deleteNote(note)}>삭제</button></div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
         </form>
       </div>
 

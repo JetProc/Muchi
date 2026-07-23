@@ -26,8 +26,8 @@ export async function GET(request: Request) {
     const requestedVersion = parseVersion(request);
     const { supabase, userId } = await requireAuthenticatedUser();
     const { archive } = await readArchive(supabase, userId);
-    const reference = findRecordPhotoReference(archive, cubeTrackId);
-    if (!reference || (requestedVersion && reference.version !== requestedVersion)) {
+    const reference = findRecordPhotoReference(archive, cubeTrackId, requestedVersion ?? undefined);
+    if (!reference) {
       return error("record_photo_not_found", "기록 사진을 찾을 수 없어요.", 404);
     }
 

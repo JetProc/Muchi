@@ -1,4 +1,4 @@
-import type { AffectionLevel, ArchiveEnvelopeV1, SpaceLayoutId, SpaceThemeId, TrackReference } from "./archive";
+import type { AffectionLevel, ArchiveEnvelopeV1, ChapterTrackSort, SpaceLayoutId, SpaceThemeId, TrackReference } from "./archive";
 
 export type PublicRecordVisibility = "public" | "private";
 
@@ -48,6 +48,7 @@ export type PublicChapter = {
   color: string;
   artworkUrl: string | null;
   createdAt: string;
+  trackSort: ChapterTrackSort;
   likeCount: number;
   likedByViewer: boolean;
   tracks: PublicChapterTrack[];
@@ -159,7 +160,11 @@ export function createPublicDiscoveryCatalog(rows: PublicDiscoveryRow[]): Public
       followedByViewer: row.followedByViewer === true,
       space: { themeId: "paper", layoutId: "shelf", featuredChapterIds: [] },
     };
-    catalog.chapters[chapter.id] = { ...chapter, profileId };
+    catalog.chapters[chapter.id] = {
+      ...chapter,
+      profileId,
+      trackSort: chapter.trackSort === "added" ? "added" : "affection",
+    };
   }
   for (const profile of Object.values(catalog.profiles)) {
     profile.space.featuredChapterIds = getProfileChapters(catalog, profile.id).slice(0, 3).map((chapter) => chapter.id);

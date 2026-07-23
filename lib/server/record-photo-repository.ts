@@ -26,7 +26,8 @@ export type DeferredRecordPhotoSweepPlan = {
   notBefore: string;
 };
 
-type RawCubeTrack = { id?: unknown; customImagePath?: unknown; customImageVersion?: unknown };
+type RawPhotoOwner = { customImagePath?: unknown; customImageVersion?: unknown };
+type RawCubeTrack = RawPhotoOwner & { id?: unknown; notes?: unknown };
 type RawArchiveData = { cubeTracks?: unknown };
 type RawArchiveEnvelope = { data?: unknown };
 
@@ -49,7 +50,7 @@ export function createRecordPhotoStorageAdminClient(): SupabaseClient {
 
 function toReference(cubeTrackId: string, value: unknown): RecordPhotoReference | null {
   if (!isRecord(value)) return null;
-  const raw = value as RawCubeTrack;
+  const raw = value as RawPhotoOwner;
   if (typeof raw.customImagePath !== "string") return null;
   const path = raw.customImagePath;
   const parsed = parseRecordPhotoStoragePath(path);
@@ -65,8 +66,10 @@ function toReference(cubeTrackId: string, value: unknown): RecordPhotoReference 
 export function findRecordPhotoReference(
   archive: ArchiveEnvelopeV1,
   cubeTrackId: string,
+  version?: string,
 ): RecordPhotoReference | null {
-  return toReference(cubeTrackId, archive.data.cubeTracks[cubeTrackId]);
+  return listCubeTrackRecordPhotoReferences(cubeTrackId, archive.data.cubeTracks[cubeTrackId])
+    .find((reference) => version === undefined || reference.version === version) ?? null;
 }
 
 export function findRecordPhotoReferenceInPayload(
@@ -78,13 +81,21 @@ export function findRecordPhotoReferenceInPayload(
   if (!isRecord(envelope.data)) return null;
   const data = envelope.data as RawArchiveData;
   if (!isRecord(data.cubeTracks)) return null;
-  return toReference(cubeTrackId, data.cubeTracks[cubeTrackId]);
+  return listCubeTrackRecordPhotoReferences(cubeTrackId, data.cubeTracks[cubeTrackId])[0] ?? null;
 }
 
 export function listRecordPhotoReferences(archive: ArchiveEnvelopeV1): RecordPhotoReference[] {
   return Object.entries(archive.data.cubeTracks)
-    .map(([cubeTrackId, cubeTrack]) => toReference(cubeTrackId, cubeTrack))
-    .filter((value): value is RecordPhotoReference => value !== null);
+    .flatMap(([cubeTrackId, cubeTrack]) => listCubeTrackRecordPhotoReferences(cubeTrackId, cubeTrack));
+}
+
+function listCubeTrackRecordPhotoReferences(cubeTrackId: string, value: unknown): RecordPhotoReference[] {
+  if (!isRecord(value)) return [];
+  const cubeTrack = value as RawCubeTrack;
+  return [
+    toReference(cubeTrackId, cubeTrack),
+    ...(Array.isArray(cubeTrack.notes) ? cubeTrack.notes.map((note) => toReference(cubeTrackId, note)) : []),
+  ].filter((reference): reference is RecordPhotoReference => reference !== null);
 }
 
 export function listRemovedRecordPhotoPaths(

@@ -38,8 +38,8 @@ const STALE_AFTER_MS = 60_000;
 const ARCHIVE_SAVE_DEBOUNCE_MS = 250;
 const MAX_ARCHIVE_OPERATIONS_PER_REQUEST = 250;
 
-type PendingArchive = { operations: ArchivePatchOperation[]; message?: ToastMessage; syncPublicProjection: boolean };
-type PendingDiscovery = { state: DiscoveryInteractionState; message?: ToastMessage };
+type PendingArchive = { operations: ArchivePatchOperation[]; syncPublicProjection: boolean };
+type PendingDiscovery = { state: DiscoveryInteractionState };
 type CachedDiscoveryCatalog = { catalog: PublicDiscoveryCatalog; updatedAt: number };
 
 type MuchiDataContextValue = {
@@ -76,7 +76,7 @@ function isPublicDiscoveryRoute(pathname: string) {
   return pathname === "/discover" || pathname.startsWith("/discover/");
 }
 
-function savedNotice(message: ToastMessage): ToastNotice {
+function optimisticNotice(message: ToastMessage): ToastNotice {
   return typeof message === "string"
     ? { text: message, kind: "success", replacePersistent: true }
     : { ...message, kind: message.kind ?? "success", replacePersistent: true };
@@ -342,7 +342,6 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
       if (!batch.length) break;
       const operations = batch.flatMap((pending) => pending.operations);
       const syncPublicProjection = batch.some((pending) => pending.syncPublicProjection);
-      const message = batch.flatMap((pending) => pending.message ? [pending.message] : []).at(-1);
       try {
         const result = await saveArchivePatch(
           operations,
@@ -352,7 +351,6 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
         pendingArchiveRef.current.splice(0, batch.length);
         archiveRevisionRef.current = result.revision;
         archiveUpdatedAtRef.current = Date.now();
-        if (message) publishNotice(savedNotice(message));
       } catch (cause) {
         if (cause instanceof ArchiveApiError && cause.code === "conflict" && cause.latest) {
           archiveRevisionRef.current = cause.latest.revision;
@@ -445,16 +443,18 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
       rebased = next;
     }
     const syncPublicProjection = publicProjectionSignature(localArchiveRef.current) !== publicProjectionSignature(rebased);
-    pendingArchiveRef.current.push({ operations, message, syncPublicProjection });
+    pendingArchiveRef.current.push({ operations, syncPublicProjection });
     setLocalArchive(rebased);
+    if (message) publishNotice(optimisticNotice(message));
     scheduleArchiveDrain();
     return true;
-  }, [archive, archiveReady, authRequired, scheduleArchiveDrain, setLocalArchive]);
+  }, [archive, archiveReady, authRequired, publishNotice, scheduleArchiveDrain, setLocalArchive]);
 
   const saveDiscovery = useCallback((next: DiscoveryInteractionState, message?: ToastMessage) => {
     if (!discoveryReady) return false;
-    pendingDiscoveryRef.current = { state: next, message };
+    pendingDiscoveryRef.current = { state: next };
     setDiscoveryState(next);
+    if (message) publishNotice(optimisticNotice(message));
     if (writingDiscoveryRef.current) return true;
     const drain = async () => {
       writingDiscoveryRef.current = true;
@@ -465,7 +465,6 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
           const result = await saveDiscoveryState(pending.state, discoveryRevisionRef.current);
           discoveryRevisionRef.current = result.revision;
           if (!pendingDiscoveryRef.current) setDiscoveryState(result.state);
-          if (pending.message) publishNotice(savedNotice(pending.message));
         } catch (cause) {
           pendingDiscoveryRef.current = null;
           if (cause instanceof ArchiveApiError && cause.code === "conflict") {

@@ -33,7 +33,7 @@ export {
 } from "./chapter-share-contract";
 export { isRecordPhotoStoragePath } from "./record-photo-contract";
 
-export const ARCHIVE_SCHEMA_VERSION = 10 as const;
+export const ARCHIVE_SCHEMA_VERSION = 11 as const;
 export const ARCHIVE_SEED_VERSION = 2 as const;
 
 export const ARCHIVE_LIMITS = {
@@ -79,6 +79,8 @@ export type CubeKind = "manual" | "monthly" | "capture";
 export type CubeSystemKey = null | "capture" | `month:${string}`;
 export type ChapterVisibility = "private" | "public";
 export type RecordVisibility = "private" | "public";
+export const CHAPTER_TRACK_SORTS = ["affection", "added"] as const;
+export type ChapterTrackSort = (typeof CHAPTER_TRACK_SORTS)[number];
 export const AFFECTION_LEVELS = ["red", "orange", "yellow"] as const;
 export type AffectionLevel = (typeof AFFECTION_LEVELS)[number];
 export const SPACE_THEME_IDS = ["paper", "midnight", "moss"] as const;
@@ -129,6 +131,7 @@ export interface Cube {
   sortOrder: number;
   source: EntitySource;
   visibility: ChapterVisibility;
+  trackSort: ChapterTrackSort;
   shareStyle?: ChapterShareStyle;
   createdAt: string;
   updatedAt: string;
@@ -159,6 +162,8 @@ export interface MemoryNote {
   id: string;
   listenedOn: string | null;
   body: string;
+  customImagePath?: string | null;
+  customImageVersion?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -297,6 +302,8 @@ export interface UpdateCubeTrackInput {
 export interface MemoryNoteInput {
   listenedOn: string;
   body: string;
+  customImagePath?: string | null;
+  customImageVersion?: string | null;
 }
 
 export interface TagInput {
@@ -637,6 +644,12 @@ function normalizeShareDescription(value: string): string {
   return normalized;
 }
 
+function normalizeShareCustomColor(value: unknown): string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+    ? value.toLowerCase()
+    : "#6f5bff";
+}
+
 function normalizeChapterShareSelectedTrackIds(
   selectedTrackIds: string[],
   chapterTrackIds: readonly string[],
@@ -687,6 +700,7 @@ function normalizeChapterShareStyle(
     format: value.format,
     layout: value.layout,
     mood: value.mood,
+    customColor: normalizeShareCustomColor(value.customColor),
     decorationLevel: value.decorationLevel,
     trackImageMode: value.trackImageMode,
     selectedTrackIds: normalizeChapterShareSelectedTrackIds(
@@ -709,6 +723,7 @@ function chapterShareStyleEqual(
   return left.format === right.format
     && left.layout === right.layout
     && left.mood === right.mood
+    && normalizeShareCustomColor(left.customColor) === normalizeShareCustomColor(right.customColor)
     && left.decorationLevel === right.decorationLevel
     && left.trackImageMode === right.trackImageMode
     && left.description === right.description
@@ -725,6 +740,7 @@ function isChapterShareStyleShape(value: unknown): value is ChapterShareStyle {
     && validChapterShareFormat(value.format)
     && validChapterShareLayout(value.layout)
     && validChapterShareMood(value.mood)
+    && (value.customColor === undefined || (typeof value.customColor === "string" && /^#[0-9a-f]{6}$/i.test(value.customColor)))
     && validChapterShareDecorationLevel(value.decorationLevel)
     && validChapterShareTrackImageMode(value.trackImageMode)
     && hasOnlyStrings(value.selectedTrackIds)
@@ -837,6 +853,10 @@ function validAffection(value: unknown): value is AffectionLevel {
 function validateAffection(value: AffectionLevel | null): AffectionLevel | null {
   if (value === null || validAffection(value)) return value;
   throw new ArchiveDomainError("invalid-input", "애정도 값이 올바르지 않습니다.");
+}
+
+function validChapterTrackSort(value: unknown): value is ChapterTrackSort {
+  return CHAPTER_TRACK_SORTS.includes(value as ChapterTrackSort);
 }
 
 function trackIsEqual(left: TrackReference, right: TrackReference): boolean {
@@ -1139,6 +1159,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       sortOrder: 0,
       source: "seed",
       visibility: "private",
+      trackSort: "affection",
       createdAt: "2021-06-03T02:10:00.000Z",
       updatedAt: "2026-07-10T20:10:00.000Z",
     },
@@ -1154,6 +1175,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       sortOrder: 1,
       source: "seed",
       visibility: "private",
+      trackSort: "affection",
       createdAt: "2025-07-10T02:10:00.000Z",
       updatedAt: "2026-07-04T23:40:00.000Z",
     },
@@ -1169,6 +1191,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       sortOrder: 0,
       source: "seed",
       visibility: "private",
+      trackSort: "affection",
       createdAt: "2025-07-09T02:10:00.000Z",
       updatedAt: "2026-05-18T20:20:00.000Z",
     },
@@ -1184,6 +1207,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       sortOrder: 2,
       source: "seed",
       visibility: "private",
+      trackSort: "affection",
       createdAt: "2024-09-02T09:00:00.000Z",
       updatedAt: "2026-07-04T10:30:00.000Z",
     },
@@ -1199,6 +1223,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       sortOrder: 3,
       source: "seed",
       visibility: "private",
+      trackSort: "affection",
       createdAt: "2024-07-22T10:00:00.000Z",
       updatedAt: "2026-06-25T12:20:00.000Z",
     },
@@ -1214,6 +1239,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       sortOrder: 4,
       source: "seed",
       visibility: "private",
+      trackSort: "affection",
       createdAt: "2025-07-08T02:10:00.000Z",
       updatedAt: "2026-04-03T18:30:00.000Z",
     },
@@ -1229,6 +1255,7 @@ export function createSeedArchive(): ArchiveEnvelopeV1 {
       sortOrder: 5,
       source: "seed",
       visibility: "private",
+      trackSort: "affection",
       createdAt: "2023-03-19T01:00:00.000Z",
       updatedAt: "2026-05-31T05:00:00.000Z",
     },
@@ -1642,6 +1669,7 @@ function ensureMonthlyChapter(
     sortOrder: Object.values(archive.data.cubes).filter((item) => item.parentId === null).length,
     source: "user",
     visibility: "private",
+    trackSort: "affection",
     createdAt: now,
     updatedAt: now,
   };
@@ -1780,6 +1808,7 @@ export function createCube(
     ).length,
     source: "user",
     visibility: input.visibility ?? "private",
+    trackSort: "affection",
     createdAt: now,
     updatedAt: now,
   };
@@ -1861,6 +1890,30 @@ export function updateCube(
   return withData(
     archive,
     { ...archive.data, cubes },
+    now,
+  );
+}
+
+export function setChapterTrackSort(
+  archive: ArchiveEnvelopeV1,
+  cubeId: string,
+  trackSort: ChapterTrackSort,
+  now = nowIso(),
+): ArchiveEnvelopeV1 {
+  const current = assertRecord(archive.data.cubes, cubeId, "챕터");
+  if (!validChapterTrackSort(trackSort)) {
+    throw new ArchiveDomainError("invalid-input", "곡 정렬 기준이 올바르지 않습니다.");
+  }
+  if (current.trackSort === trackSort) return archive;
+  return withData(
+    archive,
+    {
+      ...archive.data,
+      cubes: {
+        ...archive.data.cubes,
+        [cubeId]: { ...current, trackSort, updatedAt: now },
+      },
+    },
     now,
   );
 }
@@ -2029,6 +2082,7 @@ function ensureCaptureCube(
     sortOrder: Object.values(archive.data.cubes).filter((item) => item.parentId === null).length,
     source: "user",
     visibility: "private",
+    trackSort: "affection",
     createdAt: now,
     updatedAt: now,
   };
@@ -2215,13 +2269,31 @@ export function updateCubeTrack(
   );
 }
 
-function normalizeMemoryNoteInput(input: MemoryNoteInput): MemoryNoteInput {
+function resolveMemoryNotePhoto(
+  current: MemoryNote | null,
+  input: MemoryNoteInput,
+): Pick<MemoryNote, "customImagePath" | "customImageVersion"> {
+  const currentPath = current?.customImagePath ?? null;
+  const currentVersion = current?.customImageVersion ?? null;
+  const customImagePath = input.customImagePath === undefined
+    ? currentPath
+    : normalizeCubeTrackCustomImagePath(input.customImagePath);
+  const customImageVersion = input.customImageVersion === undefined
+    ? (input.customImagePath !== undefined && customImagePath !== currentPath ? null : currentVersion)
+    : normalizeCubeTrackCustomImageVersion(input.customImageVersion);
+  if (customImagePath === null && customImageVersion !== null) {
+    throw new ArchiveDomainError("invalid-input", "기록 사진이 없으면 버전도 함께 비워야 합니다.");
+  }
+  return { customImagePath, customImageVersion };
+}
+
+function normalizeMemoryNoteInput(input: MemoryNoteInput): Pick<MemoryNote, "listenedOn" | "body"> {
   if (!validCalendarDate(input.listenedOn)) {
     throw new ArchiveDomainError("invalid-input", "감상 날짜가 올바르지 않습니다.");
   }
   return {
     listenedOn: input.listenedOn,
-    body: cleanText(input.body, "메모", ARCHIVE_LIMITS.memo, true),
+    body: cleanText(input.body, "메모", ARCHIVE_LIMITS.memo),
   };
 }
 
@@ -2264,9 +2336,14 @@ export function addCubeTrackNote(
     );
   }
   const normalized = normalizeMemoryNoteInput(input);
+  const photo = resolveMemoryNotePhoto(null, input);
+  if (!normalized.body && photo.customImagePath === null) {
+    throw new ArchiveDomainError("invalid-input", "메모 또는 사진을 남겨 주세요.");
+  }
   const note: MemoryNote = {
     id: createId("memory-note"),
     ...normalized,
+    ...photo,
     createdAt: now,
     updatedAt: now,
   };
@@ -2290,8 +2367,12 @@ export function updateCubeTrackNote(
     throw new ArchiveDomainError("not-found", "메모를 찾을 수 없습니다.");
   }
   const normalized = normalizeMemoryNoteInput(input);
+  const photo = resolveMemoryNotePhoto(current.notes[noteIndex], input);
+  if (!normalized.body && photo.customImagePath === null) {
+    throw new ArchiveDomainError("invalid-input", "메모 또는 사진을 남겨 주세요.");
+  }
   const notes = [...current.notes];
-  notes[noteIndex] = { ...notes[noteIndex], ...normalized, updatedAt: now };
+  notes[noteIndex] = { ...notes[noteIndex], ...normalized, ...photo, updatedAt: now };
   return withUpdatedCubeTrack(archive, { ...current, notes }, now);
 }
 
@@ -2773,6 +2854,7 @@ export function publicProjectionSignature(archive: ArchiveEnvelopeV1): string {
     color: chapter.color,
     coverImageUrl: chapter.coverImageUrl,
     createdAt: chapter.createdAt,
+    trackSort: chapter.trackSort,
     tracks: tracks.map(({ cubeTrack, track, tags, privateRecord }) => ({
       id: cubeTrack.id,
       track,
@@ -3018,6 +3100,19 @@ export function getCubeTracks(
         .filter((tag): tag is TagDefinition => Boolean(tag)),
     }))
     .filter((item) => Boolean(item.track));
+}
+
+export function sortChapterTrackEntries<T extends { cubeTrack: CubeTrack }>(
+  entries: readonly T[],
+  trackSort: ChapterTrackSort,
+): T[] {
+  if (trackSort === "added") return [...entries];
+  const ranks: Record<AffectionLevel, number> = { red: 0, orange: 1, yellow: 2 };
+  return [...entries].sort((left, right) => (
+    (left.cubeTrack.affection ? ranks[left.cubeTrack.affection] : 3)
+    - (right.cubeTrack.affection ? ranks[right.cubeTrack.affection] : 3)
+    || left.cubeTrack.sortOrder - right.cubeTrack.sortOrder
+  ));
 }
 
 export function searchArchive(
@@ -3544,6 +3639,7 @@ function isCube(value: unknown): value is Cube {
     Number.isInteger(value.sortOrder) &&
     (value.source === "seed" || value.source === "user") &&
     (value.visibility === "private" || value.visibility === "public") &&
+    validChapterTrackSort(value.trackSort) &&
     (value.shareStyle === undefined || isChapterShareStyleShape(value.shareStyle)) &&
     validIsoDate(value.createdAt) &&
     validIsoDate(value.updatedAt)
@@ -3590,12 +3686,21 @@ function isCubeTrack(value: unknown): value is CubeTrack {
 
 function isMemoryNote(value: unknown): value is MemoryNote {
   if (!isRecord(value)) return false;
+  const customImagePath = value.customImagePath;
+  const customImageVersion = value.customImageVersion;
   return (
     typeof value.id === "string" &&
     (value.listenedOn === null || validCalendarDate(value.listenedOn)) &&
     typeof value.body === "string" &&
-    value.body.length > 0 &&
     value.body.length <= ARCHIVE_LIMITS.memo &&
+    (customImagePath === undefined || customImagePath === null || isRecordPhotoStoragePath(customImagePath)) &&
+    (customImageVersion === undefined || customImageVersion === null || (
+      typeof customImageVersion === "string"
+      && !!customImageVersion.trim()
+      && isRecordPhotoVersion(customImageVersion)
+    )) &&
+    !(customImagePath === null && customImageVersion !== null) &&
+    (value.body.length > 0 || typeof customImagePath === "string") &&
     validIsoDate(value.createdAt) &&
     validIsoDate(value.updatedAt)
   );
@@ -3921,7 +4026,21 @@ function addLegacyChapterShareDefaults(value: Record<string, unknown>): Record<s
         : cubeTrack,
     ]))
     : value.data.cubeTracks;
-  return { ...value, data: { ...value.data, cubes, cubeTracks } };
+  return addLegacyChapterTrackSortDefaults({
+    ...value,
+    data: { ...value.data, cubes, cubeTracks },
+  });
+}
+
+function addLegacyChapterTrackSortDefaults(value: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(value.data) || !isRecord(value.data.cubes)) return value;
+  const cubes = Object.fromEntries(Object.entries(value.data.cubes).map(([id, cube]) => [
+    id,
+    isRecord(cube)
+      ? { ...cube, trackSort: validChapterTrackSort(cube.trackSort) ? cube.trackSort : "affection" }
+      : cube,
+  ]));
+  return { ...value, data: { ...value.data, cubes } };
 }
 
 function addLegacyChapterCoverDefaults(value: Record<string, unknown>): Record<string, unknown> {
@@ -4055,6 +4174,16 @@ function migrateVersionNine(value: Record<string, unknown>): ArchiveEnvelopeV1 |
     : null;
 }
 
+function migrateVersionTen(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
+  const candidate = addLegacyChapterTrackSortDefaults({
+    ...value,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  });
+  return validateArchiveEnvelope(candidate)
+    ? withPersonalSpaceDefaults(candidate)
+    : null;
+}
+
 export function migrateArchive(value: unknown): MigrationResult {
   if (!isRecord(value)) return { status: "invalid", error: "저장 데이터가 객체가 아닙니다." };
   if (typeof value.schemaVersion === "number" && value.schemaVersion > ARCHIVE_SCHEMA_VERSION) {
@@ -4110,6 +4239,12 @@ export function migrateArchive(value: unknown): MigrationResult {
   }
   if (value.schemaVersion === 9) {
     const migrated = migrateVersionNine(value);
+    return migrated
+      ? { status: "ok", archive: migrated, migrated: true }
+      : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+  }
+  if (value.schemaVersion === 10) {
+    const migrated = migrateVersionTen(value);
     return migrated
       ? { status: "ok", archive: migrated, migrated: true }
       : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };

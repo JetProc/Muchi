@@ -1,6 +1,7 @@
 import { createEmptyArchive, parseArchive, type ArchiveEnvelopeV1 } from "@/lib/archive";
 import { applyArchivePatch, type ArchivePatchOperation } from "@/lib/archive-patch";
 import { createPublicProjectionInput } from "./public-discovery-repository";
+import { createDeferredRecordPhotoSweepPlan, deleteRecordPhotos, listRemovedRecordPhotoPaths } from "./record-photo-repository";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type VersionedArchive = { archive: ArchiveEnvelopeV1; revision: number };
@@ -78,5 +79,14 @@ export async function patchArchive(
     return { status: "conflict", value: rowToArchive({ payload: result.payload, revision: result.revision }) };
   }
   if (result.status !== "ok") throw new Error("저장 결과 상태가 올바르지 않습니다.");
+  try {
+    await deleteRecordPhotos(supabase, listRemovedRecordPhotoPaths(current.archive, archive));
+  } catch (cleanupError) {
+    console.error("record photo cleanup failed", {
+      userId,
+      cleanup: createDeferredRecordPhotoSweepPlan(userId, archive),
+      cleanupError,
+    });
+  }
   return { status: "ok", revision: result.revision };
 }

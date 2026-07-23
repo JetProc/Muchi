@@ -6,10 +6,18 @@ import {
 } from "@/lib/archive";
 import {
   createPublicDiscoveryCatalog,
+  createPublicRecordMediaUrl,
   type PublicChapter,
   type PublicDiscoveryCatalog,
   type PublicDiscoveryRow,
+  type PublicRecordMedia,
+  type PublicRecordMediaHandle,
 } from "@/lib/public-discovery";
+import {
+  findRecordPhotoReferenceInPayload,
+  isRecordPhotoPath,
+  isRecordPhotoVersion,
+} from "./record-photo-repository";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type PublishedChapterRow = {
@@ -35,6 +43,28 @@ export type PublicProjectionInput = {
 
 export type PublicDiscoveryQuery = { chapterId?: string | null; profileId?: string | null };
 
+export type PublishedPublicRecordPhotoReference = {
+  ownerId: string;
+  chapterId: string;
+  cubeTrackId: string;
+  path: string;
+  version: string;
+};
+
+type PublicChapterTrackWithMedia = PublicChapter["tracks"][number];
+
+function toPublicRecordPhotoMedia(chapterId: string, cubeTrack: { id: string } & Record<string, unknown>): PublicRecordMedia | null {
+  if (!isRecordPhotoPath(cubeTrack.customImagePath) || !isRecordPhotoVersion(cubeTrack.customImageVersion)) {
+    return null;
+  }
+  const handle: PublicRecordMediaHandle = {
+    chapterId,
+    cubeTrackId: cubeTrack.id,
+    version: cubeTrack.customImageVersion,
+  };
+  return { handle, displayUrl: createPublicRecordMediaUrl(handle) };
+}
+
 function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ chapterId: string; payload: PublicChapter }> {
   return getVisitorSpaceChapters(archive).map(({ chapter, tracks }) => ({
     chapterId: chapter.id,
@@ -49,14 +79,18 @@ function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ 
       createdAt: chapter.createdAt,
       likeCount: 0,
       likedByViewer: false,
-      tracks: tracks.map(({ cubeTrack, track, tags, privateRecord }) => ({
-        id: cubeTrack.id,
-        track,
-        visibility: privateRecord ? "private" : "public",
-        note: privateRecord ? null : getLatestCubeTrackNote(cubeTrack)?.body ?? null,
-        tags: privateRecord ? [] : tags.map((tag) => tag.label),
-        affection: privateRecord ? null : cubeTrack.affection,
-      })),
+      tracks: tracks.map(({ cubeTrack, track, tags, privateRecord }) => {
+        const trackChapterId = `public:${authorId}:${chapter.id}`;
+        return {
+          id: cubeTrack.id,
+          track,
+          visibility: privateRecord ? "private" : "public",
+          note: privateRecord ? null : getLatestCubeTrackNote(cubeTrack)?.body ?? null,
+          tags: privateRecord ? [] : tags.map((tag) => tag.label),
+          affection: privateRecord ? null : cubeTrack.affection,
+          recordPhoto: privateRecord ? null : toPublicRecordPhotoMedia(trackChapterId, cubeTrack as typeof cubeTrack & Record<string, unknown>),
+        };
+      }),
     },
   }));
 }
@@ -197,6 +231,66 @@ function parsePublicChapterId(value: string): { authorId: string; chapterId: str
   const authorId = value.slice("public:".length, separator);
   const chapterId = value.slice(separator + 1);
   return authorId && chapterId ? { authorId, chapterId } : null;
+}
+
+function findPublishedTrack(
+  payload: unknown,
+  cubeTrackId: string,
+): PublicChapterTrackWithMedia | null {
+  if (!payload || typeof payload !== "object" || !("tracks" in payload) || !Array.isArray(payload.tracks)) {
+    return null;
+  }
+  return payload.tracks.find((track): track is PublicChapterTrackWithMedia => (
+    Boolean(track)
+    && typeof track === "object"
+    && "id" in track
+    && track.id === cubeTrackId
+  )) ?? null;
+}
+
+export async function readPublishedPublicRecordPhoto(
+  supabase: SupabaseClient,
+  handle: PublicRecordMediaHandle,
+): Promise<PublishedPublicRecordPhotoReference | null> {
+  const parsedChapterId = parsePublicChapterId(handle.chapterId);
+  if (!parsedChapterId) return null;
+  const { data: published, error: publishedError } = await supabase
+    .from("published_chapters")
+    .select("payload")
+    .eq("author_id", parsedChapterId.authorId)
+    .eq("chapter_id", parsedChapterId.chapterId)
+    .maybeSingle();
+  if (publishedError) throw publishedError;
+  const publishedTrack = findPublishedTrack(published?.payload, handle.cubeTrackId);
+  if (!publishedTrack || publishedTrack.visibility !== "public" || !publishedTrack.recordPhoto) {
+    return null;
+  }
+  if (
+    publishedTrack.recordPhoto.handle.chapterId !== handle.chapterId
+    || publishedTrack.recordPhoto.handle.cubeTrackId !== handle.cubeTrackId
+    || publishedTrack.recordPhoto.handle.version !== handle.version
+  ) {
+    return null;
+  }
+
+  const { data: archiveRow, error: archiveError } = await supabase
+    .from("user_archives")
+    .select("payload")
+    .eq("user_id", parsedChapterId.authorId)
+    .maybeSingle();
+  if (archiveError) throw archiveError;
+  const archiveReference = findRecordPhotoReferenceInPayload(archiveRow?.payload, handle.cubeTrackId);
+  if (!archiveReference || archiveReference.ownerId !== parsedChapterId.authorId || archiveReference.version !== handle.version) {
+    return null;
+  }
+
+  return {
+    ownerId: parsedChapterId.authorId,
+    chapterId: handle.chapterId,
+    cubeTrackId: handle.cubeTrackId,
+    path: archiveReference.path,
+    version: handle.version,
+  };
 }
 
 export async function readPublicDiscoveryCatalog(

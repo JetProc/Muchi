@@ -2,6 +2,17 @@ import type { AffectionLevel, ArchiveEnvelopeV1, SpaceLayoutId, SpaceThemeId, Tr
 
 export type PublicRecordVisibility = "public" | "private";
 
+export type PublicRecordMediaHandle = {
+  chapterId: string;
+  cubeTrackId: string;
+  version: string;
+};
+
+export type PublicRecordMedia = {
+  handle: PublicRecordMediaHandle;
+  displayUrl: string;
+};
+
 export type PublicSpacePresentation = {
   themeId: SpaceThemeId;
   layoutId: SpaceLayoutId;
@@ -26,6 +37,7 @@ export type PublicChapterTrack = {
   note: string | null;
   tags: string[];
   affection: AffectionLevel | null;
+  recordPhoto: PublicRecordMedia | null;
 };
 
 export type PublicChapter = {
@@ -78,6 +90,15 @@ export type PublicDiscoveryRow = {
 
 export function createEmptyPublicDiscoveryCatalog(): PublicDiscoveryCatalog {
   return { profiles: {}, chapters: {}, activities: [] };
+}
+
+export function createPublicRecordMediaUrl(handle: PublicRecordMediaHandle): string {
+  const search = new URLSearchParams({
+    chapterId: handle.chapterId,
+    cubeTrackId: handle.cubeTrackId,
+    v: handle.version,
+  });
+  return `/api/public-record-media?${search.toString()}`;
 }
 
 export function withPublicChapterLike(

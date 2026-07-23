@@ -1,4 +1,39 @@
-export const ARCHIVE_SCHEMA_VERSION = 9 as const;
+import {
+  CHAPTER_SHARE_DECORATION_LEVELS,
+  CHAPTER_SHARE_FORMATS,
+  CHAPTER_SHARE_LAYOUTS,
+  CHAPTER_SHARE_LIMITS,
+  CHAPTER_SHARE_MOODS,
+  CHAPTER_SHARE_TRACK_IMAGE_MODES,
+  type ChapterShareDecorationLevel,
+  type ChapterShareFormat,
+  type ChapterShareLayout,
+  type ChapterShareMood,
+  type ChapterShareStyle,
+  type ChapterShareTrackImageMode,
+} from "./chapter-share-contract";
+import {
+  isRecordPhotoStoragePath,
+  isRecordPhotoVersion,
+} from "./record-photo-contract";
+
+export {
+  CHAPTER_SHARE_DECORATION_LEVELS,
+  CHAPTER_SHARE_FORMATS,
+  CHAPTER_SHARE_LAYOUTS,
+  CHAPTER_SHARE_LIMITS,
+  CHAPTER_SHARE_MOODS,
+  CHAPTER_SHARE_TRACK_IMAGE_MODES,
+  type ChapterShareDecorationLevel,
+  type ChapterShareFormat,
+  type ChapterShareLayout,
+  type ChapterShareMood,
+  type ChapterShareStyle,
+  type ChapterShareTrackImageMode,
+} from "./chapter-share-contract";
+export { isRecordPhotoStoragePath } from "./record-photo-contract";
+
+export const ARCHIVE_SCHEMA_VERSION = 10 as const;
 export const ARCHIVE_SEED_VERSION = 2 as const;
 
 export const ARCHIVE_LIMITS = {
@@ -94,9 +129,11 @@ export interface Cube {
   sortOrder: number;
   source: EntitySource;
   visibility: ChapterVisibility;
+  shareStyle?: ChapterShareStyle;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface CubeTrack {
   id: string;
@@ -112,6 +149,8 @@ export interface CubeTrack {
   sortOrder: number;
   source: EntitySource;
   recordVisibility: RecordVisibility;
+  customImagePath: string | null;
+  customImageVersion: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -242,6 +281,7 @@ export interface UpdateCubeInput {
   coverImageUrl?: string | null;
   color?: CubeColor;
   visibility?: ChapterVisibility;
+  shareStyle?: ChapterShareStyle | null;
 }
 
 export interface UpdateCubeTrackInput {
@@ -250,6 +290,8 @@ export interface UpdateCubeTrackInput {
   place?: string;
   people?: string;
   affection?: AffectionLevel | null;
+  customImagePath?: string | null;
+  customImageVersion?: string | null;
 }
 
 export interface MemoryNoteInput {
@@ -525,6 +567,176 @@ function normalizeChapterCoverImage(value: string | null | undefined): string | 
   return normalized;
 }
 
+function validChapterShareFormat(value: unknown): value is ChapterShareFormat {
+  return CHAPTER_SHARE_FORMATS.includes(value as ChapterShareFormat);
+}
+
+function validChapterShareLayout(value: unknown): value is ChapterShareLayout {
+  return CHAPTER_SHARE_LAYOUTS.includes(value as ChapterShareLayout);
+}
+
+function validChapterShareMood(value: unknown): value is ChapterShareMood {
+  return CHAPTER_SHARE_MOODS.includes(value as ChapterShareMood);
+}
+
+function validChapterShareDecorationLevel(
+  value: unknown,
+): value is ChapterShareDecorationLevel {
+  return CHAPTER_SHARE_DECORATION_LEVELS.includes(
+    value as ChapterShareDecorationLevel,
+  );
+}
+
+function validChapterShareTrackImageMode(
+  value: unknown,
+): value is ChapterShareTrackImageMode {
+  return CHAPTER_SHARE_TRACK_IMAGE_MODES.includes(
+    value as ChapterShareTrackImageMode,
+  );
+}
+
+function normalizeCubeTrackCustomImagePath(
+  value: string | null | undefined,
+): string | null {
+  const normalized = value ?? null;
+  if (normalized === null) return null;
+  if (!isRecordPhotoStoragePath(normalized)) {
+    throw new ArchiveDomainError(
+      "invalid-input",
+      "기록 사진 경로가 올바르지 않습니다.",
+    );
+  }
+  return normalized;
+}
+
+function normalizeCubeTrackCustomImageVersion(
+  value: string | null | undefined,
+): string | null {
+  const normalized = value ?? null;
+  if (normalized === null) return null;
+  if (
+    typeof normalized !== "string"
+    || !isRecordPhotoVersion(normalized)
+  ) {
+    throw new ArchiveDomainError(
+      "invalid-input",
+      "기록 사진 버전이 올바르지 않습니다.",
+    );
+  }
+  return normalized;
+}
+
+function normalizeShareDescription(value: string): string {
+  const normalized = value.normalize("NFKC").replace(/\s+/g, " ").trim();
+  if (normalized.length > CHAPTER_SHARE_LIMITS.description) {
+    throw new ArchiveDomainError(
+      "limit-exceeded",
+      `공유 설명은 ${CHAPTER_SHARE_LIMITS.description}자까지 입력할 수 있습니다.`,
+    );
+  }
+  return normalized;
+}
+
+function normalizeChapterShareSelectedTrackIds(
+  selectedTrackIds: string[],
+  chapterTrackIds: readonly string[],
+): string[] {
+  const available = new Set(chapterTrackIds);
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  selectedTrackIds.forEach((trackId) => {
+    if (!available.has(trackId) || seen.has(trackId)) return;
+    seen.add(trackId);
+    unique.push(trackId);
+  });
+  return unique.slice(0, CHAPTER_SHARE_LIMITS.selectedTrackIds);
+}
+
+function normalizeChapterShareStyle(
+  value: ChapterShareStyle | null | undefined,
+  chapterTrackIds: readonly string[],
+): ChapterShareStyle | undefined {
+  if (value == null) return undefined;
+  if (!validChapterShareFormat(value.format)) {
+    throw new ArchiveDomainError("invalid-input", "공유 포맷이 올바르지 않습니다.");
+  }
+  if (!validChapterShareLayout(value.layout)) {
+    throw new ArchiveDomainError("invalid-input", "공유 레이아웃이 올바르지 않습니다.");
+  }
+  if (!validChapterShareMood(value.mood)) {
+    throw new ArchiveDomainError("invalid-input", "공유 무드가 올바르지 않습니다.");
+  }
+  if (!validChapterShareDecorationLevel(value.decorationLevel)) {
+    throw new ArchiveDomainError("invalid-input", "공유 장식 단계가 올바르지 않습니다.");
+  }
+  if (!validChapterShareTrackImageMode(value.trackImageMode)) {
+    throw new ArchiveDomainError("invalid-input", "트랙 이미지 표시 방식이 올바르지 않습니다.");
+  }
+  if (!hasOnlyStrings(value.selectedTrackIds)) {
+    throw new ArchiveDomainError("invalid-input", "선택한 트랙 목록이 올바르지 않습니다.");
+  }
+  if (
+    typeof value.showTags !== "boolean"
+    || typeof value.showAuthor !== "boolean"
+    || typeof value.showTrackCount !== "boolean"
+    || typeof value.showPublicLink !== "boolean"
+  ) {
+    throw new ArchiveDomainError("invalid-input", "공유 표시 설정이 올바르지 않습니다.");
+  }
+  return {
+    format: value.format,
+    layout: value.layout,
+    mood: value.mood,
+    decorationLevel: value.decorationLevel,
+    trackImageMode: value.trackImageMode,
+    selectedTrackIds: normalizeChapterShareSelectedTrackIds(
+      value.selectedTrackIds,
+      chapterTrackIds,
+    ),
+    description: normalizeShareDescription(value.description),
+    showTags: value.showTags,
+    showAuthor: value.showAuthor,
+    showTrackCount: value.showTrackCount,
+    showPublicLink: value.showPublicLink,
+  };
+}
+
+function chapterShareStyleEqual(
+  left: ChapterShareStyle | undefined,
+  right: ChapterShareStyle | undefined,
+): boolean {
+  if (!left || !right) return left === right;
+  return left.format === right.format
+    && left.layout === right.layout
+    && left.mood === right.mood
+    && left.decorationLevel === right.decorationLevel
+    && left.trackImageMode === right.trackImageMode
+    && left.description === right.description
+    && left.showTags === right.showTags
+    && left.showAuthor === right.showAuthor
+    && left.showTrackCount === right.showTrackCount
+    && left.showPublicLink === right.showPublicLink
+    && left.selectedTrackIds.length === right.selectedTrackIds.length
+    && left.selectedTrackIds.every((trackId, index) => trackId === right.selectedTrackIds[index]);
+}
+
+function isChapterShareStyleShape(value: unknown): value is ChapterShareStyle {
+  return isRecord(value)
+    && validChapterShareFormat(value.format)
+    && validChapterShareLayout(value.layout)
+    && validChapterShareMood(value.mood)
+    && validChapterShareDecorationLevel(value.decorationLevel)
+    && validChapterShareTrackImageMode(value.trackImageMode)
+    && hasOnlyStrings(value.selectedTrackIds)
+    && value.selectedTrackIds.length <= CHAPTER_SHARE_LIMITS.selectedTrackIds
+    && typeof value.description === "string"
+    && value.description.length <= CHAPTER_SHARE_LIMITS.description
+    && typeof value.showTags === "boolean"
+    && typeof value.showAuthor === "boolean"
+    && typeof value.showTrackCount === "boolean"
+    && typeof value.showPublicLink === "boolean";
+}
+
 function withData(
   archive: ArchiveEnvelopeV1,
   data: ArchiveData,
@@ -545,6 +757,55 @@ function pruneUnreferencedTracks(data: ArchiveData): ArchiveData {
   ) as Record<TrackId, TrackReference>;
 
   return { ...data, tracks };
+}
+
+function getChapterTrackIds(
+  cubeTracks: Record<string, CubeTrack>,
+  cubeId: string,
+): string[] {
+  return Object.values(cubeTracks)
+    .filter((cubeTrack) => cubeTrack.cubeId === cubeId)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
+    .map((cubeTrack) => cubeTrack.id);
+}
+
+function resolveCubeTrackCustomImage(
+  current: CubeTrack,
+  input: UpdateCubeTrackInput,
+): Pick<CubeTrack, "customImagePath" | "customImageVersion"> {
+  const nextPath = input.customImagePath === undefined
+    ? current.customImagePath
+    : normalizeCubeTrackCustomImagePath(input.customImagePath);
+  const nextVersion = input.customImageVersion === undefined
+    ? (
+        input.customImagePath !== undefined && nextPath !== current.customImagePath
+          ? null
+          : current.customImageVersion
+      )
+    : normalizeCubeTrackCustomImageVersion(input.customImageVersion);
+  if (nextPath === null && nextVersion !== null) {
+    throw new ArchiveDomainError(
+      "invalid-input",
+      "기록 사진이 없으면 버전도 함께 비워야 합니다.",
+    );
+  }
+  return { customImagePath: nextPath, customImageVersion: nextVersion };
+}
+
+function preferCubeTrackCustomImage(
+  preferred: CubeTrack,
+  fallback: CubeTrack,
+): Pick<CubeTrack, "customImagePath" | "customImageVersion"> {
+  if (preferred.customImagePath !== null) {
+    return {
+      customImagePath: preferred.customImagePath,
+      customImageVersion: preferred.customImageVersion,
+    };
+  }
+  return {
+    customImagePath: fallback.customImagePath,
+    customImageVersion: fallback.customImageVersion,
+  };
 }
 
 function validateMemoryPeriod(value: MemoryPeriod): MemoryPeriod {
@@ -1290,6 +1551,8 @@ function seedCubeTrack(
     sortOrder,
     source: "seed",
     recordVisibility: "private",
+    customImagePath: null,
+    customImageVersion: null,
     createdAt: SEED_NOW,
     updatedAt: SEED_NOW,
   };
@@ -1547,10 +1810,14 @@ export function updateCube(
   if (input.visibility !== undefined && input.visibility !== "public" && input.visibility !== "private") {
     throw new ArchiveDomainError("invalid-input", "챕터 공개 상태가 올바르지 않습니다.");
   }
+  const chapterTrackIds = getChapterTrackIds(archive.data.cubeTracks, cubeId);
+  const nextShareStyle = input.shareStyle === undefined
+    ? current.shareStyle
+    : normalizeChapterShareStyle(input.shareStyle, chapterTrackIds);
   const parentId = input.parentId === undefined ? current.parentId : input.parentId;
   assertValidCubeParent(archive.data.cubes, cubeId, parentId);
   const parentChanged = parentId !== current.parentId;
-  const cube: Cube = {
+  const cubeBase: Cube = {
     ...current,
     parentId,
     ...(input.name === undefined
@@ -1579,6 +1846,13 @@ export function updateCube(
       : {}),
     updatedAt: now,
   };
+  const cube = nextShareStyle === undefined
+    ? (() => {
+        const withoutShareStyle = { ...cubeBase };
+        delete withoutShareStyle.shareStyle;
+        return withoutShareStyle;
+      })()
+    : { ...cubeBase, shareStyle: nextShareStyle };
   const cubes = { ...archive.data.cubes, [cubeId]: cube };
   if (parentChanged) {
     reindexCubeSiblings(cubes, current.parentId);
@@ -1686,6 +1960,8 @@ function addTrackToCubeInternal(
     sortOrder,
     source: "user",
     recordVisibility: "private",
+    customImagePath: null,
+    customImageVersion: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -1836,6 +2112,7 @@ export function moveCaptureTrackToCube(
       memoryPeriod: duplicate.memoryPeriod ?? current.memoryPeriod,
       place: duplicate.place.trim() ? duplicate.place : current.place,
       people: duplicate.people.trim() ? duplicate.people : current.people,
+      ...preferCubeTrackCustomImage(duplicate, current),
       notes,
       updatedAt: now,
     };
@@ -1851,7 +2128,11 @@ export function moveCaptureTrackToCube(
       { ...archive.data, cubes, cubeTracks },
       now,
     );
-    return { status: "duplicate", archive: next, existingCubeTrack };
+    return {
+      status: "duplicate",
+      archive: withPersonalSpaceDefaults(next),
+      existingCubeTrack,
+    };
   }
 
   const sortOrder = Object.values(archive.data.cubeTracks).filter(
@@ -1872,7 +2153,7 @@ export function moveCaptureTrackToCube(
     },
     now,
   );
-  return { status: "moved", archive: next, cubeTrack };
+  return { status: "moved", archive: withPersonalSpaceDefaults(next), cubeTrack };
 }
 
 /** Adds an intentionally blank, independent memory to another manual chapter. */
@@ -1892,6 +2173,7 @@ export function updateCubeTrack(
   now = nowIso(),
 ): ArchiveEnvelopeV1 {
   const current = assertEditableCubeTrack(archive, cubeTrackId);
+  const customImage = resolveCubeTrackCustomImage(current, input);
   const next: CubeTrack = {
     ...current,
     ...(input.character === undefined
@@ -1915,6 +2197,7 @@ export function updateCubeTrack(
     ...(input.affection === undefined
       ? {}
       : { affection: validateAffection(input.affection) }),
+    ...customImage,
     updatedAt: now,
   };
   const cubes = {
@@ -2079,10 +2362,12 @@ export function removeCubeTrack(
   if (cube?.kind === "capture") {
     const removed = withData(archive, { ...archive.data, cubeTracks }, now);
     const restored = restoreInboxWhenUnarchived(removed, current.trackId, now);
-    return withData(restored, pruneUnreferencedTracks(restored.data), now);
+    return withPersonalSpaceDefaults(
+      withData(restored, pruneUnreferencedTracks(restored.data), now),
+    );
   }
   const data = pruneUnreferencedTracks({ ...archive.data, cubeTracks });
-  return withData(archive, data, now);
+  return withPersonalSpaceDefaults(withData(archive, data, now));
 }
 
 function hasPersonalContext(archive: ArchiveEnvelopeV1, trackId: TrackId): boolean {
@@ -2332,20 +2617,40 @@ function isManualRootChapter(cube: Cube | undefined | null): cube is Cube {
   return isUserVisibleChapter(cube) && cube.parentId === null;
 }
 
-/** Adds safe defaults for data written before the personal-space schema. */
+/** Adds safe defaults for data written before the personal-space/share schema. */
 function withPersonalSpaceDefaults(archive: ArchiveEnvelopeV1): ArchiveEnvelopeV1 {
-  const cubes = Object.fromEntries(Object.entries(archive.data.cubes).map(([id, cube]) => [
-    id,
-    cube.visibility === "public" || cube.visibility === "private"
-      ? cube
-      : { ...cube, visibility: "private" as const },
-  ])) as Record<string, Cube>;
   const cubeTracks = Object.fromEntries(Object.entries(archive.data.cubeTracks).map(([id, cubeTrack]) => [
     id,
-    cubeTrack.recordVisibility === "public" || cubeTrack.recordVisibility === "private"
-      ? { ...cubeTrack, affection: validAffection(cubeTrack.affection) ? cubeTrack.affection : null }
-      : { ...cubeTrack, recordVisibility: "private" as const, affection: validAffection(cubeTrack.affection) ? cubeTrack.affection : null },
+    {
+      ...cubeTrack,
+      recordVisibility:
+        cubeTrack.recordVisibility === "public" || cubeTrack.recordVisibility === "private"
+          ? cubeTrack.recordVisibility
+          : "private" as const,
+      affection: validAffection(cubeTrack.affection) ? cubeTrack.affection : null,
+      customImagePath: normalizeCubeTrackCustomImagePath(cubeTrack.customImagePath),
+      customImageVersion: normalizeCubeTrackCustomImageVersion(
+        cubeTrack.customImageVersion,
+      ),
+    },
   ])) as Record<string, CubeTrack>;
+  const cubes = Object.fromEntries(Object.entries(archive.data.cubes).map(([id, cube]) => [
+    id,
+    (() => {
+      const shareStyle = normalizeChapterShareStyle(
+        cube.shareStyle,
+        getChapterTrackIds(cubeTracks, id),
+      );
+      const nextCube = {
+        ...cube,
+        visibility:
+          cube.visibility === "public" || cube.visibility === "private"
+            ? cube.visibility
+            : "private" as const,
+      };
+      return shareStyle === undefined ? nextCube : { ...nextCube, shareStyle };
+    })(),
+  ])) as Record<string, Cube>;
   const candidateIds = Array.isArray(archive.data.space?.featuredCubeIds)
     ? archive.data.space.featuredCubeIds
     : [];
@@ -2367,10 +2672,15 @@ function withPersonalSpaceDefaults(archive: ArchiveEnvelopeV1): ArchiveEnvelopeV
     || rawSpace.themeId !== space.themeId
     || rawSpace.layoutId !== space.layoutId
     || rawSpace.featuredCubeIds.join("\u0000") !== space.featuredCubeIds.join("\u0000")
-    || Object.values(archive.data.cubes).some((cube) => cube.visibility !== "public" && cube.visibility !== "private")
+    || Object.entries(archive.data.cubes).some(([id, cube]) => (
+      (cube.visibility !== "public" && cube.visibility !== "private")
+      || !chapterShareStyleEqual(cube.shareStyle, cubes[id].shareStyle)
+    ))
     || Object.values(archive.data.cubeTracks).some((cubeTrack) => (
       (cubeTrack.recordVisibility !== "public" && cubeTrack.recordVisibility !== "private")
       || (cubeTrack.affection !== null && !validAffection(cubeTrack.affection))
+      || cubeTrack.customImagePath !== normalizeCubeTrackCustomImagePath(cubeTrack.customImagePath)
+      || cubeTrack.customImageVersion !== normalizeCubeTrackCustomImageVersion(cubeTrack.customImageVersion)
     ));
   return changed
     ? withData(archive, { ...archive.data, cubes, cubeTracks, space }, archive.updatedAt)
@@ -2470,6 +2780,12 @@ export function publicProjectionSignature(archive: ArchiveEnvelopeV1): string {
       note: privateRecord ? null : getLatestCubeTrackNote(cubeTrack)?.body ?? null,
       tags: privateRecord ? [] : tags.map((tag) => tag.label),
       affection: privateRecord ? null : cubeTrack.affection,
+      customImageIdentity: privateRecord
+        ? null
+        : {
+            path: cubeTrack.customImagePath,
+            version: cubeTrack.customImageVersion,
+          },
     })),
   })));
 }
@@ -3228,6 +3544,7 @@ function isCube(value: unknown): value is Cube {
     Number.isInteger(value.sortOrder) &&
     (value.source === "seed" || value.source === "user") &&
     (value.visibility === "private" || value.visibility === "public") &&
+    (value.shareStyle === undefined || isChapterShareStyleShape(value.shareStyle)) &&
     validIsoDate(value.createdAt) &&
     validIsoDate(value.updatedAt)
   );
@@ -3235,6 +3552,8 @@ function isCube(value: unknown): value is Cube {
 
 function isCubeTrack(value: unknown): value is CubeTrack {
   if (!isRecord(value)) return false;
+  const customImagePath = value.customImagePath;
+  const customImageVersion = value.customImageVersion;
   return (
     typeof value.id === "string" &&
     typeof value.cubeId === "string" &&
@@ -3257,6 +3576,13 @@ function isCubeTrack(value: unknown): value is CubeTrack {
     (value.source === "seed" || value.source === "user") &&
     (value.recordVisibility === "private" || value.recordVisibility === "public") &&
     (value.affection === null || validAffection(value.affection)) &&
+    (customImagePath === null || isRecordPhotoStoragePath(customImagePath)) &&
+    (customImageVersion === null || (
+      typeof customImageVersion === "string"
+      && !!customImageVersion.trim()
+      && isRecordPhotoVersion(customImageVersion)
+    )) &&
+    !(customImagePath === null && customImageVersion !== null) &&
     validIsoDate(value.createdAt) &&
     validIsoDate(value.updatedAt)
   );
@@ -3537,10 +3863,12 @@ function removeLegacyInboxConflicts(value: Record<string, unknown>): Record<stri
 }
 
 function prepareLegacyEnvelope(value: Record<string, unknown>): Record<string, unknown> {
-  return addLegacyChapterCoverDefaults(addLegacyPersonalSpaceDefaults({
-    ...removeLegacyInboxConflicts(addLegacyCubeKinds(value)),
-    seedVersion: ARCHIVE_SEED_VERSION,
-  }));
+  return addLegacyChapterShareDefaults(
+    addLegacyChapterCoverDefaults(addLegacyPersonalSpaceDefaults({
+      ...removeLegacyInboxConflicts(addLegacyCubeKinds(value)),
+      seedVersion: ARCHIVE_SEED_VERSION,
+    })),
+  );
 }
 
 function addLegacyPersonalSpaceDefaults(value: Record<string, unknown>): Record<string, unknown> {
@@ -3567,6 +3895,33 @@ function addLegacyPersonalSpaceDefaults(value: Record<string, unknown>): Record<
     ? value.data.space
     : { ...DEFAULT_PERSONAL_SPACE };
   return { ...value, data: { ...value.data, cubes, cubeTracks, space } };
+}
+
+function addLegacyChapterShareDefaults(value: Record<string, unknown>): Record<string, unknown> {
+  if (!isRecord(value.data)) return value;
+  const cubes = isRecord(value.data.cubes)
+    ? Object.fromEntries(Object.entries(value.data.cubes).map(([id, cube]) => [
+      id,
+      isRecord(cube) && cube.shareStyle === null
+        ? Object.fromEntries(
+            Object.entries(cube).filter(([key]) => key !== "shareStyle"),
+          )
+        : cube,
+    ]))
+    : value.data.cubes;
+  const cubeTracks = isRecord(value.data.cubeTracks)
+    ? Object.fromEntries(Object.entries(value.data.cubeTracks).map(([id, cubeTrack]) => [
+      id,
+      isRecord(cubeTrack)
+        ? {
+            ...cubeTrack,
+            customImagePath: cubeTrack.customImagePath ?? null,
+            customImageVersion: cubeTrack.customImageVersion ?? null,
+          }
+        : cubeTrack,
+    ]))
+    : value.data.cubeTracks;
+  return { ...value, data: { ...value.data, cubes, cubeTracks } };
 }
 
 function addLegacyChapterCoverDefaults(value: Record<string, unknown>): Record<string, unknown> {
@@ -3675,19 +4030,29 @@ function migrateVersionSix(value: Record<string, unknown>): ArchiveEnvelopeV1 | 
 }
 
 function migrateVersionSeven(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
-  const candidate = addLegacyChapterCoverDefaults({
+  const candidate = addLegacyChapterShareDefaults(addLegacyChapterCoverDefaults({
     ...value,
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
-  });
+  }));
   return validateArchiveEnvelope(candidate) ? candidate : null;
 }
 
 function migrateVersionEight(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
-  const candidate = addLegacyPersonalSpaceDefaults({
+  const candidate = addLegacyChapterShareDefaults(addLegacyPersonalSpaceDefaults({
+    ...value,
+    schemaVersion: ARCHIVE_SCHEMA_VERSION,
+  }));
+  return validateArchiveEnvelope(candidate) ? candidate : null;
+}
+
+function migrateVersionNine(value: Record<string, unknown>): ArchiveEnvelopeV1 | null {
+  const candidate = addLegacyChapterShareDefaults({
     ...value,
     schemaVersion: ARCHIVE_SCHEMA_VERSION,
   });
-  return validateArchiveEnvelope(candidate) ? candidate : null;
+  return validateArchiveEnvelope(candidate)
+    ? withPersonalSpaceDefaults(candidate)
+    : null;
 }
 
 export function migrateArchive(value: unknown): MigrationResult {
@@ -3743,8 +4108,16 @@ export function migrateArchive(value: unknown): MigrationResult {
       ? { status: "ok", archive: migrated, migrated: true }
       : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
+  if (value.schemaVersion === 9) {
+    const migrated = migrateVersionNine(value);
+    return migrated
+      ? { status: "ok", archive: migrated, migrated: true }
+      : { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
+  }
   if (value.schemaVersion === ARCHIVE_SCHEMA_VERSION && value.seedVersion === 1) {
-    const candidate = prepareLegacyEnvelope({ ...value, seedVersion: ARCHIVE_SEED_VERSION });
+    const candidate = addLegacyChapterShareDefaults(
+      prepareLegacyEnvelope({ ...value, seedVersion: ARCHIVE_SEED_VERSION }),
+    );
     if (!validateArchiveEnvelope(candidate)) {
       return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
     }
@@ -3757,7 +4130,9 @@ export function migrateArchive(value: unknown): MigrationResult {
   if (!validateArchiveEnvelope(value)) {
     return { status: "invalid", error: "지원하지 않거나 손상된 아카이브 데이터입니다." };
   }
-  const archive = withPersonalSpaceDefaults(refreshLegacySeedMemory(normalizeArchiveTags(value)));
+  const archive = withPersonalSpaceDefaults(
+    refreshLegacySeedMemory(normalizeArchiveTags(value)),
+  );
   return { status: "ok", archive, migrated: archive !== value };
 }
 

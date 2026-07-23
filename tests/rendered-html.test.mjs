@@ -49,25 +49,41 @@ async function render(pathname = "/") {
   );
 }
 
-async function loadArchiveDomain() {
-  const source = await readFile(new URL("../lib/archive.ts", import.meta.url), "utf8");
-  const output = ts.transpileModule(source, {
+async function transpileArchiveDomain() {
+  const [source, shareContractSource, photoContractSource] = await Promise.all([
+    readFile(new URL("../lib/archive.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/chapter-share-contract.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/record-photo-contract.ts", import.meta.url), "utf8"),
+  ]);
+  const compilerOptions = {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ES2022,
+  };
+  const toDataUrl = (moduleSource) => {
+    const output = ts.transpileModule(moduleSource, { compilerOptions }).outputText;
+    return `data:text/javascript;base64,${Buffer.from(output).toString("base64")}`;
+  };
+  const resolvedSource = source
+    .replaceAll('"./chapter-share-contract"', `"${toDataUrl(shareContractSource)}"`)
+    .replaceAll('"./record-photo-contract"', `"${toDataUrl(photoContractSource)}"`);
+  return ts.transpileModule(resolvedSource, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
       target: ts.ScriptTarget.ES2022,
     },
   }).outputText;
+}
+
+async function loadArchiveDomain() {
+  const output = await transpileArchiveDomain();
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
 async function loadArchivePatchDomain() {
-  const [archiveSource, patchSource] = await Promise.all([
-    readFile(new URL("../lib/archive.ts", import.meta.url), "utf8"),
+  const [archiveOutput, patchSource] = await Promise.all([
+    transpileArchiveDomain(),
     readFile(new URL("../lib/archive-patch.ts", import.meta.url), "utf8"),
   ]);
-  const archiveOutput = ts.transpileModule(archiveSource, {
-    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
-  }).outputText;
   const archiveUrl = `data:text/javascript;base64,${Buffer.from(archiveOutput).toString("base64")}`;
   const patchOutput = ts.transpileModule(
     patchSource.replace('from "./archive"', `from "${archiveUrl}"`),
@@ -1526,6 +1542,69 @@ test("stores optional affection per chapter record and migrates older records to
   const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
   assert.equal(parsed.status, "ok");
   assert.equal(parsed.archive.data.cubeTracks[moved.cubeTrack.id].affection, null);
+});
+
+test("stores chapter-local record photos and share style while migrating schema v9 safely", async () => {
+  const archiveDomain = await loadArchiveDomain();
+  const track = {
+    id: archiveDomain.makeProviderTrackId("youtube", "photoRec001"),
+    provider: "youtube",
+    providerTrackId: "photoRec001",
+    title: "기록 사진 테스트",
+    artist: "뮤키",
+    album: "",
+    genre: "",
+    durationMs: null,
+    artworkUrl: null,
+    previewUrl: null,
+    externalUrl: null,
+  };
+  const created = archiveDomain.createCube(archiveDomain.createEmptyArchive(), {
+    name: "사진 챕터",
+    visibility: "public",
+  });
+  const captured = archiveDomain.captureTrackToInbox(created.archive, track);
+  const moved = archiveDomain.moveInboxTrackToCube(captured, track.id, created.cube.id);
+  const path = `record-photos/0f98c5cc-018e-4bb9-a654-7fd141682ea4/${moved.cubeTrack.id}/asset_01.jpg`;
+  const withPhoto = archiveDomain.updateCubeTrack(moved.archive, moved.cubeTrack.id, {
+    customImagePath: path,
+    customImageVersion: "asset_01",
+  });
+  const withStyle = archiveDomain.updateCube(withPhoto, created.cube.id, {
+    shareStyle: {
+      format: "story",
+      layout: "photo-tracklist",
+      mood: "film",
+      decorationLevel: "light",
+      trackImageMode: "all",
+      selectedTrackIds: [moved.cubeTrack.id, moved.cubeTrack.id, "missing"],
+      description: "  늦은 밤   기록  ",
+      showTags: true,
+      showAuthor: true,
+      showTrackCount: true,
+      showPublicLink: true,
+    },
+  });
+
+  assert.equal(withStyle.data.cubeTracks[moved.cubeTrack.id].customImagePath, path);
+  assert.deepEqual(withStyle.data.cubes[created.cube.id].shareStyle.selectedTrackIds, [moved.cubeTrack.id]);
+  assert.equal(withStyle.data.cubes[created.cube.id].shareStyle.description, "늦은 밤 기록");
+  assert.throws(
+    () => archiveDomain.updateCubeTrack(withStyle, moved.cubeTrack.id, {
+      customImagePath: "record-photos/not-an-owner/track/file.jpg",
+    }),
+    /기록 사진 경로/,
+  );
+
+  const legacy = structuredClone(withStyle);
+  legacy.schemaVersion = 9;
+  delete legacy.data.cubes[created.cube.id].shareStyle;
+  delete legacy.data.cubeTracks[moved.cubeTrack.id].customImagePath;
+  delete legacy.data.cubeTracks[moved.cubeTrack.id].customImageVersion;
+  const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
+  assert.equal(parsed.status, "ok");
+  assert.equal(parsed.archive.data.cubeTracks[moved.cubeTrack.id].customImagePath, null);
+  assert.equal(parsed.archive.data.cubeTracks[moved.cubeTrack.id].customImageVersion, null);
 });
 
 test("serializes archive edits as bounded patches and rejects unsafe paths", async () => {

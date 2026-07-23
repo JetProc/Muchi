@@ -283,6 +283,7 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.match(appleTheme, /\.capture-track-row\s*\{[^}]*grid-template-columns:\s*52px minmax\(0, 1fr\) 44px 44px;/s);
   assert.match(appleTheme, /\.capture-track-select\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*border-radius:\s*50% !important;/s);
   assert.match(appleTheme, /\.capture-floating-action\s*\{[^}]*position:\s*fixed;[^}]*bottom:\s*calc\(70px \+ 12px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(appleTheme, /\.app-shell\.has-player \.capture-floating-action\s*\{[^}]*bottom:\s*calc\(70px \+ 68px \+ 12px \+ env\(safe-area-inset-bottom\)\);/s);
   assert.match(source, /muchi:reset-capture/);
   assert.match(source, /className="dialog record-dialog"/);
   assert.match(source, /className="record-dialog-track"/);
@@ -574,7 +575,7 @@ test("uses Apple typography, whitespace, and flat mobile surfaces", async () => 
 
   assert.match(appleTheme, /body\s*\{[^}]*font-family:\s*var\(--apple-font-text\);[^}]*font-size:\s*15px;[^}]*line-height:\s*1\.42;/s);
   assert.match(appleTheme, /h1,\s*h2,\s*h3\s*\{[^}]*font-family:\s*var\(--apple-font-display\);[^}]*font-weight:\s*600;/s);
-  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*44px;[^}]*background:\s*var\(--apple-surface-black\);/s);
+  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*calc\(44px \+ env\(safe-area-inset-top\)\);[^}]*background:\s*var\(--apple-surface-black\);/s);
   assert.match(appleTheme, /\.page-content\s*\{[^}]*padding:\s*var\(--apple-space-6\) var\(--apple-page-gutter\)/s);
   assert.match(appleTheme, /\.centered-empty-message\s*\{[^}]*min-height:\s*min\(42dvh, 320px\);[^}]*place-items:\s*center;[^}]*color:\s*var\(--apple-ink-muted-48\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width:\s*419px\)[\s\S]*?h1\s*\{[^}]*font-size:\s*26px;/s);
@@ -784,6 +785,9 @@ test("keeps compact Korean navigation inside the mobile shell", async () => {
   assert.match(source, /item === "search" \? "내 기록 찾기"/);
   assert.match(source, /className="text-navigation icon-label-nav"/);
   const appleTheme = getAppleTheme(css);
+  assert.match(appleTheme, /--apple-page-gutter:\s*max\(clamp\(16px, 5cqw, 22px\), env\(safe-area-inset-left\), env\(safe-area-inset-right\)\);/);
+  assert.match(appleTheme, /\.app-shell,[\s\S]*?\.app-shell\.has-player\s*\{[^}]*grid-template-rows:\s*calc\(44px \+ env\(safe-area-inset-top\)\) minmax\(0, 1fr\) calc\(70px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*calc\(44px \+ env\(safe-area-inset-top\)\);[^}]*min-height:\s*calc\(44px \+ env\(safe-area-inset-top\)\);[^}]*padding:\s*env\(safe-area-inset-top\) max\(12px, env\(safe-area-inset-right\)\) 0 max\(12px, env\(safe-area-inset-left\)\);/s);
   assert.match(appleTheme, /\.footer-band\s*\{[^}]*position:\s*relative;[^}]*min-height:\s*calc\(70px \+ env\(safe-area-inset-bottom\)\);[^}]*backdrop-filter:\s*saturate\(180%\) blur\(20px\) !important;/s);
 });
 
@@ -1186,7 +1190,7 @@ test("keeps memory details and player surfaces legible on the mobile canvas", as
   assert.match(appleTheme, /\.player-dismiss-control\s*\{[^}]*position:\s*absolute;[^}]*min-height:\s*44px;/s);
   assert.match(appleTheme, /\.player-dismiss-control\s*\{[^}]*right:\s*20px;/s);
   assert.match(appleTheme, /\.player-dismiss-control:focus-visible\s*\{[^}]*outline-offset:\s*-2px;/s);
-  assert.match(appleTheme, /\.app-shell\.has-player\s*\{[^}]*grid-template-rows:\s*44px minmax\(0, 1fr\) 68px calc\(70px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(appleTheme, /\.app-shell\.has-player\s*\{[^}]*grid-template-rows:\s*calc\(44px \+ env\(safe-area-inset-top\)\) minmax\(0, 1fr\) 68px calc\(70px \+ env\(safe-area-inset-bottom\)\);/s);
   assert.match(appleTheme, /\.app-shell\.has-player \.mini-player\s*\{[^}]*position:\s*relative;[^}]*grid-row:\s*3;/s);
   assert.match(appleTheme, /\.full-player-art\s*\{[^}]*padding-top:\s*var\(--apple-space-3\);/s);
   assert.doesNotMatch(globals, /\.full-player :focus-visible\s*\{[^}]*outline-color:\s*var\(--signal\);/s);
@@ -1228,7 +1232,7 @@ test("uses a compact swipe-first mobile home without primary playback", async ()
   assert.match(source, /className="chapter-preview-art"/);
   assert.match(source, /className="chapter-preview-art"[\s\S]*?<ChapterCover archive=\{archive\} chapter=\{chapter\} \/>/);
   const appleTheme = getAppleTheme(css);
-  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*position:\s*relative;[^}]*height:\s*44px;/s);
+  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*position:\s*relative;[^}]*height:\s*calc\(44px \+ env\(safe-area-inset-top\)\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width: 430px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width: 419px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*112px minmax\(0, 1fr\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width: 419px\)[\s\S]*?\.track-list-unified \.track-line\s*\{[^}]*--track-cover-size:\s*60px;/s);

@@ -1,7 +1,12 @@
 import { createEmptyArchive, parseArchive, type ArchiveEnvelopeV1 } from "@/lib/archive";
+import { applyArchivePatch, type ArchivePatchOperation } from "@/lib/archive-patch";
+import { createPublicProjectionInput } from "./public-discovery-repository";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type VersionedArchive = { archive: ArchiveEnvelopeV1; revision: number };
+export type ArchivePatchResult =
+  | { status: "ok"; revision: number }
+  | { status: "conflict"; value: VersionedArchive };
 
 type ArchiveRow = { payload: unknown; revision: number };
 
@@ -37,20 +42,41 @@ export async function readArchive(supabase: SupabaseClient, userId: string): Pro
   return rowToArchive(retry as ArchiveRow);
 }
 
-export async function replaceArchive(
+export async function patchArchive(
   supabase: SupabaseClient,
   userId: string,
-  archive: ArchiveEnvelopeV1,
+  operations: ArchivePatchOperation[],
   expectedRevision: number,
-): Promise<{ status: "ok"; value: VersionedArchive } | { status: "conflict"; value: VersionedArchive }> {
-  const { data, error } = await supabase
-    .from("user_archives")
-    .update({ payload: archive, schema_version: archive.schemaVersion, revision: expectedRevision + 1 })
-    .eq("user_id", userId)
-    .eq("revision", expectedRevision)
-    .select("payload, revision")
-    .maybeSingle();
+  syncPublicProjection: boolean,
+): Promise<ArchivePatchResult> {
+  const current = await readArchive(supabase, userId);
+  if (current.revision !== expectedRevision) return { status: "conflict", value: current };
+  const archive = applyArchivePatch(current.archive, operations);
+  const projection = syncPublicProjection
+    ? await createPublicProjectionInput(supabase, userId, archive)
+    : null;
+  const { data, error } = await supabase.rpc("save_archive_with_public_projection", {
+    p_payload: archive,
+    p_schema_version: archive.schemaVersion,
+    p_expected_revision: expectedRevision,
+    p_sync_public_projection: syncPublicProjection,
+    p_projection: projection?.chapters.map((chapter) => ({
+      chapter_id: chapter.chapterId,
+      payload: chapter.payload,
+      published_at: chapter.publishedAt,
+    })) ?? [],
+    p_author_name: projection?.author.name ?? null,
+    p_author_avatar_url: projection?.author.avatarUrl ?? null,
+    p_author_bio: projection?.author.bio ?? null,
+  });
   if (error) throw error;
-  if (data) return { status: "ok", value: rowToArchive(data as ArchiveRow) };
-  return { status: "conflict", value: await readArchive(supabase, userId) };
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") throw new Error("저장 결과가 올바르지 않습니다.");
+  const result = row as { status?: unknown; payload?: unknown; revision?: unknown };
+  if (typeof result.revision !== "number") throw new Error("저장 revision이 올바르지 않습니다.");
+  if (result.status === "conflict") {
+    return { status: "conflict", value: rowToArchive({ payload: result.payload, revision: result.revision }) };
+  }
+  if (result.status !== "ok") throw new Error("저장 결과 상태가 올바르지 않습니다.");
+  return { status: "ok", revision: result.revision };
 }

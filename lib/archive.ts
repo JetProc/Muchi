@@ -494,11 +494,26 @@ function validCalendarDate(value: unknown): value is string {
     && date.getUTCDate() === day;
 }
 
+export function isChapterCoverStorageUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:"
+      && /^[a-z0-9-]+\.supabase\.co$/i.test(url.hostname)
+      && /^\/storage\/v1\/object\/public\/chapter-covers\/[0-9a-f-]{36}\/.+\.jpg$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 function validChapterCoverImage(value: unknown): value is string | null {
   return value === null || (
     typeof value === "string"
-    && value.length <= ARCHIVE_LIMITS.chapterCoverDataUrl
-    && /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value)
+    && (
+      (value.length <= ARCHIVE_LIMITS.chapterCoverDataUrl
+        && /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(value))
+      || isChapterCoverStorageUrl(value)
+    )
   );
 }
 

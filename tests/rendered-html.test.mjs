@@ -60,6 +60,22 @@ async function loadArchiveDomain() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
+async function loadArchivePatchDomain() {
+  const [archiveSource, patchSource] = await Promise.all([
+    readFile(new URL("../lib/archive.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/archive-patch.ts", import.meta.url), "utf8"),
+  ]);
+  const archiveOutput = ts.transpileModule(archiveSource, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const archiveUrl = `data:text/javascript;base64,${Buffer.from(archiveOutput).toString("base64")}`;
+  const patchOutput = ts.transpileModule(
+    patchSource.replace('from "./archive"', `from "${archiveUrl}"`),
+    { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } },
+  ).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(patchOutput).toString("base64")}`);
+}
+
 async function loadPublicDiscoveryDomain() {
   const source = await readFile(new URL("../lib/public-discovery.ts", import.meta.url), "utf8");
   const output = ts.transpileModule(source, {
@@ -301,11 +317,15 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.match(layoutSource, /xprfs0qhlb/);
   assert.match(dataProviderSource, /useState<ArchiveEnvelopeV1>\(\(\) => createEmptyArchive\(\)\)/);
   assert.match(dataProviderSource, /Promise\.all\(\[\s*fetchArchive\(\),\s*fetchOnboardingStatus\(\),\s*\]\)/s);
-  assert.match(dataProviderSource, /discoveryStateRequest = authenticated[\s\S]*?fetchDiscoveryState\(\)/s);
-  assert.match(dataProviderSource, /Promise\.all\(\[fetchPublicDiscoveryCatalog\(\), discoveryStateRequest\]\)/);
-  assert.match(dataProviderSource, /saveArchiveRemote\(pending\.archive, archiveRevisionRef\.current, pending\.syncPublicProjection\)/);
-  assert.match(dataProviderSource, /publicProjectionSignature\(archive\) !== publicProjectionSignature\(next\)/);
-  assert.match(dataProviderSource, /변경사항을 보존하고 다시 저장할게요/);
+  assert.match(dataProviderSource, /refreshDiscoveryState = authenticated[\s\S]*?fetchDiscoveryState\(\)/s);
+  assert.match(dataProviderSource, /Promise\.all\(\[fetchPublicDiscoveryCatalog\(target\), discoveryStateRequest\]\)/);
+  assert.match(dataProviderSource, /discoveryCacheRef = useRef\(new Map<string, CachedDiscoveryCatalog>\(\)\)/);
+  assert.match(dataProviderSource, /activeDiscoveryKeyRef\.current !== targetKey\) return/);
+  assert.match(dataProviderSource, /ARCHIVE_SAVE_DEBOUNCE_MS\s*=\s*250/);
+  assert.match(dataProviderSource, /batch\.flatMap\(\(pending\) => pending\.operations\)/);
+  assert.match(dataProviderSource, /pendingArchiveRef\.current\.splice\(0, batch\.length\)/);
+  assert.match(dataProviderSource, /publicProjectionSignature\(localArchiveRef\.current\) !== publicProjectionSignature\(rebased\)/);
+  assert.match(dataProviderSource, /다른 기기 변경 위에 내 변경사항을 다시 적용했어요/);
   assert.doesNotMatch(`${appSource}\n${dataProviderSource}`, /window\.localStorage/);
   assert.doesNotMatch(globalStyles, /@keyframes route-enter\s*\{\s*from \{ opacity: 0;/s);
   assert.match(mediaSource, /data-shared-transition-id=\{sharedArtworkKey\(sharedId\)\}/);
@@ -330,7 +350,7 @@ test("collects a validated nickname and Google avatar before onboarding complete
     readFile(new URL("../app/api/onboarding/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/server/profile-repository.ts", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/202607200001_create_muchi_user_state.sql", import.meta.url), "utf8"),
-    readFile(new URL("../supabase/migrations/20260720070836_profile_setup_security_hardening.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260720071814_profile_setup_security_hardening.sql", import.meta.url), "utf8"),
     loadProfileDomain(),
   ]);
 
@@ -430,11 +450,12 @@ test("keeps app data in memory across routes and skips unchanged public sync wri
   ]);
 
   assert.match(providerSource, /const STALE_AFTER_MS = 60_000;/);
-  assert.match(providerSource, /pendingArchiveRef\.current = \{ archive: next, message, syncPublicProjection \}/);
-  assert.match(providerSource, /while \(pendingArchiveRef\.current\)/);
-  assert.match(providerSource, /if \(discoveryPromiseRef\.current\) return discoveryPromiseRef\.current;/);
+  assert.match(providerSource, /pendingArchiveRef\.current\.push\(\{ operations, message, syncPublicProjection \}\)/);
+  assert.match(providerSource, /while \(pendingArchiveRef\.current\.length\)/);
+  assert.match(providerSource, /discoveryPromisesRef\.current\.get\(targetKey\)/);
+  assert.match(providerSource, /activeDiscoveryKeyRef\.current !== targetKey\) return/);
   assert.doesNotMatch(providerSource, /window\.(?:localStorage|sessionStorage)/);
-  assert.match(providerSource, /publicProjectionSignature\(archive\) !== publicProjectionSignature\(next\)/);
+  assert.match(providerSource, /publicProjectionSignature\(localArchiveRef\.current\) !== publicProjectionSignature\(rebased\)/);
   assert.match(motionSource, /router\.prefetch\(href\)/);
 });
 
@@ -834,7 +855,7 @@ test("shares chapter hierarchy choices, fields, and delete confirmation across f
   assert.doesNotMatch(fieldsSource, /onColorChange|CUBE_COLORS|COLOR_HEX|COLOR_LABEL/);
   assert.match(fieldsSource, /accept="image\/jpeg,image\/png,image\/webp"/);
   assert.match(fieldsSource, /prepareCoverImage/);
-  assert.match(fieldsSource, /onCoverImageChange\(await prepareCoverImage\(file\)\)/);
+  assert.match(fieldsSource, /onCoverImageChange\(await uploadChapterCover\(await prepareCoverImage\(file\)\)\)/);
   assert.match(deleteSource, /role="alertdialog"/);
   assert.match(deleteSource, /하위 챕터.*한 단계 위로 이동해 그대로 남습니다/);
 });
@@ -1246,8 +1267,9 @@ test("keeps archive search compact with the shared tag picker", async () => {
   assert.match(source, /function searchByTag\(tagId: string\)/);
   assert.match(source, /setQuery\(""\);[\s\S]*?setTagIds\(\[tagId\]\);[\s\S]*?router\.push\(rawSearchHref\("", \[tagId\], fromMemoryId\)\)/s);
   assert.match(source, /className="search-results-section archive-find-results"/);
-  assert.match(source, /const hasSearch = Boolean\(query\.trim\(\) \|\| tagIds\.length\)/);
-  assert.match(source, /const results = hasSearch/);
+  assert.match(source, /const deferredQuery = useDeferredValue\(query\)/);
+  assert.match(source, /const hasSearch = Boolean\(deferredQuery\.trim\(\) \|\| tagIds\.length\)/);
+  assert.match(source, /const results = useMemo\(\(\) => hasSearch/);
   assert.match(source, /내 음악 세계에서 찾고 싶은 것을 입력하세요/);
   assert.doesNotMatch(source, /capture-track-select|capture-floating-action|곡 기록하기/);
   assert.doesNotMatch(source, /내 언어로 음악을 다시 찾기/);
@@ -1339,9 +1361,8 @@ test("keeps playlist export services visibly pending while their API routes rema
   assert.match(appleTheme, /\.chapter-detail-utilities\.is-inline \.chapter-service-grid\s*\{[^}]*display:\s*flex;/s);
   assert.match(appleTheme, /\.chapter-detail-utilities\.is-inline \.chapter-service-link\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/s);
   assert.doesNotMatch(appleTheme, /\.public-chapter-detail \.chapter-actions\s*\{/);
-  assert.match(appleRoute, /\/v1\/me\/library\/playlists/);
-  assert.match(youtubeRoute, /\/playlists\?part=snippet,status/);
-  assert.match(youtubeRoute, /\/playlistItems\?part=snippet/);
+  assert.match(appleRoute, /code: "not_ready"/);
+  assert.match(youtubeRoute, /code: "not_ready"/);
 });
 
 test("redirects legacy presentation routes to the chapter archive", async () => {
@@ -1462,7 +1483,9 @@ test("ships the PWA shell and removes the disposable starter", async () => {
   assert.match(manifest, /short_name:\s*"뮤키"/);
   assert.match(manifest, /orientation:\s*"portrait"/);
   assert.match(manifest, /나만의 챕터/);
-  assert.match(serviceWorker, /v6-ios-pwa/);
+  assert.match(serviceWorker, /v7-performance/);
+  assert.doesNotMatch(serviceWorker, /"script"/);
+  assert.doesNotMatch(serviceWorker, /"style"/);
   assert.match(serviceWorker, /"\/chapters"/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
   assert.match(serviceWorker, /!isSameOrigin\(url\) \|\| request\.destination === "audio"/);
@@ -1503,6 +1526,39 @@ test("stores optional affection per chapter record and migrates older records to
   const parsed = archiveDomain.parseArchive(JSON.stringify(legacy));
   assert.equal(parsed.status, "ok");
   assert.equal(parsed.archive.data.cubeTracks[moved.cubeTrack.id].affection, null);
+});
+
+test("serializes archive edits as bounded patches and rejects unsafe paths", async () => {
+  const [archiveDomain, patchDomain] = await Promise.all([loadArchiveDomain(), loadArchivePatchDomain()]);
+  const initial = archiveDomain.createEmptyArchive();
+  const created = archiveDomain.createCube(initial, { name: "저녁 산책" });
+  const operations = patchDomain.createArchivePatch(initial, created.archive);
+  assert.ok(operations.length > 0);
+  const normalized = archiveDomain.parseArchive(archiveDomain.serializeArchive(created.archive));
+  assert.equal(normalized.status, "ok");
+  assert.deepEqual(patchDomain.applyArchivePatch(initial, operations), normalized.archive);
+  assert.throws(
+    () => patchDomain.applyArchivePatch(initial, [{ op: "set", path: "/data/__proto__", value: true }]),
+    /변경 경로가 올바르지 않습니다/,
+  );
+});
+
+test("batches optimistic archive patches and returns a compact save acknowledgement", async () => {
+  const [providerSource, clientSource, repositorySource, routeSource, migrationSource] = await Promise.all([
+    readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/client/archive-api.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/server/archive-repository.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/archive/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260723005919_reduce_archive_save_response.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(providerSource, /ARCHIVE_SAVE_DEBOUNCE_MS\s*=\s*250/);
+  assert.match(providerSource, /batch\.flatMap\(\(pending\) => pending\.operations\)/);
+  assert.match(providerSource, /pendingArchiveRef\.current\.splice\(0, batch\.length\)/);
+  assert.match(clientSource, /async function decodeSave\(response: Response\): Promise<ArchiveSaveResult>/);
+  assert.match(repositorySource, /return \{ status: "ok", revision: result\.revision \}/);
+  assert.match(routeSource, /Response\.json\(\{ revision: result\.revision \}/);
+  assert.match(migrationSource, /return query select 'ok'::text, null::jsonb, p_expected_revision \+ 1/);
 });
 
 test("keeps the same song's tags and memory independent in each cube", async () => {
@@ -2985,7 +3041,6 @@ test("builds a published public discovery catalog with explainable similarity an
       ],
     },
   }]);
-  const state = discoveryDomain.createDiscoveryInteractionState();
   const profiles = Object.values(catalog.profiles);
   const chapters = Object.values(catalog.chapters);
 
@@ -3017,12 +3072,10 @@ test("builds a published public discovery catalog with explainable similarity an
   assert.deepEqual(privateRecord.tags, []);
 
   const profileId = profiles[0].id;
-  const followed = discoveryDomain.toggleFollow(state, profileId);
-  assert.ok(followed.followedProfileIds.includes(profileId));
-  assert.deepEqual(discoveryDomain.parseDiscoveryInteractionState(
-    discoveryDomain.serializeDiscoveryInteractionState(followed),
-    catalog,
-  ), followed);
+  const followed = discoveryDomain.withPublicProfileFollow(catalog, profileId, true);
+  assert.equal(catalog.profiles[profileId].followedByViewer, false);
+  assert.equal(followed.profiles[profileId].followedByViewer, true);
+  assert.equal(followed.profiles[profileId].followerCount, catalog.profiles[profileId].followerCount + 1);
 
   assert.deepEqual(discoveryDomain.createEmptyPublicDiscoveryCatalog(), {
     profiles: {}, chapters: {}, activities: [],
@@ -3039,6 +3092,7 @@ test("excludes the signed-in user's own chapters from the public discovery query
   );
 
   assert.match(catalogReader, /\.neq\("author_id", userId\)/);
+  assert.match(catalogReader, /\.eq\("user_id", userId\)\s*\.in\("author_id", authorIds\)/s);
 });
 
 test("keeps public chapters readable before login and restores the requested destination after Google login", async () => {
@@ -3056,8 +3110,11 @@ test("keeps public chapters readable before login and restores the requested des
   assert.match(providerSource, /setAuthRequired\(!publicDiscoveryRoute\)/);
   assert.match(appSource, /if \(!authenticated && !publicDiscoveryRoute\) return <AuthGate \/>;/);
   assert.match(appSource, /startGoogleSignIn\(\)/);
+  assert.match(appSource, /import \{ PersonalSpace \} from "\.\/editorial-personal-space"/);
+  assert.doesNotMatch(appSource, /const PersonalSpace = dynamic/);
+  assert.match(appSource, /loading: \(\) => <DiscoverLoadingSkeleton \/>/);
   assert.match(routeSource, /getOptionalAuthenticatedUser\(\)/);
-  assert.match(routeSource, /readPublicDiscoveryCatalog\(supabase, userId\)/);
+  assert.match(routeSource, /readPublicDiscoveryCatalog\(supabase, userId, \{/);
   assert.match(migrationSource, /public can read published chapters/);
   assert.match(migrationSource, /profile_follow_counts/);
   assert.match(migrationSource, /author_avatar_url/);
@@ -3073,13 +3130,14 @@ test("shows a retry state instead of an endless discovery skeleton and publishes
 
   assert.match(appSource, /function DiscoveryLoadError/);
   assert.match(appSource, /discoveryError && !discoveryReady/);
-  assert.match(appSource, /ensureDiscoveryData\(true\)/);
+  assert.match(appSource, /ensureDiscoveryData\(true, discoveryTarget\)/);
   assert.match(discoverySource, /profile\.avatarUrl/);
   assert.match(discoverySource, /팔로워 \{profile\.followerCount/);
   assert.match(profileRepositorySource, /updateProfile/);
   assert.match(profileRepositorySource, /syncPublishedAuthorProfile/);
   assert.match(publicRepositorySource, /author_avatar_url/);
   assert.match(publicRepositorySource, /followerCountByProfile/);
+  assert.match(publicRepositorySource, /await Promise\.all\(\[followCountsRequest, followsRequest, likesRequest\]\)/);
 });
 
 test("uses shared chapter components for public discovery details and playlist export", async () => {

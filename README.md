@@ -89,3 +89,9 @@ npm test
 ## Supabase 마이그레이션
 
 새 Supabase 환경에는 `supabase/migrations/`의 SQL을 시간순으로 모두 적용합니다. 기존 운영 프로젝트를 CLI와 연결할 때는 과거 이력을 다시 실행하지 말고, [마이그레이션 정합성 안내](docs/SUPABASE_MIGRATION_RECONCILIATION.md)를 따라 적용 이력만 먼저 맞춥니다.
+
+곡별 기록 사진과 챕터 공유 기능을 배포하려면 다음 항목도 필요합니다.
+
+- `supabase/migrations/20260723103000_private_record_photos.sql` 적용
+- 로컬과 Vercel Production에 서버 전용 `SUPABASE_SERVICE_ROLE_KEY` 설정
+- 서비스 역할 키에는 `NEXT_PUBLIC_` 접두사를 붙이지 않고 클라이언트 코드에서 사용하지 않기

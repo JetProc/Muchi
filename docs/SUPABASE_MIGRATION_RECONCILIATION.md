@@ -4,7 +4,7 @@
 
 ## 현재 기준
 
-- 로컬 `supabase/migrations/`에는 초기 상태, 공개 탐색, 프로필 보안, 소셜, 애정도, 원자 저장/대표 이미지 저장소 변경이 모두 들어 있습니다.
+- 로컬 `supabase/migrations/`에는 초기 상태, 공개 탐색, 프로필 보안, 소셜, 애정도, 원자 저장, 대표 이미지와 비공개 곡 기록 사진 저장소 변경이 모두 들어 있습니다.
 - 프로덕션에는 `20260723004112_atomic_archive_sync_and_public_covers`, `20260723004146_remove_public_cover_listing_policy`가 적용되어 있습니다.
 - 새 환경은 파일을 시간순으로 모두 적용합니다.
 

@@ -434,15 +434,21 @@ test("collects a validated nickname and Google avatar before onboarding complete
   assert.doesNotMatch(appSource, /showWelcome|빈 아카이브|샘플 보기/);
 });
 
-test("publishes OAuth-ready privacy and terms pages from the signed-out homepage", async () => {
-  const [authGate, privacyPage, termsPage] = await Promise.all([
+test("publishes OAuth-ready public information pages from the signed-out homepage", async () => {
+  const [authGate, aboutPage, privacyPage, termsPage] = await Promise.all([
     readFile(new URL("../app/_components/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/about/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/privacy/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/terms/page.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(authGate, /href="\/privacy">개인정보처리방침/);
   assert.match(authGate, /href="\/terms">이용약관/);
+  assert.match(aboutPage, /<h1>뮤키<\/h1>/);
+  assert.match(aboutPage, /뮤키는 좋아했던 음악에 태그, 메모, 사진을 더해/);
+  assert.match(aboutPage, /사용자가 직접 요청한 경우에만 Google 계정의 YouTube 권한을 사용/);
+  assert.match(aboutPage, /href="\/privacy">개인정보처리방침/);
+  assert.match(aboutPage, /href="\/terms">이용약관/);
   assert.match(privacyPage, /Google 및 YouTube 데이터/);
   assert.match(privacyPage, /OAuth 액세스 토큰은 해당 요청을 처리하는 동안에만 사용/);
   assert.match(termsPage, /비공개 YouTube 플레이리스트를 생성/);
@@ -1428,13 +1434,16 @@ test("exports reviewed matches to YouTube Music while Apple Music remains pendin
   assert.match(playlistSource, /disabled=\{service\.status === "soon"\}/);
   assert.doesNotMatch(playlistSource, /MusicKit/);
   assert.doesNotMatch(playlistSource, /music\.apple\.com\/musickit/);
-  assert.match(playlistSource, /https:\/\/www\.googleapis\.com\/auth\/youtube/);
+  assert.match(playlistSource, /https:\/\/www\.googleapis\.com\/auth\/youtube\.force-ssl/);
   assert.match(playlistSource, /include_granted_scopes: "true"/);
   assert.doesNotMatch(playlistSource, /prompt: "consent"|access_type: "offline"/);
   assert.match(playlistSource, /skipBrowserRedirect: true/);
   assert.match(playlistSource, /searchParams\.delete\("code"\)/);
   assert.match(playlistSource, /window\.location\.assign\(data\.url\)/);
-  assert.match(playlistSource, /if \(!youtubeAuthGranted\)/);
+  assert.match(playlistSource, /muchi:youtube-oauth-granted:/);
+  assert.match(playlistSource, /youtubeAuthGranted \|\| window\.localStorage\.getItem\(grantKey\) === "true"/);
+  assert.match(playlistSource, /window\.localStorage\.setItem\(grantKey, "true"\)/);
+  assert.doesNotMatch(playlistSource, /if \(!youtubeAuthGranted\)/);
   assert.doesNotMatch(playlistSource, /if \(!token \|\| forceReconnect\)/);
   assert.match(playlistSource, /const token = connectionToken \?\? await connectYoutube\(\)/);
   assert.match(playlistSource, /Authorization: `Bearer \$\{token\}`/);
@@ -1450,14 +1459,14 @@ test("exports reviewed matches to YouTube Music while Apple Music remains pendin
   assert.doesNotMatch(playlistSource, /playlist-track-toggle|service\.description|ChevronRight/);
   assert.doesNotMatch(playlistSource, /presetServiceId \? 3 : 2/);
   assert.match(playlistSource, /onClick=\{\(\) => onStepChange\(2\)\}>다음<\/button>/);
-  assert.match(playlistSource, /onStepChange\(3\); void connectAndMatch\(\);/);
+  assert.match(playlistSource, /const token = connectionToken \?\? await connectYoutube\(\);[\s\S]*?onStepChange\(3\);/s);
+  assert.match(playlistSource, /step === 2[\s\S]*?onClick=\{\(\) => void connectAndMatch\(\)\}/s);
   assert.match(playlistSource, /className="playlist-match-loading" role="status"/);
   assert.doesNotMatch(playlistSource, /연결하고 곡 찾기/);
   assert.match(appSource, /initialServiceId=\{searchParams\.get\("service"\)\}/);
   assert.match(appSource, /youtubeAuthGranted=\{youtubeAuthGranted\}/);
   assert.match(appSource, /const youtubeAuthGranted = searchParams\.get\("youtubeAuth"\) === "granted";/);
-  assert.match(appSource, /: youtubeAuthGranted \? 3 : 1;/);
-  assert.doesNotMatch(playlistSource, /localStorage|sessionStorage/);
+  assert.match(appSource, /: youtubeAuthGranted \? 2 : 1;/);
   assert.match(appSource, /case "playlist":/);
   assert.match(typesSource, /\| "playlist"/);
   assert.match(routeSource, /<MusicWorldApp view="playlist" \/>/);

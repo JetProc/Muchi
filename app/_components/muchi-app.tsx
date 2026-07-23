@@ -316,7 +316,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const playlistRouteKey = `${searchParams.get("source") ?? "local"}:${queryId ?? ""}:${searchParams.get("service") ?? ""}`;
   const playlistStep = playlistProgress.routeKey === playlistRouteKey
     ? playlistProgress.step
-    : youtubeAuthGranted ? 3 : 1;
+    : youtubeAuthGranted ? 2 : 1;
   const publicPlaylistSource = searchParams.get("source") === "discover" && requestedPublicChapter
     ? { ...toPlaylistSource(requestedPublicChapter), returnHref: `/discover/chapter?id=${encodeURIComponent(requestedPublicChapter.id)}` }
     : null;

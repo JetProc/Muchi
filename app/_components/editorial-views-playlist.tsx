@@ -41,11 +41,17 @@ const MUSIC_SERVICES: MusicService[] = [
   { id: "youtube", name: "YouTube Music", url: "https://music.youtube.com/" },
 ];
 const STEP_LABEL = ["곡 확인", "서비스 선택", "매칭 확인"] as const;
-const YOUTUBE_SCOPE = "https://www.googleapis.com/auth/youtube";
+const YOUTUBE_SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl";
+const YOUTUBE_GRANT_PREFIX = "muchi:youtube-oauth-granted:";
 
 function isMusicServiceId(value: string | null): value is MusicServiceId { return value === "apple" || value === "youtube"; }
+function isYoutubeAuthError(errorCode: string | undefined) {
+  return errorCode === "insufficientPermissions"
+    || errorCode === "forbidden"
+    || errorCode === "unauthorized";
+}
 function youtubeErrorMessage(errorCode: string | undefined) {
-  if (errorCode === "insufficientPermissions" || errorCode === "forbidden" || errorCode === "unauthorized") return "Google 계정의 YouTube 권한이 필요해요. 권한을 다시 연결해 주세요.";
+  if (isYoutubeAuthError(errorCode)) return "Google 계정의 YouTube 권한이 필요해요. 권한을 다시 연결해 주세요.";
   if (errorCode === "quotaExceeded") return "YouTube 검색 한도를 초과했어요. 잠시 후 다시 시도해 주세요.";
   if (errorCode === "accessNotConfigured") return "YouTube Data API가 아직 활성화되지 않았어요.";
   return "YouTube 검색 중 오류가 발생했어요. 다시 연결해 주세요.";
@@ -97,6 +103,7 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; addedCount: number; failedCount: number } | null>(null);
   const viewRef = useRef<HTMLDivElement>(null);
+  const grantKeyRef = useRef<string | null>(null);
   const selectedService = MUSIC_SERVICES.find((service) => service.id === serviceId) ?? MUSIC_SERVICES[0];
   const selectedEntries = entries.filter((entry) => selectedTrackIds.includes(entry.track.id));
   const matchedCount = matches.filter((match) => match.selectedId && !match.excluded).length;
@@ -113,37 +120,42 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
   async function connectYoutube() {
     if (serviceId !== "youtube") throw new Error("Apple Music 내보내기는 준비 중이에요. 지금은 YouTube Music으로 만들어 주세요.");
     const supabase = createSupabaseBrowserClient();
-    if (!youtubeAuthGranted) {
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: youtubeOAuthCallbackUrl(),
-          scopes: YOUTUBE_SCOPE,
-          queryParams: {
-            include_granted_scopes: "true",
-          },
-          skipBrowserRedirect: true,
-        },
-      });
-      if (oauthError) throw oauthError;
-      if (!data.url) throw new Error("Google YouTube 권한 연결 주소를 만들지 못했어요.");
-      window.location.assign(data.url);
-      return null;
-    }
-    const { data, error: sessionError } = await supabase.auth.getSession();
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
-    const token = (data.session as unknown as { provider_token?: string } | null)?.provider_token;
-    if (!token) {
-      const missingToken = new Error("Google YouTube 권한 토큰을 받지 못했어요.") as Error & { code?: string };
-      missingToken.code = "unauthorized";
-      throw missingToken;
+    const session = sessionData.session as (typeof sessionData.session & { provider_token?: string }) | null;
+    const token = session?.provider_token;
+    const grantKey = session?.user.id ? `${YOUTUBE_GRANT_PREFIX}${session.user.id}` : null;
+    grantKeyRef.current = grantKey;
+    const hasYoutubeGrant = grantKey !== null
+      && (youtubeAuthGranted || window.localStorage.getItem(grantKey) === "true");
+    if (token && hasYoutubeGrant) {
+      if (youtubeAuthGranted && grantKey) window.localStorage.setItem(grantKey, "true");
+      return token;
     }
-    return token;
+    if (grantKey) window.localStorage.removeItem(grantKey);
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: youtubeOAuthCallbackUrl(),
+        scopes: YOUTUBE_SCOPE,
+        queryParams: {
+          include_granted_scopes: "true",
+        },
+        skipBrowserRedirect: true,
+      },
+    });
+    if (oauthError) throw oauthError;
+    if (!data.url) throw new Error("Google YouTube 권한 연결 주소를 만들지 못했어요.");
+    window.location.assign(data.url);
+    return null;
   }
   async function connectAndMatch() {
     setLoading(true); setError(null);
     try {
       if (serviceId !== "youtube") throw new Error("Apple Music 내보내기는 준비 중이에요. 지금은 YouTube Music으로 만들어 주세요.");
+      const token = connectionToken ?? await connectYoutube();
+      if (!token) return;
+      setConnectionToken(token);
       const response = await fetch(`/api/playlist/${serviceId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "match", tracks: selectedEntries.map((entry) => entry.track) }) });
       const body = await responseJson(response) as { matches?: Array<{ trackId?: string; status?: unknown; confidence?: unknown; candidates?: Candidate[]; selectedId?: unknown; errorCode?: string }>; errorCode?: string };
       setError(body.errorCode ? youtubeErrorMessage(body.errorCode) : null);
@@ -197,6 +209,10 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
       onStepChange("done");
     } catch (cause) {
       const errorCode = cause instanceof Error && "code" in cause && typeof cause.code === "string" ? cause.code : undefined;
+      if (isYoutubeAuthError(errorCode)) {
+        if (grantKeyRef.current) window.localStorage.removeItem(grantKeyRef.current);
+        setConnectionToken(null);
+      }
       setError(errorCode ? youtubeErrorMessage(errorCode) : cause instanceof Error ? cause.message : "플레이리스트를 만들지 못했어요.");
     }
     finally { setLoading(false); }
@@ -254,5 +270,5 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
         )}
       </article>;
     })}</div> : null}{unresolvedCount ? <p className="playlist-match-guidance" role="status">확인 필요한 {unresolvedCount}곡의 후보를 선택하거나 제외해 주세요.</p> : null}</section> : null}
-    {error ? <p className="auth-gate-error" role="alert">{error}</p> : null}<div className="playlist-builder-actions">{step === 1 ? <button className="button button-primary" type="button" disabled={!selectedTrackIds.length || !playlistName.trim()} onClick={() => onStepChange(2)}>다음</button> : null}{step === 2 ? <button className="button button-primary" type="button" disabled={selectedService.status === "soon"} onClick={() => { onStepChange(3); void connectAndMatch(); }}>{loading ? "곡을 찾는 중…" : `${selectedService.name}에서 곡 찾기`}</button> : null}{step === 3 && !matches.length && !loading ? <button className="button button-primary" type="button" onClick={() => void connectAndMatch()}>다시 검색</button> : null}{step === 3 && matches.length ? <button className="button button-primary" type="button" disabled={!matchedCount || unresolvedCount > 0 || loading} onClick={() => void exportPlaylist()}><ListMusic size={16} aria-hidden="true" />{loading ? "만드는 중…" : unresolvedCount ? `${unresolvedCount}곡 확인 필요` : `${matchedCount}곡 내보내기`}</button> : null}</div></div>;
+    {error ? <p className="auth-gate-error" role="alert">{error}</p> : null}<div className="playlist-builder-actions">{step === 1 ? <button className="button button-primary" type="button" disabled={!selectedTrackIds.length || !playlistName.trim()} onClick={() => onStepChange(2)}>다음</button> : null}{step === 2 ? <button className="button button-primary" type="button" disabled={selectedService.status === "soon" || loading} onClick={() => void connectAndMatch()}>{loading ? "곡을 찾는 중…" : `${selectedService.name}에서 곡 찾기`}</button> : null}{step === 3 && !matches.length && !loading ? <button className="button button-primary" type="button" onClick={() => void connectAndMatch()}>다시 검색</button> : null}{step === 3 && matches.length ? <button className="button button-primary" type="button" disabled={!matchedCount || unresolvedCount > 0 || loading} onClick={() => void exportPlaylist()}><ListMusic size={16} aria-hidden="true" />{loading ? "만드는 중…" : unresolvedCount ? `${unresolvedCount}곡 확인 필요` : `${matchedCount}곡 내보내기`}</button> : null}</div></div>;
 }

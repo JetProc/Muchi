@@ -31,6 +31,7 @@ import {
 import { AlbumArtwork, type PreviewControls } from "./editorial-media";
 import { formatTrackArtist } from "./editorial-format";
 import type { AppView, ToastMessage } from "./editorial-types";
+import { GuidedTourOverlay } from "./guided-tour";
 
 const VIEW_META: Record<AppView, { label: string; path: string; index: string }> = {
   home: { label: "HOME", path: "/", index: "00" },
@@ -142,7 +143,7 @@ export function TextNavigation({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
   const discoverPlaylist = view === "playlist" && searchParams.get("source") === "discover";
   return (
-    <nav className="text-navigation icon-label-nav" aria-label="주요 메뉴">
+    <nav className="text-navigation icon-label-nav" aria-label="주요 메뉴" data-tour="navigation">
       {MOBILE_NAV.map((item) => {
         const meta = VIEW_META[item];
         const Icon = MOBILE_NAV_ICON[item];
@@ -498,6 +499,7 @@ export function EditorialShell({
           </div>
         ) : null}
         <ToastRegion toast={toast} onDismiss={onToastDismiss} />
+        <GuidedTourOverlay />
       </div>
     </div>
   );

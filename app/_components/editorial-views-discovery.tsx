@@ -210,7 +210,7 @@ export function Search({
   }
 
   return (
-    <div className="page-content search-view">
+    <div className="page-content search-view" data-tour="search">
       <header className="search-workspace-header archive-find-header">
         <h1 className="archive-find-title">내 기록 찾기</h1>
         <div className="search-query-row">
@@ -357,7 +357,7 @@ export function Recap({ archive }: {
     random: "무작위 기억",
   };
   return (
-    <div className="page-content recap-view">
+    <div className="page-content recap-view" data-tour="recap">
       <PageHeader
         eyebrow="회고"
         title={label[mode]}
@@ -433,6 +433,7 @@ export function Settings({
   profileSaving,
   profileError,
   onUpdateProfile,
+  onStartGuidedTour,
 }: {
   archive: ArchiveEnvelopeV1;
   commit: ArchiveCommit;
@@ -441,6 +442,7 @@ export function Settings({
   profileSaving: boolean;
   profileError: string | null;
   onUpdateProfile: (update: ProfileUpdate) => Promise<boolean>;
+  onStartGuidedTour: () => void;
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
   function setMotion(motion: MotionPreference) {
@@ -482,7 +484,7 @@ export function Settings({
   }
 
   return (
-    <div className="page-content settings-view">
+    <div className="page-content settings-view" data-tour="settings">
       <PageHeader eyebrow="설정" title="내 음악 아카이브" />
       <section className="settings-group" aria-labelledby="settings-display-title">
         <h2 id="settings-display-title">표시</h2>
@@ -505,6 +507,7 @@ export function Settings({
       <section className="settings-group" aria-labelledby="settings-guide-title">
         <h2 id="settings-guide-title">사용 가이드</h2>
         <div className="panel settings-list">
+          <div className="setting-row"><div><h3>인터랙티브 투어 다시 보기</h3><small>데모 기록으로 주요 기능 20가지를 다시 둘러봐요.</small></div><button className="button" type="button" onClick={onStartGuidedTour}>시작</button></div>
           <div className="setting-row"><div><h3>뮤키 사용 방법</h3><small>첫 기록, 링크 가져오기, 홈 화면 추가</small></div><Link className="button" href="/guide" intent="forward">보기</Link></div>
         </div>
       </section>

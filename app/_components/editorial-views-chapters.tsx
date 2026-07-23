@@ -412,7 +412,7 @@ export function Chapters({
   }
 
   return (
-    <div className="page-content chapters-view chapter-library-view">
+    <div className="page-content chapters-view chapter-library-view" data-tour="chapter-library">
       <h1 className="sr-only">챕터 보관함</h1>
       <nav className="chapter-library-tabs" aria-label="챕터 종류">
         <button className={activeTab === "manual" ? "is-active" : ""} type="button" onClick={() => setActiveTab("manual")} aria-current={activeTab === "manual" ? "page" : undefined}>내가 만든 챕터</button>
@@ -685,7 +685,7 @@ export function ChapterDetail({
   }));
 
   return (
-    <div className="page-content chapter-view chapter-detail-compact">
+    <div className="page-content chapter-view chapter-detail-compact" data-tour="chapter-detail">
       <ChapterDetailHero
         cover={<ChapterCover archive={archive} chapter={chapter} />}
         eyebrow={<>{formatDate(chapter.updatedAt)} <span className="chapter-detail-date-count">· {entries.length}곡</span></>}
@@ -749,7 +749,7 @@ export function ChapterDetail({
           label={`${entries.length}곡`}
           title="수록곡"
           action={(
-            <div className="chapter-track-actions">
+            <div className="chapter-track-actions" data-tour="chapter-management">
               <label className="chapter-track-sort">
                 <span className="sr-only">곡 정렬</span>
                 <select value={activeChapter.trackSort} onChange={(event) => changeTrackSort(event.target.value as "added" | "affection")}>
@@ -1450,17 +1450,19 @@ export function Memory({
           track={track}
         />
         <form className="memory-form form-stack" onSubmit={save}>
-          <TagEditor
-            tags={availableTags}
-            selectedTagIds={selectedTagIds}
-            suggestedTagIds={suggestedTagIds}
-            usageCounts={tagUsageCounts}
-            toggleTag={toggleTag}
-            addTag={addTag}
-            memoryReturnId={activeCubeTrack.id}
-          />
-          <AffectionSelector value={affection} onChange={setAffection} />
-          <section className="memory-note-composer memory-note-composer-compact" aria-labelledby="memory-note-title">
+          <div data-tour="memory-tags">
+            <TagEditor
+              tags={availableTags}
+              selectedTagIds={selectedTagIds}
+              suggestedTagIds={suggestedTagIds}
+              usageCounts={tagUsageCounts}
+              toggleTag={toggleTag}
+              addTag={addTag}
+              memoryReturnId={activeCubeTrack.id}
+            />
+            <AffectionSelector value={affection} onChange={setAffection} />
+          </div>
+          <section className="memory-note-composer memory-note-composer-compact" aria-labelledby="memory-note-title" data-tour="memory-notes">
             <div className="memory-note-heading">
               <div><span className="section-label">{editingNoteId ? "감상 수정" : "새 감상"}</span><h2 id="memory-note-title" className="field-label">날짜별 감상</h2></div>
               <div className="memory-note-heading-actions">

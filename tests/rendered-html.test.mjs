@@ -671,7 +671,8 @@ test("connects onboarding, the settings guide, and first-record hints", async ()
 
   assert.match(settingsSource, /뮤키 사용 방법[\s\S]*?href="\/guide"/s);
   assert.match(appSource, /case "guide":[\s\S]*?<Guide \/>/s);
-  assert.match(appSource, /router\.replace\("\/capture\?guide=1", "replace"\)/);
+  assert.doesNotMatch(appSource, /router\.replace\("\/capture\?guide=1", "replace"\)/);
+  assert.match(appSource, /void completeOnboarding\(nickname\)/);
   assert.match(appSource, /guideMode=\{searchParams\.get\("guide"\) === "1"\}/);
   assert.match(captureSource, /className="capture-mini-guide"/);
   assert.match(captureSource, /className="record-tag-guide"/);
@@ -683,6 +684,48 @@ test("connects onboarding, the settings guide, and first-record hints", async ()
   assert.doesNotMatch(guideSource, /MusicKit|PWA|지원 현황|Spotify|준비 중/);
   assert.match(guideSource, /href="\/capture\?guide=1"/);
   assert.match(guideRouteSource, /MusicWorldApp view="guide"/);
+});
+
+test("connects the mandatory guided tour to onboarding, demo data, and manual replay", async () => {
+  const [
+    appSource,
+    providerSource,
+    shellSource,
+    settingsSource,
+    tourSource,
+    tourConfigSource,
+    onboardingApiSource,
+    tourApiSource,
+    migrationSource,
+  ] = await Promise.all([
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-discovery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/guided-tour.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/guided-tour.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/client/onboarding-api.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/guided-tour/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260723100223_add_guided_tour_version.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(tourConfigSource, /CURRENT_GUIDED_TOUR_VERSION\s*=\s*1/);
+  assert.match(tourConfigSource, /export const GUIDED_TOUR_STEPS/);
+  assert.equal((tourConfigSource.match(/\bstepId:\s*"[^"]+"/g) ?? []).length, 20);
+  assert.match(tourConfigSource, /createSeedArchive\(\)/);
+  assert.match(providerSource, /guidedTourActive/);
+  assert.match(providerSource, /startGuidedTour/);
+  assert.match(providerSource, /completeGuidedTour/);
+  assert.match(onboardingApiSource, /guidedTourVersion:\s*number/);
+  assert.match(appSource, /guidedTourActive\s*\?\s*guidedTourArchive\s*:\s*persistedArchive/);
+  assert.match(shellSource, /<GuidedTourOverlay/);
+  assert.match(settingsSource, /인터랙티브 투어 다시 보기/);
+  assert.match(tourSource, /aria-modal="true"/);
+  assert.match(tourSource, /투어 다시 시도/);
+  assert.doesNotMatch(tourSource, /건너뛰기|투어 닫기/);
+  assert.match(tourApiSource, /CURRENT_GUIDED_TOUR_VERSION/);
+  assert.match(migrationSource, /guided_tour_version integer not null default 0/);
+  assert.match(migrationSource, /update public\.profiles\s+set guided_tour_version = 1/);
 });
 
 test("keeps the global header stable and makes contextual back actions history-aware", async () => {

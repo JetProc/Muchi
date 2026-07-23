@@ -140,7 +140,7 @@ export function Discover({
 }) {
   const ranked = rankPublicChapters(archive, catalog);
   return (
-    <div className="page-content discover-view">
+    <div className="page-content discover-view" data-tour="discover-feed">
       <PageHeader
         eyebrow={activityOnly ? "FOLLOWING" : "DISCOVER"}
         title={activityOnly ? "팔로잉 새 글" : "비슷한 결의 기록"}
@@ -225,7 +225,7 @@ export function PublicChapterDetail({
         description={chapter.description}
         meta={`${chapter.tracks.length}곡`}
         utilities={<ChapterPlaylistActions chapterId={chapter.id} source="discover" />}
-        actions={<button className={`public-like-button${chapter.likedByViewer ? " is-liked" : ""}`} type="button" onClick={() => actions.onToggleLike(chapter.id)} aria-pressed={chapter.likedByViewer}><Heart size={15} aria-hidden="true" />좋아요 {chapter.likeCount}</button>}
+        actions={<button className={`public-like-button${chapter.likedByViewer ? " is-liked" : ""}`} type="button" onClick={() => actions.onToggleLike(chapter.id)} aria-pressed={chapter.likedByViewer} data-tour="public-actions"><Heart size={15} aria-hidden="true" />좋아요 {chapter.likeCount}</button>}
         style={chapterColorStyle("violet")}
       />
       <ChapterTrackSection items={trackItems} label={`${chapter.tracks.length}곡`} title="수록곡" />

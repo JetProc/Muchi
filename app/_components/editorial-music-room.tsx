@@ -20,7 +20,7 @@ export function PersonalSpaceShelf({
   ariaLabel: string;
 }) {
   return (
-    <div className="personal-space-shelf" aria-label={ariaLabel}>
+    <div className="personal-space-shelf" aria-label={ariaLabel} data-tour="home-library">
       {items.map((item, index) => (
         <Link className="personal-space-chapter" href={item.href} intent="shared" sharedId={item.id} key={item.id}>
           <span className="personal-space-chapter-art">{item.artwork}</span>
@@ -59,8 +59,8 @@ export function MusicRoomFrame({
   footer?: ReactNode;
 }) {
   return (
-    <div className={`page-content personal-space-view music-room-frame theme-${themeId} layout-${layoutId}`}>
-      <section className="personal-space-intro">
+    <div className={`page-content personal-space-view music-room-frame theme-${themeId} layout-${layoutId}`} data-tour="personal-space">
+      <section className="personal-space-intro" data-tour="home-featured">
         <div><span className="section-label">{eyebrow}</span><h1>{title}</h1></div>
         {primaryAction}
       </section>

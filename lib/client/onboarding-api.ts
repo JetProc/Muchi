@@ -1,5 +1,6 @@
 export type OnboardingStatus = {
   completed: boolean;
+  guidedTourVersion: number;
   displayName: string;
   avatarUrl: string | null;
   bio: string;
@@ -33,13 +34,22 @@ async function request(method: "GET" | "PUT", nickname?: string): Promise<Onboar
   }
   if (
     typeof body.completed !== "boolean"
+    || typeof body.guidedTourVersion !== "number"
+    || !Number.isInteger(body.guidedTourVersion)
+    || body.guidedTourVersion < 0
     || typeof body.displayName !== "string"
     || !(body.avatarUrl === null || typeof body.avatarUrl === "string")
     || typeof body.bio !== "string"
   ) {
     throw new OnboardingApiError("invalid_response", "서버가 올바르지 않은 온보딩 정보를 반환했습니다.");
   }
-  return { completed: body.completed, displayName: body.displayName, avatarUrl: body.avatarUrl, bio: body.bio };
+  return {
+    completed: body.completed,
+    guidedTourVersion: body.guidedTourVersion,
+    displayName: body.displayName,
+    avatarUrl: body.avatarUrl,
+    bio: body.bio,
+  };
 }
 
 export function fetchOnboardingStatus(): Promise<OnboardingStatus> {

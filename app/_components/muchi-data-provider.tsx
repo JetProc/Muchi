@@ -30,6 +30,12 @@ import {
   saveOnboardingComplete,
   type OnboardingStatus,
 } from "@/lib/client/onboarding-api";
+import { saveGuidedTourComplete } from "@/lib/client/guided-tour-api";
+import {
+  CURRENT_GUIDED_TOUR_VERSION,
+  createGuidedTourArchive,
+  createGuidedTourCatalog,
+} from "@/lib/guided-tour";
 import { updateProfile as updateProfileRemote, type ProfileUpdate } from "@/lib/client/profile-api";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { ToastMessage, ToastNotice } from "./editorial-types";
@@ -41,6 +47,7 @@ const MAX_ARCHIVE_OPERATIONS_PER_REQUEST = 250;
 type PendingArchive = { operations: ArchivePatchOperation[]; syncPublicProjection: boolean };
 type PendingDiscovery = { state: DiscoveryInteractionState };
 type CachedDiscoveryCatalog = { catalog: PublicDiscoveryCatalog; updatedAt: number };
+export type GuidedTourMode = "auto" | "manual";
 
 type MuchiDataContextValue = {
   archive: ArchiveEnvelopeV1;
@@ -56,6 +63,12 @@ type MuchiDataContextValue = {
   onboarding: OnboardingStatus | null;
   onboardingSaving: boolean;
   onboardingError: string | null;
+  guidedTourArchive: ArchiveEnvelopeV1;
+  guidedTourCatalog: PublicDiscoveryCatalog;
+  guidedTourActive: boolean;
+  guidedTourStep: number;
+  guidedTourSaving: boolean;
+  guidedTourError: string | null;
   online: boolean;
   ensureDiscoveryData: (force?: boolean, target?: PublicDiscoveryTarget) => Promise<void>;
   updatePublicChapterLike: (chapterId: string, liked: boolean) => void;
@@ -64,6 +77,9 @@ type MuchiDataContextValue = {
   saveDiscovery: (next: DiscoveryInteractionState, message?: ToastMessage) => boolean;
   completeOnboarding: (nickname: string) => Promise<boolean>;
   updateProfile: (update: ProfileUpdate) => Promise<boolean>;
+  startGuidedTour: (mode?: GuidedTourMode) => void;
+  setGuidedTourStep: (step: number) => void;
+  completeGuidedTour: () => Promise<boolean>;
 };
 
 const MuchiDataContext = createContext<MuchiDataContextValue | null>(null);
@@ -97,6 +113,15 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [onboardingSaving, setOnboardingSaving] = useState(false);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [guidedTourMode, setGuidedTourMode] = useState<GuidedTourMode | null>(null);
+  const [guidedTourStep, setGuidedTourStep] = useState(0);
+  const [guidedTourSaving, setGuidedTourSaving] = useState(false);
+  const [guidedTourError, setGuidedTourError] = useState<string | null>(null);
+  const guidedTourArchive = useMemo(() => createGuidedTourArchive(), []);
+  const guidedTourCatalog = useMemo(
+    () => createGuidedTourCatalog(guidedTourArchive),
+    [guidedTourArchive],
+  );
   const [online, setOnline] = useState(true);
   const archiveRevisionRef = useRef(0);
   const discoveryRevisionRef = useRef(0);
@@ -497,6 +522,35 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const startGuidedTour = useCallback((mode: GuidedTourMode = "manual") => {
+    setGuidedTourError(null);
+    setGuidedTourStep(0);
+    setGuidedTourMode(mode);
+  }, []);
+
+  const guidedTourActive = guidedTourMode !== null || Boolean(
+    authenticated
+    && onboarding?.completed
+    && onboarding.guidedTourVersion < CURRENT_GUIDED_TOUR_VERSION,
+  );
+
+  const completeGuidedTour = useCallback(async () => {
+    setGuidedTourSaving(true);
+    setGuidedTourError(null);
+    try {
+      const guidedTourVersion = await saveGuidedTourComplete(CURRENT_GUIDED_TOUR_VERSION);
+      setOnboarding((current) => current ? { ...current, guidedTourVersion } : current);
+      setGuidedTourMode(null);
+      setGuidedTourStep(0);
+      return true;
+    } catch (cause) {
+      setGuidedTourError(cause instanceof Error ? cause.message : "투어 완료 상태를 저장하지 못했어요.");
+      return false;
+    } finally {
+      setGuidedTourSaving(false);
+    }
+  }, []);
+
   const updateProfile = useCallback(async (update: ProfileUpdate) => {
     setOnboardingSaving(true);
     setOnboardingError(null);
@@ -525,6 +579,12 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     onboarding,
     onboardingSaving,
     onboardingError,
+    guidedTourArchive,
+    guidedTourCatalog,
+    guidedTourActive,
+    guidedTourStep,
+    guidedTourSaving,
+    guidedTourError,
     online,
     ensureDiscoveryData,
     updatePublicChapterLike,
@@ -533,10 +593,15 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     saveDiscovery,
     completeOnboarding,
     updateProfile,
+    startGuidedTour,
+    setGuidedTourStep,
+    completeGuidedTour,
   }), [
     archive, archiveReady, authenticated, authRequired, remoteError, catalog, discoveryState, discoveryReady,
     discoveryLoading, discoveryError, onboarding, onboardingSaving, onboardingError, online,
-    ensureDiscoveryData, updatePublicChapterLike, updatePublicProfileFollow, saveArchive, saveDiscovery, completeOnboarding, updateProfile,
+    guidedTourArchive, guidedTourCatalog, guidedTourActive, guidedTourStep, guidedTourSaving, guidedTourError,
+    ensureDiscoveryData, updatePublicChapterLike, updatePublicProfileFollow, saveArchive, saveDiscovery,
+    completeOnboarding, updateProfile, startGuidedTour, completeGuidedTour,
   ]);
 
   return <MuchiDataContext.Provider value={value}>{children}</MuchiDataContext.Provider>;

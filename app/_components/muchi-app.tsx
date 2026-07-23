@@ -252,18 +252,21 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const searchParams = useSearchParams();
   const router = useMotionRouter();
   const {
-    archive,
+    archive: persistedArchive,
     archiveReady: hydrated,
     authenticated,
     authRequired,
     remoteError,
-    catalog,
+    catalog: persistedCatalog,
     discoveryState,
     discoveryReady,
     discoveryError,
     onboarding,
     onboardingSaving,
     onboardingError,
+    guidedTourArchive,
+    guidedTourCatalog,
+    guidedTourActive,
     online,
     ensureDiscoveryData,
     updatePublicChapterLike,
@@ -272,7 +275,10 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     saveDiscovery: saveDiscoveryState,
     completeOnboarding,
     updateProfile,
+    startGuidedTour,
   } = useMuchiData();
+  const archive = guidedTourActive ? guidedTourArchive : persistedArchive;
+  const catalog = guidedTourActive ? guidedTourCatalog : persistedCatalog;
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [systemReduce, setSystemReduce] = useState(false);
   const [previewState, setPreviewState] = useState<PreviewState | null>(null);
@@ -448,9 +454,9 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   }, [queryId, view]);
 
   useEffect(() => {
-    if (!hydrated || !discoveryRoute) return;
+    if (!hydrated || !discoveryRoute || guidedTourActive) return;
     void ensureDiscoveryData(false, discoveryTarget).catch(() => undefined);
-  }, [discoveryRoute, discoveryTarget, ensureDiscoveryData, hydrated]);
+  }, [discoveryRoute, discoveryTarget, ensureDiscoveryData, guidedTourActive, hydrated]);
 
   useEffect(() => {
     const handleSaveNotice = (event: Event) => {
@@ -484,10 +490,12 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     next: ArchiveEnvelopeV1,
     message?: ToastMessage,
   ): boolean {
+    if (guidedTourActive) return true;
     return saveArchiveState(next, message);
   }
 
   function handleToggleFollow(profileId: string) {
+    if (guidedTourActive) return;
     if (!authenticated) {
       void startGoogleSignIn().catch((error: unknown) => notify(error instanceof Error ? error.message : "로그인을 시작하지 못했어요."));
       return;
@@ -508,6 +516,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   }
 
   function handleToggleLike(chapterId: string) {
+    if (guidedTourActive) return;
     if (!authenticated) {
       void startGoogleSignIn().catch((error: unknown) => notify(error instanceof Error ? error.message : "로그인을 시작하지 못했어요."));
       return;
@@ -527,6 +536,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   }
 
   function handleMarkActivityRead(activityId: string) {
+    if (guidedTourActive) return;
     if (discoveryState.readActivityIds.includes(activityId)) return;
     saveDiscoveryState(markActivityRead(discoveryState, activityId));
   }
@@ -618,14 +628,12 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         avatarUrl={onboarding.avatarUrl}
         loading={onboardingSaving}
         error={onboardingError}
-        onComplete={(nickname, starterTags, destination) => {
+        onComplete={(nickname, starterTags) => {
           if (starterTags.length) {
             const result = createTags(archive, starterTags);
             if (!saveArchiveState(result.archive)) return;
           }
-          void completeOnboarding(nickname).then((completed) => {
-            if (completed && destination === "capture") router.replace("/capture?guide=1", "replace");
-          });
+          void completeOnboarding(nickname);
         }}
       />
     );
@@ -656,7 +664,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         }
         return <Memory archive={archive} cubeTrackId={queryId} commit={commit} notify={notify} recordMode={recordMode} openChapterMove={searchParams.get("move") === "chapter"} router={router} />;
       case "playlist":
-        if (searchParams.get("source") === "discover" && !discoveryReady) {
+        if (searchParams.get("source") === "discover" && !discoveryReady && !guidedTourActive) {
           return <LoadingSpinner label="공개 챕터를 불러오는 중입니다." />;
         }
         return (
@@ -671,16 +679,16 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           />
         );
       case "discover":
-        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
-        if (!discoveryReady) return <DiscoverLoadingSkeleton />;
+        if (discoveryError && !discoveryReady && !guidedTourActive) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
+        if (!discoveryReady && !guidedTourActive) return <DiscoverLoadingSkeleton />;
         return <Discover archive={archive} catalog={catalog} state={discoveryState} activityOnly={searchParams.get("activity") === "1"} actions={discoveryActions} />;
       case "discoverChapter":
-        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
-        if (!discoveryReady) return <DiscoverLoadingSkeleton />;
+        if (discoveryError && !discoveryReady && !guidedTourActive) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
+        if (!discoveryReady && !guidedTourActive) return <DiscoverLoadingSkeleton />;
         return <PublicChapterDetail catalog={catalog} chapterId={queryId} actions={discoveryActions} />;
       case "discoverProfile":
-        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
-        if (!discoveryReady) return <DiscoverLoadingSkeleton />;
+        if (discoveryError && !discoveryReady && !guidedTourActive) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
+        if (!discoveryReady && !guidedTourActive) return <DiscoverLoadingSkeleton />;
         return <PublicProfileDetail catalog={catalog} profileId={queryId} showAll={searchParams.get("view") === "all"} actions={discoveryActions} />;
       case "search":
         return (
@@ -698,7 +706,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       case "recap":
         return <Recap archive={archive} />;
       case "settings":
-        return <Settings archive={archive} commit={commit} notify={notify} profile={onboarding} profileSaving={onboardingSaving} profileError={onboardingError} onUpdateProfile={updateProfile} />;
+        return <Settings archive={archive} commit={commit} notify={notify} profile={onboarding} profileSaving={onboardingSaving} profileError={onboardingError} onUpdateProfile={updateProfile} onStartGuidedTour={startGuidedTour} />;
       case "guide":
         return <Guide />;
       case "tags":

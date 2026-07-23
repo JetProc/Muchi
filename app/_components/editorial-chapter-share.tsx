@@ -450,7 +450,7 @@ function ChapterShareEditorScreen({
   }
 
   return (
-    <div className="page-content chapter-share-view">
+    <div className="page-content chapter-share-view" data-tour="share">
       <PageHeader
         title="인스타그램 공유"
       />

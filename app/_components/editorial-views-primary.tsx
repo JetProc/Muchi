@@ -875,7 +875,7 @@ export function Capture({
       <header className="capture-search-header">
         <h1>곡 기록</h1>
       </header>
-      <section className="capture-search-compact" aria-label="음악 검색">
+      <section className="capture-search-compact" aria-label="음악 검색" data-tour="capture-search">
         <form className="search-form capture-search-form" onSubmit={submit}>
           <label className="sr-only" htmlFor="itunes-query">외부 음악에서 기록할 곡 찾기</label>
           <input id="itunes-query" className="input" type="search" name="music-search" value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="기록할 곡이나 아티스트" minLength={1} enterKeyHint="search" autoComplete="off" autoFocus data-route-autofocus />
@@ -886,7 +886,7 @@ export function Capture({
         <div><span>처음 기록한다면</span><strong>곡을 고른 뒤, 태그로 그때의 순간을 남겨 보세요.</strong><p>검색으로 찾거나, YouTube Music·Apple Music 링크를 가져올 수 있어요.</p></div>
         <button type="button" onClick={() => setGuideVisible(false)} aria-label="기록 안내 닫기"><X aria-hidden="true" size={16} /></button>
       </aside> : null}
-      <div className="capture-link-row">
+      <div className="capture-link-row" data-tour="capture-link">
         <button
           className="capture-link-action"
           type="button"
@@ -901,6 +901,7 @@ export function Capture({
         </button>
       </div>
 
+      <div data-tour="capture-results">
       {error ? <div className="notice notice-danger" style={{ marginTop: 18 }} role="alert">{error}</div> : null}
 
       {resultSource ? (
@@ -960,6 +961,7 @@ export function Capture({
           ) : null}
         </section>
       ) : null}
+      </div>
 
       {selectedResults.length ? (
         <div className="capture-floating-action" aria-live="polite">
@@ -1297,7 +1299,7 @@ export function Inbox({
   });
 
   return (
-    <div className={`page-content inbox-view${selectedTrackIds.size ? " has-selection" : ""}`}>
+    <div className={`page-content inbox-view${selectedTrackIds.size ? " has-selection" : ""}`} data-tour="inbox">
       <PageHeader
         eyebrow={`${entries.length}곡`}
         title="보관함"

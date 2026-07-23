@@ -18,6 +18,7 @@ export interface ChapterShareStyle {
   format: ChapterShareFormat;
   layout: ChapterShareLayout;
   mood: ChapterShareMood;
+  customColor?: string;
   decorationLevel: ChapterShareDecorationLevel;
   trackImageMode: ChapterShareTrackImageMode;
   selectedTrackIds: string[];

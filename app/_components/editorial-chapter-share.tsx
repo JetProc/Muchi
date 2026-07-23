@@ -39,7 +39,6 @@ import {
 } from "@/lib/share";
 import {
   SHARE_DECORATION_LEVELS,
-  SHARE_DESCRIPTION_MAX_LENGTH,
   SHARE_FORMATS,
   SHARE_LAYOUTS,
   SHARE_MOODS,
@@ -49,7 +48,7 @@ import { MotionLink as Link } from "./editorial-motion";
 import { getOwnedRecordPhotoUrl } from "./editorial-media";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { EmptyState, PageHeader } from "./editorial-ui";
-import { formatChapterTitle, isVisibleChapter } from "./editorial-format";
+import { formatChapterTitle, formatTrackArtist, isVisibleChapter } from "./editorial-format";
 
 type GeneratedShareAsset = {
   key: string;
@@ -66,6 +65,7 @@ const SHARE_EDITOR_STEPS = [
 ] as const;
 
 const INSTAGRAM_TRACK_IMAGE_MODES = ["all", "none"] as const;
+const INSTAGRAM_SHARE_DESCRIPTION_MAX_LENGTH = 60;
 
 type ShareEditorStep = (typeof SHARE_EDITOR_STEPS)[number]["id"];
 
@@ -92,9 +92,9 @@ function layoutLabel(layout: ShareLayout): string {
 }
 
 function moodLabel(mood: ShareMood): string {
-  if (mood === "paper") return "페이퍼";
-  if (mood === "night") return "나이트";
-  return "필름";
+  if (mood === "paper") return "라이트";
+  if (mood === "night") return "다크";
+  return "커스텀";
 }
 
 function decorationLabel(level: ShareDecorationLevel): string {
@@ -452,19 +452,11 @@ function ChapterShareEditorScreen({
   return (
     <div className="page-content chapter-share-view">
       <PageHeader
-        eyebrow="INSTAGRAM SHARE"
         title="인스타그램 공유"
-        description="형식과 분위기를 다듬고, 챕터를 인스타그램용 이미지로 준비하세요."
       />
 
       <div className="chapter-share-workspace">
         <section className="chapter-share-preview-section">
-          <div className="chapter-share-preview-head">
-            <div>
-              <h2>실시간 미리보기</h2>
-              <p>{normalizedStyle.format === "story" ? "1080 × 1920" : "1080 × 1350"} · {resolvedTracks.length}곡</p>
-            </div>
-          </div>
           <div className="chapter-share-preview-device">
             <div className={`chapter-share-preview-card is-${normalizedStyle.format}`}>
               <div className="chapter-share-preview-svg" dangerouslySetInnerHTML={{ __html: previewSvg }} />
@@ -496,6 +488,26 @@ function ChapterShareEditorScreen({
           {activeStep === "mood" ? (
             <div className="chapter-share-step-content">
               <ShareChoiceGroup title="분위기" value={normalizedStyle.mood} items={SHARE_MOODS} onSelect={(mood) => updateStyle({ mood })} label={moodLabel} />
+              {normalizedStyle.mood === "film" ? (
+                <section className="chapter-share-section chapter-share-custom-color" aria-label="커스텀 배경색">
+                  <div className="chapter-share-section-head">
+                    <div>
+                      <h2>배경색</h2>
+                      <p>텍스트 색상과 카드 대비는 자동으로 맞춰져요.</p>
+                    </div>
+                    <output htmlFor="chapter-share-custom-color">{normalizedStyle.customColor}</output>
+                  </div>
+                  <label htmlFor="chapter-share-custom-color">
+                    <input
+                      id="chapter-share-custom-color"
+                      type="color"
+                      value={normalizedStyle.customColor ?? "#6f5bff"}
+                      onInput={(event) => updateStyle({ customColor: event.currentTarget.value })}
+                    />
+                    <span>색상 선택</span>
+                  </label>
+                </section>
+              ) : null}
               <ShareChoiceGroup title="장식" value={normalizedStyle.decorationLevel} items={SHARE_DECORATION_LEVELS} onSelect={(decorationLevel) => updateStyle({ decorationLevel })} label={decorationLabel} />
             </div>
           ) : null}
@@ -519,7 +531,7 @@ function ChapterShareEditorScreen({
                     <article className={`chapter-share-track-row${selected ? " is-selected" : ""}`} key={track.id}>
                       <div className="chapter-share-track-copy">
                         <span className="chapter-share-track-index">{selected ? String(index + 1).padStart(2, "0") : "—"}</span>
-                        <div><strong>{track.track.title}</strong><span>{track.track.artist}</span></div>
+                        <div><strong>{track.track.title}</strong><span>{formatTrackArtist(track.track)}</span></div>
                       </div>
                       <div className="chapter-share-track-actions">
                         {selected ? <>
@@ -539,8 +551,8 @@ function ChapterShareEditorScreen({
           {activeStep === "details" ? (
             <div className="chapter-share-step-content">
               <section className="chapter-share-section">
-                <div className="chapter-share-section-head"><h2>한 줄 설명</h2><span>{normalizedStyle.description.length} / {SHARE_DESCRIPTION_MAX_LENGTH}</span></div>
-                <input className="input" maxLength={SHARE_DESCRIPTION_MAX_LENGTH} placeholder="이 챕터의 결을 한 줄로 남겨 보세요" value={normalizedStyle.description} onChange={(event) => updateStyle({ description: event.target.value })} />
+                <div className="chapter-share-section-head"><h2>한 줄 설명</h2><span>{normalizedStyle.description.length} / {INSTAGRAM_SHARE_DESCRIPTION_MAX_LENGTH}</span></div>
+                <input className="input" maxLength={INSTAGRAM_SHARE_DESCRIPTION_MAX_LENGTH} placeholder="이 챕터의 결을 한 줄로 남겨 보세요" value={normalizedStyle.description} onChange={(event) => updateStyle({ description: event.target.value })} />
               </section>
               <section className="chapter-share-section">
                 <div className="chapter-share-section-head"><h2>표시 정보</h2></div>

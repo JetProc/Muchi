@@ -26,6 +26,7 @@ const DEFAULT_SHARE_STYLE: NormalizedChapterShareStyle = {
   format: "story",
   layout: "cover",
   mood: "paper",
+  customColor: "#6f5bff",
   decorationLevel: "light",
   trackImageMode: "all",
   selectedTrackIds: [],
@@ -43,6 +44,12 @@ function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value
 function sanitizeDescription(value: unknown): string {
   if (typeof value !== "string") return "";
   return value.replace(/\s+/g, " ").trim().slice(0, SHARE_DESCRIPTION_MAX_LENGTH);
+}
+
+function sanitizeCustomColor(value: unknown): string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+    ? value.toLowerCase()
+    : DEFAULT_SHARE_STYLE.customColor ?? "#6f5bff";
 }
 
 function normalizeSelectedTrackIds(
@@ -131,6 +138,7 @@ export function normalizeChapterShareStyle(
     format,
     layout,
     mood,
+    customColor: sanitizeCustomColor(value?.customColor),
     decorationLevel,
     trackImageMode,
     selectedTrackIds: autoSelectedTrackIds.slice(0, cap),

@@ -13,7 +13,7 @@ import {
 import { MotionLink as Link } from "./editorial-motion";
 import { ChapterCover } from "./editorial-media";
 import { EmptyState } from "./editorial-ui";
-import { formatChapterTitle } from "./editorial-format";
+import { formatChapterTitle, formatTrackArtist } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { MusicRoomFrame, PersonalSpaceShelf, type PersonalSpaceShelfItem } from "./editorial-music-room";
 
@@ -177,7 +177,7 @@ export function VisitorSpace({ archive, chapterId }: { archive: ArchiveEnvelopeV
           <div className="visitor-space-track-list">
             {selectedChapter.tracks.map(({ cubeTrack, track, tags, privateRecord }) => (
               <article key={cubeTrack.id}>
-                <span><strong>{track.title}</strong><small>{track.artist}</small></span>
+                <span><strong>{track.title}</strong><small>{formatTrackArtist(track)}</small></span>
                 {privateRecord ? <em>기록이 비공개입니다</em> : <div>{cubeTrack.notes[0]?.body ? <p>{cubeTrack.notes[0].body}</p> : null}{tags.length ? <small>{tags.map((tag) => `#${tag.label}`).join(" ")}</small> : null}</div>}
               </article>
             ))}

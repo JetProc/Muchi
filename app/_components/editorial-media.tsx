@@ -14,6 +14,7 @@ import { sharedArtworkKey, sharedArtworkStyle } from "./editorial-motion";
 import {
   chapterColorStyle,
   formatChapterTitle,
+  formatTrackArtist,
 } from "./editorial-format";
 
 export interface PreviewState {
@@ -91,7 +92,7 @@ function AlbumArtworkFrame({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={source}
-        alt={decorative ? "" : `${track.artist}의 ${track.title} 앨범 아트`}
+        alt={decorative ? "" : `${formatTrackArtist(track)}의 ${track.title} 앨범 아트`}
         loading={priority ? "eager" : "lazy"}
         decoding="async"
         onLoad={() => setLoaded(true)}

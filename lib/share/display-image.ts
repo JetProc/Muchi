@@ -1,4 +1,5 @@
 import type { ResolvedShareTrack, ResolveShareTrackImageOptions, ShareDisplayImageView, ShareTrackInput } from "@/lib/share/types";
+import { formatTrackArtist } from "@/lib/music-display";
 
 function escapeSvgText(value: string): string {
   return value
@@ -43,7 +44,7 @@ export function resolveShareDisplayImage(
     options.renderMode === "private-image-only" || track.recordVisibility === "public"
   ) ? track.customImageUrl : null;
 
-  const label = `${track.track.title} - ${track.track.artist}`;
+  const label = `${track.track.title} - ${formatTrackArtist(track.track)}`;
   if (customImageUrl) {
     return {
       url: customImageUrl,

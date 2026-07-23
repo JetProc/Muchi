@@ -29,6 +29,7 @@ import {
   useMotionRouter,
 } from "./editorial-motion";
 import { AlbumArtwork, type PreviewControls } from "./editorial-media";
+import { formatTrackArtist } from "./editorial-format";
 import type { AppView, ToastMessage } from "./editorial-types";
 
 const VIEW_META: Record<AppView, { label: string; path: string; index: string }> = {
@@ -196,7 +197,7 @@ export function MiniPlayer({
         />
         <span className="mini-player-copy">
           <strong>{preview.state.track.title}</strong>
-          <span>{preview.state.track.artist}</span>
+          <span>{formatTrackArtist(preview.state.track)}</span>
         </span>
       </button>
       <button
@@ -264,7 +265,7 @@ export function FullPlayer({
           <span>미리듣기 · {Math.floor(preview.state.currentTime).toString().padStart(2, "0")}:30</span>
           <h2>{preview.state.track.title}</h2>
           <p>
-            {preview.state.track.artist}
+            {formatTrackArtist(preview.state.track)}
             {preview.state.track.album ? ` · ${preview.state.track.album}` : ""}
           </p>
         </div>

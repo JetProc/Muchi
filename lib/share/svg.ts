@@ -1,4 +1,5 @@
 import { SHARE_EXPORT_DIMENSIONS } from "@/lib/share/types";
+import { formatTrackArtist } from "@/lib/music-display";
 import type {
   ResolvedShareTrack,
   ShareCardModel,
@@ -59,6 +60,64 @@ const THEME_BY_MOOD: Record<ShareMood, ThemePalette> = {
     fontBody: "'Avenir Next', Helvetica, Arial, sans-serif",
   },
 };
+
+function parseHexColor(value: string | undefined): [number, number, number] {
+  const normalized = value && /^#[0-9a-f]{6}$/i.test(value) ? value : "#6f5bff";
+  return [
+    Number.parseInt(normalized.slice(1, 3), 16),
+    Number.parseInt(normalized.slice(3, 5), 16),
+    Number.parseInt(normalized.slice(5, 7), 16),
+  ];
+}
+
+function rgbToHex(red: number, green: number, blue: number): string {
+  return `#${[red, green, blue]
+    .map((channel) => Math.round(channel).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function mixColor(color: string, target: string, amount: number): string {
+  const sourceRgb = parseHexColor(color);
+  const targetRgb = parseHexColor(target);
+  return rgbToHex(
+    sourceRgb[0] + (targetRgb[0] - sourceRgb[0]) * amount,
+    sourceRgb[1] + (targetRgb[1] - sourceRgb[1]) * amount,
+    sourceRgb[2] + (targetRgb[2] - sourceRgb[2]) * amount,
+  );
+}
+
+function relativeLuminance(color: string): number {
+  const channels = parseHexColor(color).map((channel) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+function customTheme(background: string | undefined): ThemePalette {
+  const normalized = rgbToHex(...parseHexColor(background));
+  const isLight = relativeLuminance(normalized) > 0.38;
+  const textPrimary = isLight ? "#17130f" : "#fffaf4";
+  const contrastTarget = isLight ? "#000000" : "#ffffff";
+  return {
+    background: normalized,
+    surface: mixColor(normalized, isLight ? "#ffffff" : "#000000", isLight ? 0.72 : 0.22),
+    surfaceSoft: mixColor(normalized, contrastTarget, isLight ? 0.1 : 0.16),
+    textPrimary,
+    textSecondary: mixColor(textPrimary, normalized, 0.34),
+    accent: mixColor(normalized, contrastTarget, isLight ? 0.5 : 0.62),
+    accentSoft: mixColor(normalized, contrastTarget, isLight ? 0.16 : 0.22),
+    stroke: mixColor(normalized, contrastTarget, isLight ? 0.2 : 0.3),
+    fontTitle: "'Avenir Next', Helvetica, Arial, sans-serif",
+    fontBody: "'Avenir Next', Helvetica, Arial, sans-serif",
+  };
+}
+
+function resolveThemePalette(model: ShareCardModel): ThemePalette {
+  return model.style.mood === "film"
+    ? customTheme(model.style.customColor)
+    : THEME_BY_MOOD[model.style.mood];
+}
 
 function escapeXml(value: string): string {
   return value
@@ -139,25 +198,33 @@ function renderHeader(
   palette: ThemePalette,
   width: number,
 ): string {
+  const isStory = model.style.format === "story";
   const authorLine = content.showAuthor && model.authorName ? clipText(model.authorName, 24) : "";
   const descriptionLines = wrapText(model.style.description, 34, 2);
-  const parts = [
-    `<text x="84" y="110" fill="${palette.accent}" font-family="${palette.fontBody}" font-size="28" font-weight="700" letter-spacing="4">MUCHI CHAPTER</text>`,
-    `<text x="84" y="178" fill="${palette.textPrimary}" font-family="${palette.fontTitle}" font-size="74" font-weight="700">${escapeXml(clipText(model.chapterName, 26))}</text>`,
-  ];
+  const titleY = isStory ? 120 : 178;
+  const authorY = isStory ? 170 : 224;
+  const descriptionY = isStory ? 214 : 268;
+  const parts = isStory
+    ? [
+      `<text x="84" y="${titleY}" fill="${palette.textPrimary}" font-family="${palette.fontTitle}" font-size="74" font-weight="700">${escapeXml(clipText(model.chapterName, 26))}</text>`,
+    ]
+    : [
+      `<text x="84" y="110" fill="${palette.accent}" font-family="${palette.fontBody}" font-size="28" font-weight="700" letter-spacing="4">MUCHI CHAPTER</text>`,
+      `<text x="84" y="${titleY}" fill="${palette.textPrimary}" font-family="${palette.fontTitle}" font-size="74" font-weight="700">${escapeXml(clipText(model.chapterName, 26))}</text>`,
+    ];
   if (authorLine) {
     parts.push(
-      `<text x="84" y="224" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="26">${escapeXml(authorLine)}</text>`,
+      `<text x="84" y="${authorY}" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="26">${escapeXml(authorLine)}</text>`,
     );
   }
   descriptionLines.forEach((line, index) => {
     parts.push(
-      `<text x="84" y="${268 + index * 34}" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="26">${escapeXml(line)}</text>`,
+      `<text x="84" y="${descriptionY + index * 34}" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="26">${escapeXml(line)}</text>`,
     );
   });
   if (content.showTrackCount) {
     parts.push(
-      `<text x="${width - 84}" y="110" text-anchor="end" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="24">${model.tracks.length} TRACKS</text>`,
+      `<text x="${width - 84}" y="${isStory ? titleY : 110}" text-anchor="end" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="24">${model.tracks.length} TRACKS</text>`,
     );
   }
   return parts.join("");
@@ -212,7 +279,7 @@ function renderTrackRow(
   const pieces = [
     `<text x="${options.x}" y="${titleY}" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="${indexFontSize}">${indexLabel}</text>`,
     `<text x="${copyX + gap}" y="${titleY}" fill="${palette.textPrimary}" font-family="${palette.fontBody}" font-size="${titleFontSize}" font-weight="700">${escapeXml(clipText(track.track.title, titleLength))}</text>`,
-    `<text x="${copyX + gap}" y="${artistY}" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="${artistFontSize}">${escapeXml(clipText(track.track.artist, artistLength))}</text>`,
+    `<text x="${copyX + gap}" y="${artistY}" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="${artistFontSize}">${escapeXml(clipText(formatTrackArtist(track.track), artistLength))}</text>`,
   ];
   if (options.showImage) {
     pieces.unshift(renderImage(track.displayImage, options.x + 34, options.y + Math.max(0, (options.rowHeight - imageSize) / 2), imageSize, imageSize, compact ? 14 : 18));
@@ -367,7 +434,7 @@ export function resolveShareCardRenderContent(model: ShareCardModel): ShareCardR
 
 export function renderShareCardSvg(model: ShareCardModel): string {
   const dimensions = SHARE_EXPORT_DIMENSIONS[model.style.format];
-  const palette = THEME_BY_MOOD[model.style.mood];
+  const palette = resolveThemePalette(model);
   const width = dimensions.width;
   const height = dimensions.height;
   const content = resolveShareCardRenderContent(model);

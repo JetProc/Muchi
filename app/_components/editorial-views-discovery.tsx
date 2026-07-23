@@ -23,6 +23,7 @@ import {
   formatChapterTitle,
   formatCalendarDate,
   formatDate,
+  formatTrackArtist,
 } from "./editorial-format";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { TagPicker } from "./editorial-tag-picker";
@@ -46,7 +47,7 @@ function SearchResultLine({
           <AlbumArtwork track={result.track} decorative />
           <span className="search-track-copy">
             <strong>{result.track.title}</strong>
-            <small>{result.track.artist}</small>
+            <small>{formatTrackArtist(result.track)}</small>
             <em>보관함 · 아직 미분류</em>
           </span>
           <ChevronRight size={16} aria-hidden="true" />
@@ -73,7 +74,7 @@ function SearchResultLine({
         <AlbumArtwork track={result.track} sharedId={result.cubeTrack.id} decorative />
         <span className="search-track-copy">
           <strong>{result.track.title}{result.cubeTrack.affection ? <AffectionDot affection={result.cubeTrack.affection} /> : null}</strong>
-          <small>{result.track.artist}</small>
+          <small>{formatTrackArtist(result.track)}</small>
           {context ? <em>{context}</em> : null}
         </span>
         <ChevronRight size={16} aria-hidden="true" />

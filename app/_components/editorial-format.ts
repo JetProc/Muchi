@@ -8,6 +8,7 @@ import {
   type CubeColor,
   type MemoryPeriod,
 } from "@/lib/archive";
+export { formatTrackArtist } from "@/lib/music-display";
 
 export const COLOR_HEX: Record<CubeColor, string> = {
   violet: "#8c9ae0",

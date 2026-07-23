@@ -14,7 +14,7 @@ import {
   AlbumArtwork,
   ChapterCover,
 } from "./editorial-media";
-import { formatChapterPath } from "./editorial-format";
+import { formatChapterPath, formatTrackArtist } from "./editorial-format";
 
 export function EmptyState({
   title,
@@ -185,7 +185,7 @@ export function TrackLine({
       <AlbumArtwork track={track} sharedId={sharedId} decorative />
       <div className="track-info">
         <strong>{track.title}{affection ? <AffectionDot affection={affection} /> : null}</strong>
-        <small>{track.artist}{showAlbum && track.album ? ` · ${track.album}` : ""}</small>
+        <small>{formatTrackArtist(track)}{showAlbum && track.album ? ` · ${track.album}` : ""}</small>
         {context ? <em>{context}</em> : null}
         {tags.length ? (
           <div className="tag-row" style={{ marginTop: 7 }}>

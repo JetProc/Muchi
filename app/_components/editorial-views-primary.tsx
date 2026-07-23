@@ -578,6 +578,13 @@ export function Capture({
     setRecordMode("tag");
   }, [startRecord]);
 
+  function setPlaylistResults(tracks: TrackReference[]) {
+    setResults(tracks);
+    setSelectedResults(tracks);
+    setVisibleResultCount(tracks.length);
+    setResultSource("link");
+  }
+
   function changeQuery(value: string) {
     setQuery(value);
     searchRequestRef.current += 1;
@@ -611,6 +618,18 @@ export function Capture({
         setManualAlbum(payload.fallback.suggested.album);
         return;
       }
+      if (payload.status === "playlist") {
+        if (!payload.tracks.length) {
+          setLinkError("플레이리스트에서 기록할 곡을 찾지 못했어요.");
+          return;
+        }
+        setLinkDialogOpen(false);
+        setPlaylistResults(payload.tracks);
+        notify(payload.skippedCount
+          ? `${payload.tracks.length}곡을 가져왔어요. ${payload.skippedCount}곡은 건너뛰었어요.`
+          : `${payload.tracks.length}곡을 가져왔어요. 모두 선택했어요.`);
+        return;
+      }
       setLinkDialogOpen(false);
       startDetailedRecord(payload.track);
     } catch {
@@ -618,7 +637,7 @@ export function Capture({
     } finally {
       setLinkLoading(false);
     }
-  }, [online, startDetailedRecord]);
+  }, [notify, online, startDetailedRecord]);
 
   useEffect(() => {
     if (!sharedUrl) return;
@@ -950,8 +969,8 @@ export function Capture({
                 </div>
                 <div className="link-import-input-row">
                   <label className="sr-only" htmlFor="music-url">음악 앱 곡 링크</label>
-                  <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="https://music.apple.com/... 또는 https://music.youtube.com/..." required autoComplete="url" />
-                  <button className="link-import-submit" type="submit" aria-label="곡 분석하기" disabled={linkLoading || !online || !musicUrl.trim()}>{linkLoading ? <LoadingDots /> : <ArrowRight size={19} aria-hidden="true" />}</button>
+                  <input id="music-url" className="input" type="url" value={musicUrl} onChange={(event) => setMusicUrl(event.target.value)} placeholder="곡 또는 플레이리스트 링크" required autoComplete="url" />
+                  <button className="link-import-submit" type="submit" aria-label="링크 분석하기" disabled={linkLoading || !online || !musicUrl.trim()}>{linkLoading ? <LoadingDots /> : <ArrowRight size={19} aria-hidden="true" />}</button>
                 </div>
                   {linkError ? <div className="notice notice-danger" role="alert">{linkError}</div> : null}
               </form>

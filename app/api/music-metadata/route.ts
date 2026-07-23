@@ -7,8 +7,10 @@ import {
   type MusicMetadataApiResponse,
   type ParsedMusicLink,
   type ReadyMusicMetadataResponse,
+  type ReadyMusicPlaylistResponse,
   type SuggestedTrackMetadata,
 } from "../../../lib/music-links";
+import { createAppleMusicDeveloperToken } from "../../../lib/server/apple-music";
 
 const FETCH_TIMEOUT_MS = 6_000;
 const MAX_UPSTREAM_RESPONSE_BYTES = 512_000;
@@ -45,12 +47,19 @@ function httpsUrl(value: unknown): string | null {
 }
 
 async function fetchOfficialJson(url: URL): Promise<unknown> {
+  return fetchOfficialJsonWithHeaders(url);
+}
+
+async function fetchOfficialJsonWithHeaders(
+  url: URL,
+  headers: Record<string, string> = {},
+): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const response = await fetch(url, {
       cache: "no-store",
-      headers: { Accept: "application/json" },
+      headers: { Accept: "application/json", ...headers },
       redirect: "error",
       signal: controller.signal,
     });
@@ -150,6 +159,99 @@ async function youtubeMetadata(
   }
 }
 
+function youtubeTrack(payload: Record<string, unknown>): TrackReference | null {
+  const snippet = isRecord(payload.snippet) ? payload.snippet : null;
+  if (!snippet) return null;
+  const videoId = text(payload.contentDetails) || text(snippet.resourceId);
+  const resource = isRecord(snippet.resourceId) ? text(snippet.resourceId.videoId) : "";
+  const id = resource || videoId;
+  const title = text(snippet.title);
+  const artist = text(snippet.videoOwnerChannelTitle) || text(snippet.channelTitle);
+  if (!id || !title || !artist) return null;
+  const thumbnail = isRecord(snippet.thumbnails) ? snippet.thumbnails : null;
+  const medium = thumbnail && isRecord(thumbnail.medium) ? thumbnail.medium : null;
+  return {
+    id: makeProviderTrackId("youtube", id),
+    provider: "youtube",
+    providerTrackId: id,
+    title,
+    artist,
+    album: "",
+    genre: "",
+    durationMs: null,
+    artworkUrl: httpsUrl(medium?.url),
+    previewUrl: null,
+    externalUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
+  };
+}
+
+async function youtubePlaylistMetadata(
+  link: ParsedMusicLink,
+): Promise<ReadyMusicPlaylistResponse> {
+  const apiKey = process.env.YOUTUBE_API_KEY?.trim();
+  if (!apiKey) throw new Error("YouTube 플레이리스트를 가져오려면 YOUTUBE_API_KEY 설정이 필요해요.");
+  const items: unknown[] = [];
+  let pageToken = "";
+  for (let page = 0; page < 10; page += 1) {
+    const endpoint = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+    endpoint.searchParams.set("part", "snippet,contentDetails");
+    endpoint.searchParams.set("playlistId", String(link.providerTrackId));
+    endpoint.searchParams.set("maxResults", "50");
+    endpoint.searchParams.set("key", apiKey);
+    if (pageToken) endpoint.searchParams.set("pageToken", pageToken);
+    const payload = await fetchOfficialJson(endpoint);
+    if (!isRecord(payload) || !Array.isArray(payload.items)) break;
+    items.push(...payload.items);
+    const nextToken = text(payload.nextPageToken);
+    if (!nextToken) break;
+    pageToken = nextToken;
+  }
+  const tracks = items.filter(isRecord).map(youtubeTrack).filter((track): track is TrackReference => Boolean(track));
+  return { status: "playlist", service: link.service, originalUrl: link.originalUrl, canonicalUrl: link.canonicalUrl, tracks, skippedCount: items.length - tracks.length };
+}
+
+function appleCatalogTrack(result: Record<string, unknown>): TrackReference | null {
+  const id = text(result.id);
+  const attributes = isRecord(result.attributes) ? result.attributes : null;
+  const title = text(attributes?.name);
+  const artist = text(attributes?.artistName);
+  if (!id || !title || !artist) return null;
+  return {
+    id: makeProviderTrackId("itunes", id),
+    provider: "itunes",
+    providerTrackId: Number(id) || id,
+    title,
+    artist,
+    album: text(attributes?.albumName),
+    genre: text((Array.isArray(attributes?.genreNames) ? attributes?.genreNames[0] : "")),
+    durationMs: typeof attributes?.durationInMillis === "number" ? attributes.durationInMillis : null,
+    artworkUrl: httpsUrl(attributes?.artwork && isRecord(attributes.artwork) ? String(attributes.artwork.url ?? "").replace("{w}", "600").replace("{h}", "600") : null),
+    previewUrl: httpsUrl(attributes?.previews && Array.isArray(attributes.previews) && isRecord(attributes.previews[0]) ? attributes.previews[0].url : null),
+    externalUrl: httpsUrl(attributes?.url),
+  };
+}
+
+async function applePlaylistMetadata(link: ParsedMusicLink): Promise<ReadyMusicPlaylistResponse> {
+  const token = createAppleMusicDeveloperToken();
+  if (!token) throw new Error("Apple Music 플레이리스트를 가져오려면 MusicKit 서버 설정이 필요해요.");
+  const endpoint = new URL(`https://api.music.apple.com/v1/catalog/kr/playlists/${encodeURIComponent(String(link.providerTrackId))}`);
+  endpoint.searchParams.set("include", "tracks");
+  const payload = await fetchOfficialJsonWithHeaders(endpoint, { Authorization: `Bearer ${token}` });
+  const playlist = isRecord(payload) && Array.isArray(payload.data) ? payload.data[0] : null;
+  const relationship = isRecord(playlist) && isRecord(playlist.relationships) ? playlist.relationships : null;
+  const tracksRelationship = relationship && isRecord(relationship.tracks) ? relationship.tracks : null;
+  const tracksData: unknown[] = tracksRelationship && Array.isArray(tracksRelationship.data) ? [...tracksRelationship.data] : [];
+  let nextUrl = text(tracksRelationship?.next);
+  for (let page = 0; page < 10 && nextUrl; page += 1) {
+    const nextPayload = await fetchOfficialJsonWithHeaders(new URL(nextUrl, endpoint), { Authorization: `Bearer ${token}` });
+    if (!isRecord(nextPayload) || !Array.isArray(nextPayload.data)) break;
+    tracksData.push(...nextPayload.data);
+    nextUrl = text(nextPayload.next);
+  }
+  const tracks = tracksData.filter(isRecord).map(appleCatalogTrack).filter((track): track is TrackReference => Boolean(track));
+  return { status: "playlist", service: link.service, originalUrl: link.originalUrl, canonicalUrl: link.canonicalUrl, tracks, skippedCount: tracksData.length - tracks.length };
+}
+
 async function appleMusicMetadata(
   link: ParsedMusicLink,
 ): Promise<ReadyMusicMetadataResponse | ManualMusicMetadataResponse> {
@@ -224,7 +326,22 @@ export async function GET(request: Request): Promise<Response> {
     return json({ status: "error", error: { code, message } }, 400);
   }
 
-  return json(link.service === "apple-music"
-    ? await appleMusicMetadata(link)
-    : await youtubeMetadata(link));
+  try {
+    if (link.kind === "playlist") {
+      return json(link.service === "apple-music"
+        ? await applePlaylistMetadata(link)
+        : await youtubePlaylistMetadata(link));
+    }
+    return json(link.service === "apple-music"
+      ? await appleMusicMetadata(link)
+      : await youtubeMetadata(link));
+  } catch (error) {
+    return json({
+      status: "error",
+      error: {
+        code: "playlist-unavailable",
+        message: error instanceof Error ? error.message : "플레이리스트 곡을 가져오지 못했어요.",
+      },
+    }, 502);
+  }
 }

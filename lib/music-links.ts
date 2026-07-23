@@ -25,6 +25,7 @@ export interface ParsedMusicLink {
   providerTrackId: number | string;
   originalUrl: string;
   canonicalUrl: string;
+  kind: "track" | "playlist";
 }
 
 export interface SuggestedTrackMetadata {
@@ -53,6 +54,17 @@ export interface ReadyMusicMetadataResponse {
   originalUrl: string;
   canonicalUrl: string;
   track: TrackReference;
+  tracks?: never;
+  skippedCount?: never;
+}
+
+export interface ReadyMusicPlaylistResponse {
+  status: "playlist";
+  service: MusicLinkService;
+  originalUrl: string;
+  canonicalUrl: string;
+  tracks: TrackReference[];
+  skippedCount: number;
 }
 
 export interface ManualMusicMetadataResponse {
@@ -66,7 +78,8 @@ export interface ManualMusicMetadataResponse {
 export type MusicMetadataErrorCode =
   | "missing-url"
   | "invalid-url"
-  | "unsupported-url";
+  | "unsupported-url"
+  | "playlist-unavailable";
 
 export interface MusicMetadataErrorResponse {
   status: "error";
@@ -78,6 +91,7 @@ export interface MusicMetadataErrorResponse {
 
 export type MusicMetadataApiResponse =
   | ReadyMusicMetadataResponse
+  | ReadyMusicPlaylistResponse
   | ManualMusicMetadataResponse
   | MusicMetadataErrorResponse;
 
@@ -117,6 +131,7 @@ function parseSpotify(url: URL, originalUrl: string): ParsedMusicLink | null {
     providerTrackId,
     originalUrl,
     canonicalUrl: `https://open.spotify.com/track/${providerTrackId}`,
+    kind: "track",
   };
 }
 
@@ -153,6 +168,7 @@ function parseYoutube(url: URL, originalUrl: string): ParsedMusicLink | null {
     providerTrackId,
     originalUrl,
     canonicalUrl: `https://www.youtube.com/watch?v=${providerTrackId}`,
+    kind: "track",
   };
 }
 
@@ -176,6 +192,7 @@ function parseAppleMusic(url: URL, originalUrl: string): ParsedMusicLink | null 
     providerTrackId,
     originalUrl,
     canonicalUrl: canonical.toString(),
+    kind: "track",
   };
 }
 
@@ -192,6 +209,38 @@ function parseMelon(url: URL, originalUrl: string): ParsedMusicLink | null {
     providerTrackId,
     originalUrl,
     canonicalUrl: `https://www.melon.com/song/detail.htm?songId=${providerTrackId}`,
+    kind: "track",
+  };
+}
+
+function parseYoutubePlaylist(url: URL, originalUrl: string): ParsedMusicLink | null {
+  if (url.hostname !== "music.youtube.com" && url.hostname !== "www.youtube.com") return null;
+  if (url.pathname !== "/playlist" && url.pathname !== "/playlist/") return null;
+  const playlistId = url.searchParams.get("list")?.trim();
+  if (!playlistId || playlistId.length > 200) return null;
+  return {
+    service: "youtube",
+    provider: "youtube",
+    providerTrackId: playlistId,
+    originalUrl,
+    canonicalUrl: `https://music.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`,
+    kind: "playlist",
+  };
+}
+
+function parseApplePlaylist(url: URL, originalUrl: string): ParsedMusicLink | null {
+  if (url.hostname !== "music.apple.com") return null;
+  const path = url.pathname.split("/").filter(Boolean);
+  const playlistIndex = path.indexOf("playlist");
+  const playlistId = playlistIndex >= 0 ? path.at(-1) : null;
+  if (playlistIndex < 1 || !playlistId || playlistId.length > 200) return null;
+  return {
+    service: "apple-music",
+    provider: "itunes",
+    providerTrackId: playlistId,
+    originalUrl,
+    canonicalUrl: url.toString(),
+    kind: "playlist",
   };
 }
 
@@ -276,11 +325,13 @@ export function parseCaptureMusicShareUrl(input: string): ParsedMusicLink {
     );
   }
 
-  const parsed = url.hostname === "music.youtube.com"
-    ? parseYoutube(url, originalUrl)
+  const parsed = parseYoutubePlaylist(url, originalUrl)
+    ?? parseApplePlaylist(url, originalUrl)
+    ?? (url.hostname === "music.youtube.com"
+      ? parseYoutube(url, originalUrl)
     : url.hostname === "music.apple.com"
       ? parseAppleMusic(url, originalUrl)
-      : null;
+      : null);
   if (!parsed) {
     throw new MusicLinkError(
       "unsupported-url",

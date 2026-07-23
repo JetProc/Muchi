@@ -47,14 +47,14 @@ const THEME_BY_MOOD: Record<ShareMood, ThemePalette> = {
     fontBody: "'Avenir Next', Helvetica, Arial, sans-serif",
   },
   film: {
-    background: "#ede1cf",
-    surface: "#f7f0e4",
-    surfaceSoft: "#d5c3ab",
-    textPrimary: "#261a13",
-    textSecondary: "#5b463b",
-    accent: "#7f4f35",
-    accentSoft: "#d9b89c",
-    stroke: "#bea487",
+    background: "#17130f",
+    surface: "#282018",
+    surfaceSoft: "#443629",
+    textPrimary: "#fff3d5",
+    textSecondary: "#d3c0a0",
+    accent: "#e7a64a",
+    accentSoft: "#815c30",
+    stroke: "#6f573b",
     fontTitle: "'Courier New', Courier, monospace",
     fontBody: "'Avenir Next', Helvetica, Arial, sans-serif",
   },
@@ -73,6 +73,17 @@ function clipText(value: string, maxLength: number): string {
   const trimmed = value.trim();
   if (trimmed.length <= maxLength) return trimmed;
   return `${trimmed.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function wrapText(value: string, maxLength: number, maxLines: number): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  const lines: string[] = [];
+  for (let start = 0; start < trimmed.length && lines.length < maxLines; start += maxLength) {
+    const remaining = trimmed.slice(start);
+    lines.push(lines.length === maxLines - 1 ? clipText(remaining, maxLength) : remaining.slice(0, maxLength));
+  }
+  return lines;
 }
 
 function renderDecorations(
@@ -98,8 +109,8 @@ function renderDecorations(
   }
   if (mood === "film") {
     const base = [
-      `<rect x="56" y="56" width="${width - 112}" height="${height - 112}" rx="42" fill="none" stroke="${palette.stroke}" stroke-width="8"/>`,
-      `<line x1="110" y1="${height - 248}" x2="${width - 110}" y2="${height - 248}" stroke="${palette.stroke}" stroke-width="3" stroke-dasharray="16 14"/>`,
+      `<rect x="38" y="38" width="${width - 76}" height="${height - 76}" rx="20" fill="none" stroke="${palette.stroke}" stroke-width="12"/>`,
+      `<path d="M64 72h${width - 128}M64 ${height - 72}h${width - 128}" stroke="${palette.accentSoft}" stroke-width="16" stroke-dasharray="30 24" opacity="0.78"/>`,
     ];
     if (level === "rich") {
       base.push(
@@ -129,7 +140,7 @@ function renderHeader(
   width: number,
 ): string {
   const authorLine = content.showAuthor && model.authorName ? clipText(model.authorName, 24) : "";
-  const description = model.style.description ? clipText(model.style.description, 84) : "";
+  const descriptionLines = wrapText(model.style.description, 34, 2);
   const parts = [
     `<text x="84" y="110" fill="${palette.accent}" font-family="${palette.fontBody}" font-size="28" font-weight="700" letter-spacing="4">MUCHI CHAPTER</text>`,
     `<text x="84" y="178" fill="${palette.textPrimary}" font-family="${palette.fontTitle}" font-size="74" font-weight="700">${escapeXml(clipText(model.chapterName, 26))}</text>`,
@@ -139,11 +150,11 @@ function renderHeader(
       `<text x="84" y="224" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="26">${escapeXml(authorLine)}</text>`,
     );
   }
-  if (description) {
+  descriptionLines.forEach((line, index) => {
     parts.push(
-      `<text x="84" y="280" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="28">${escapeXml(description)}</text>`,
+      `<text x="84" y="${268 + index * 34}" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="26">${escapeXml(line)}</text>`,
     );
-  }
+  });
   if (content.showTrackCount) {
     parts.push(
       `<text x="${width - 84}" y="110" text-anchor="end" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="24">${model.tracks.length} TRACKS</text>`,
@@ -219,9 +230,6 @@ function shouldShowTrackImage(mode: ShareCardModel["style"]["trackImageMode"], i
 }
 
 function resolveHeroImage(model: ShareCardModel): ShareDisplayImageView | null {
-  if (model.style.trackImageMode !== "none" && model.tracks[0]) {
-    return model.tracks[0].displayImage;
-  }
   if (model.chapterCoverImageUrl) {
     return {
       url: model.chapterCoverImageUrl,
@@ -339,17 +347,12 @@ function renderCompactTracklistLayout(model: ShareCardModel, content: ShareCardR
   return parts.join("");
 }
 
-function renderFooter(model: ShareCardModel, content: ShareCardRenderContent, palette: ThemePalette, width: number, height: number): string {
+function renderFooter(model: ShareCardModel, palette: ThemePalette, width: number, height: number): string {
   const footerY = height - 120;
   const parts = [
     `<line x1="84" y1="${footerY - 34}" x2="${width - 84}" y2="${footerY - 34}" stroke="${palette.stroke}" stroke-width="2"/>`,
     `<text x="84" y="${footerY}" fill="${palette.textSecondary}" font-family="${palette.fontBody}" font-size="22">${escapeXml(clipText(model.chapterDescription || "music, memory, and mood", 56))}</text>`,
   ];
-  if (content.showPublicLink && model.publicUrl) {
-    parts.push(
-      `<text x="${width - 84}" y="${footerY}" text-anchor="end" fill="${palette.accent}" font-family="${palette.fontBody}" font-size="22">${escapeXml(clipText(model.publicUrl.replace(/^https?:\/\//, ""), 44))}</text>`,
-    );
-  }
   return parts.join("");
 }
 
@@ -358,10 +361,7 @@ export function resolveShareCardRenderContent(model: ShareCardModel): ShareCardR
     showTags: model.renderMode === "public-share" && model.style.showTags,
     showAuthor: model.style.showAuthor,
     showTrackCount: model.style.showTrackCount,
-    showPublicLink: model.renderMode === "public-share"
-      && model.chapterVisibility === "public"
-      && model.style.showPublicLink
-      && Boolean(model.publicUrl),
+    showPublicLink: false,
   };
 }
 
@@ -382,7 +382,7 @@ export function renderShareCardSvg(model: ShareCardModel): string {
     renderDecorations(model.style.mood, model.style.decorationLevel, width, height, palette),
     renderHeader(model, content, palette, width),
     body,
-    renderFooter(model, content, palette, width, height),
+    renderFooter(model, palette, width, height),
     "</svg>",
   ].join("");
 }

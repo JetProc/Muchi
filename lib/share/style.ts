@@ -108,9 +108,10 @@ export function normalizeChapterShareStyle(
   const decorationLevel = isShareDecorationLevel(value?.decorationLevel)
     ? value.decorationLevel
     : base.decorationLevel;
-  const trackImageMode = isShareTrackImageMode(value?.trackImageMode)
+  const savedTrackImageMode = isShareTrackImageMode(value?.trackImageMode)
     ? value.trackImageMode
     : base.trackImageMode;
+  const trackImageMode = savedTrackImageMode === "none" ? "none" : "all";
   const validTrackIds = new Set(options.availableTracks.map((track) => track.id));
   const cap = getShareLayoutCap(format, layout);
   const selectedTrackIds = normalizeSelectedTrackIds(value?.selectedTrackIds, validTrackIds, cap);
@@ -125,7 +126,6 @@ export function normalizeChapterShareStyle(
     });
   const renderMode = options.renderMode ?? "public-share";
   const allowTags = renderMode === "public-share";
-  const allowPublicLink = renderMode === "public-share" && options.chapterVisibility === "public";
 
   return {
     format,
@@ -138,6 +138,6 @@ export function normalizeChapterShareStyle(
     showTags: allowTags && value?.showTags !== false,
     showAuthor: value?.showAuthor !== false,
     showTrackCount: value?.showTrackCount !== false,
-    showPublicLink: allowPublicLink && value?.showPublicLink !== false,
+    showPublicLink: false,
   };
 }

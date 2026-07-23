@@ -1949,6 +1949,16 @@ button.tag {
   align-items: center;
 }
 
+.chapter-detail-hero-action {
+  display: flex;
+  margin-top: var(--apple-space-3);
+}
+
+.chapter-detail-hero-action .chapter-share-entry {
+  justify-content: center;
+  width: 100%;
+}
+
 .chapter-detail-utilities {
   min-width: 0;
 }
@@ -5962,25 +5972,6 @@ button.tag {
   background: var(--apple-canvas);
 }
 
-.chapter-share-step-heading {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.chapter-share-step-heading > span {
-  padding-top: 3px;
-  color: var(--apple-ink-muted-48);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.chapter-share-step-heading h2,
-.chapter-share-step-heading p { margin: 0; }
-.chapter-share-step-heading h2 { font-size: 18px; letter-spacing: -.4px; }
-.chapter-share-step-heading p { margin-top: 3px; color: var(--apple-ink-muted-48); font-size: 13px; }
-
 .chapter-share-step-content { display: grid; gap: 14px; }
 
 .chapter-share-step-content .chapter-share-section {
@@ -6003,7 +5994,6 @@ button.tag {
   align-items: center;
 }
 
-.chapter-share-summary,
 .chapter-share-section,
 .chapter-share-preview-section,
 .chapter-share-footer-note {
@@ -6013,33 +6003,8 @@ button.tag {
   background: var(--apple-canvas);
 }
 
-.chapter-share-summary {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 14px;
-  align-items: center;
-}
-
-.chapter-share-summary-cover .chapter-artwork {
-  min-height: 96px;
-}
-
-.chapter-share-summary-copy {
-  display: grid;
-  gap: 6px;
-}
-
-.chapter-share-summary-copy strong {
-  font-size: 18px;
-  letter-spacing: -.4px;
-}
-
-.chapter-share-summary-copy p,
 .chapter-share-preview-head p,
-.chapter-share-private-note p,
 .chapter-share-footer-note p,
-.chapter-share-link-note p,
-.chapter-share-private-cta,
 .chapter-share-section-head p {
   margin: 0;
   color: var(--apple-ink-muted-48);
@@ -6067,21 +6032,6 @@ button.tag {
   margin: 0;
   font-size: 17px;
   letter-spacing: -.4px;
-}
-
-.chapter-share-mode-badge {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: var(--apple-surface-pearl);
-  color: var(--apple-ink);
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.chapter-share-mode-badge.is-private-image-only {
-  color: color-mix(in srgb, var(--apple-primary) 70%, var(--apple-ink));
-  background: color-mix(in srgb, var(--apple-primary) 10%, var(--apple-canvas));
 }
 
 .chapter-share-preview-device {
@@ -6114,16 +6064,12 @@ button.tag {
   height: auto;
 }
 
-.chapter-share-private-note,
-.chapter-share-link-note,
 .chapter-share-footer-note {
   display: flex;
   gap: 10px;
   align-items: flex-start;
 }
 
-.chapter-share-private-note svg,
-.chapter-share-link-note svg,
 .chapter-share-footer-note svg {
   flex: none;
   margin-top: 1px;
@@ -6183,20 +6129,27 @@ button.tag {
   accent-color: var(--apple-primary);
 }
 
-.chapter-share-selected-list {
+.chapter-share-track-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   margin-top: 14px;
 }
 
 .chapter-share-track-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: var(--apple-canvas-parchment);
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--apple-line);
+  border-radius: 14px;
+  background: var(--apple-canvas);
+}
+
+.chapter-share-track-row.is-selected {
+  border-color: color-mix(in srgb, var(--apple-primary) 34%, var(--apple-line));
+  background: color-mix(in srgb, var(--apple-primary) 7%, var(--apple-canvas));
 }
 
 .chapter-share-track-copy {
@@ -6206,8 +6159,7 @@ button.tag {
   align-items: center;
 }
 
-.chapter-share-track-copy strong,
-.chapter-share-track-pill span {
+.chapter-share-track-copy strong {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6215,7 +6167,6 @@ button.tag {
 }
 
 .chapter-share-track-copy span,
-.chapter-share-track-pill small,
 .chapter-share-track-index {
   color: var(--apple-ink-muted-48);
   font-size: 12px;
@@ -6223,16 +6174,16 @@ button.tag {
 
 .chapter-share-track-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
 }
 
 .chapter-share-track-actions > button {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 12px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 9px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   color: var(--apple-ink);
   background: var(--apple-canvas);
   font: inherit;
@@ -6243,34 +6194,9 @@ button.tag {
   opacity: .38;
 }
 
-.chapter-share-track-bank {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.chapter-share-track-pill {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--apple-line);
-  border-radius: 16px;
-  color: var(--apple-ink);
-  background: var(--apple-canvas);
-  text-align: left;
-}
-
-.chapter-share-track-pill.is-active {
-  border-color: color-mix(in srgb, var(--apple-primary) 34%, var(--apple-line));
-  background: color-mix(in srgb, var(--apple-primary) 7%, var(--apple-canvas));
-}
-
 .chapter-share-export-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
@@ -6287,16 +6213,7 @@ button.tag {
   width: 100%;
 }
 
-.chapter-share-private-cta {
-  margin-top: 12px;
-}
-
 @container muchi-app (max-width: 430px) {
-  .chapter-share-summary {
-    grid-template-columns: 84px minmax(0, 1fr);
-    padding: 16px;
-  }
-
   .chapter-share-preview-section,
   .chapter-share-section,
   .chapter-share-footer-note,
@@ -6320,8 +6237,6 @@ button.tag {
 
   .chapter-share-preview-head h2 { font-size: 15px; }
   .chapter-share-preview-head p { font-size: 11px; }
-  .chapter-share-mode-badge { padding: 6px 9px; font-size: 10px; }
-
   .chapter-share-preview-card,
   .chapter-share-preview-card.is-feed {
     width: min(100%, 176px);
@@ -6330,8 +6245,6 @@ button.tag {
   }
 
   .chapter-share-preview-svg { border-radius: 14px; }
-  .chapter-share-private-note { display: none; }
-
   .chapter-share-toggle-grid,
   .chapter-share-export-actions {
     grid-template-columns: 1fr;

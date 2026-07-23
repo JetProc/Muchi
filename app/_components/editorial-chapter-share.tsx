@@ -10,13 +10,9 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
-  Image as ImageIcon,
-  Link2,
   MoveVertical,
   Share2,
   Sparkles,
-  Unlock,
 } from "lucide-react";
 import {
   type Cube,
@@ -25,9 +21,7 @@ import {
   updateCube,
   type ArchiveEnvelopeV1,
 } from "@/lib/archive";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
-  buildPublicChapterShareLink,
   exportShareCardPng,
   getShareLayoutCap,
   normalizeShareExportAssetUrl,
@@ -42,7 +36,6 @@ import {
   type ShareLayout,
   type ShareMood,
   type ShareTrackInput,
-  type ShareTrackImageMode,
 } from "@/lib/share";
 import {
   SHARE_DECORATION_LEVELS,
@@ -50,11 +43,10 @@ import {
   SHARE_FORMATS,
   SHARE_LAYOUTS,
   SHARE_MOODS,
-  SHARE_TRACK_IMAGE_MODES,
   type ShareDecorationLevel,
 } from "@/lib/share/types";
 import { MotionLink as Link } from "./editorial-motion";
-import { ChapterCover, getOwnedRecordPhotoUrl } from "./editorial-media";
+import { getOwnedRecordPhotoUrl } from "./editorial-media";
 import type { ArchiveCommit, Notify } from "./editorial-types";
 import { EmptyState, PageHeader } from "./editorial-ui";
 import { formatChapterTitle, isVisibleChapter } from "./editorial-format";
@@ -66,12 +58,14 @@ type GeneratedShareAsset = {
 };
 
 const SHARE_EDITOR_STEPS = [
-  { id: "layout", label: "구성", description: "형식과 레이아웃" },
-  { id: "mood", label: "분위기", description: "무드와 장식" },
-  { id: "tracks", label: "곡", description: "보일 곡과 이미지" },
-  { id: "details", label: "정보", description: "설명과 표시 정보" },
-  { id: "complete", label: "완료", description: "공유 준비" },
+  { id: "layout", label: "구성" },
+  { id: "mood", label: "분위기" },
+  { id: "tracks", label: "곡" },
+  { id: "details", label: "정보" },
+  { id: "complete", label: "완료" },
 ] as const;
+
+const INSTAGRAM_TRACK_IMAGE_MODES = ["all", "none"] as const;
 
 type ShareEditorStep = (typeof SHARE_EDITOR_STEPS)[number]["id"];
 
@@ -109,10 +103,8 @@ function decorationLabel(level: ShareDecorationLevel): string {
   return "풍성";
 }
 
-function imageModeLabel(mode: ShareTrackImageMode): string {
+function imageModeLabel(mode: (typeof INSTAGRAM_TRACK_IMAGE_MODES)[number]): string {
   if (mode === "all") return "모든 곡";
-  if (mode === "featured") return "대표 곡만";
-  if (mode === "cover-only") return "커버만";
   return "텍스트만";
 }
 
@@ -184,7 +176,6 @@ export function ChapterShareEditor({
     () => chapter ? getCubeTracks(archive, chapter.id) : [],
     [archive, chapter],
   );
-  const [authorId, setAuthorId] = useState<string | null>(null);
   const availableTracks = useMemo<ShareTrackInput[]>(() => entries.map((entry) => ({
     id: entry.cubeTrack.id,
     track: entry.track,
@@ -205,21 +196,6 @@ export function ChapterShareEditor({
       chapterVisibility: chapter?.visibility ?? "private",
     },
   ), [availableTracks, chapter?.shareStyle, chapter?.visibility]);
-  useEffect(() => {
-    let cancelled = false;
-    const supabase = createSupabaseBrowserClient();
-    void supabase.auth.getSession().then((result: {
-      data: { session: { user: { id: string } } | null };
-    }) => {
-      if (!cancelled) setAuthorId(result.data.session?.user.id ?? null);
-    }).catch(() => {
-      if (!cancelled) setAuthorId(null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   if (!chapterId || !chapter) {
     return (
       <div className="page-content">
@@ -238,7 +214,6 @@ export function ChapterShareEditor({
       chapter={chapter}
       availableTracks={availableTracks}
       initialStyle={normalizedArchiveStyle}
-      authorId={authorId}
       authorName={authorName}
       commit={commit}
       notify={notify}
@@ -251,7 +226,6 @@ function ChapterShareEditorScreen({
   chapter,
   availableTracks,
   initialStyle,
-  authorId,
   authorName,
   commit,
   notify,
@@ -260,7 +234,6 @@ function ChapterShareEditorScreen({
   chapter: Cube;
   availableTracks: ShareTrackInput[];
   initialStyle: NormalizedChapterShareStyle;
-  authorId: string | null;
   authorName?: string | null;
   commit: ArchiveCommit;
   notify: Notify;
@@ -291,14 +264,6 @@ function ChapterShareEditorScreen({
   const selectedTracks = normalizedStyle.selectedTrackIds
     .map((trackId) => selectedTrackMap.get(trackId))
     .filter((track): track is ShareTrackInput => Boolean(track));
-  const publicUrl = useMemo(() => {
-    if (activeChapter.visibility !== "public" || !authorId || typeof window === "undefined") return null;
-    return buildPublicChapterShareLink({
-      origin: window.location.origin,
-      authorId,
-      chapterId: activeChapter.id,
-    });
-  }, [activeChapter.id, activeChapter.visibility, authorId]);
   const resolvedTracks = useMemo(() => resolveShareTrackDisplayImages(selectedTracks, {
     chapterCoverImageUrl: activeChapter.coverImageUrl ?? null,
     renderMode,
@@ -309,15 +274,19 @@ function ChapterShareEditorScreen({
     chapterDescription: activeChapter.description,
     chapterVisibility: activeChapter.visibility,
     authorName: authorName?.trim() || null,
-    publicUrl,
+    publicUrl: null,
     renderMode,
     chapterCoverImageUrl: activeChapter.coverImageUrl ?? null,
     style: normalizedStyle,
     tracks: resolvedTracks,
-  }), [activeChapter, authorName, normalizedStyle, publicUrl, renderMode, resolvedTracks]);
+  }), [activeChapter, authorName, normalizedStyle, renderMode, resolvedTracks]);
   const previewSvg = useMemo(() => renderShareCardSvg(model), [model]);
   const activeStepIndex = SHARE_EDITOR_STEPS.findIndex((step) => step.id === activeStep);
-  const activeStepMeta = SHARE_EDITOR_STEPS[activeStepIndex];
+  const orderedTracks = [
+    ...selectedTracks,
+    ...availableTracks.filter((track) => !normalizedStyle.selectedTrackIds.includes(track.id)),
+  ];
+  const instagramTrackImageMode = normalizedStyle.trackImageMode === "none" ? "none" : "all";
 
   useEffect(() => {
     trackShareClarityEvent("editor_open", {
@@ -384,14 +353,12 @@ function ChapterShareEditorScreen({
       selectedTrackCount: normalizedStyle.selectedTrackIds.length,
       chapterTrackCount: availableTracks.length,
       exportedTrackCount: resolvedTracks.length,
-      hasPublicLink: Boolean(publicUrl),
     };
   }
 
   async function ensureGeneratedAsset(): Promise<GeneratedShareAsset> {
     const key = JSON.stringify({
       renderMode,
-      publicUrl,
       style: normalizedStyle,
       tracks: resolvedTracks.map((track) => ({
         id: track.id,
@@ -448,7 +415,6 @@ function ChapterShareEditorScreen({
         await navigator.share({
           files: [file],
           title: model.chapterName,
-          text: activeChapter.visibility === "public" && publicUrl ? publicUrl : undefined,
         });
         notify("공유할 이미지를 준비했어요.");
       } else {
@@ -478,32 +444,6 @@ function ChapterShareEditorScreen({
     }
   }
 
-  async function handleCopyPublicLink() {
-    if (!publicUrl) return;
-    try {
-      await navigator.clipboard.writeText(publicUrl);
-      trackShareClarityEvent("link_copy_success", sharePayload());
-      notify("공개 링크를 복사했어요.");
-    } catch {
-      trackShareClarityEvent("link_copy_failure", {
-        ...sharePayload(),
-        failureKind: "clipboard",
-      });
-      notify("링크를 복사하지 못했어요.");
-    }
-  }
-
-  function handleMakePublic() {
-    if (activeChapter.visibility === "public") return;
-    const confirmed = window.confirm("공개하면 탐색과 링크에서 이 챕터를 볼 수 있어요. 공개하고 링크 공유를 열까요?");
-    if (!confirmed) return;
-    trackShareClarityEvent("visibility_conversion_confirmed", sharePayload());
-    commit(
-      updateCube(archive, activeChapter.id, { visibility: "public" }),
-      "챕터를 공개하고 링크 공유를 준비했어요.",
-    );
-  }
-
   function moveStep(direction: -1 | 1) {
     const next = SHARE_EDITOR_STEPS[activeStepIndex + direction];
     if (next) setActiveStep(next.id);
@@ -512,23 +452,10 @@ function ChapterShareEditorScreen({
   return (
     <div className="page-content chapter-share-view">
       <PageHeader
-        eyebrow={activeChapter.visibility === "public" ? "PUBLIC SHARE" : "PRIVATE EXPORT"}
-        title="챕터 공유/꾸미기"
-        description={activeChapter.visibility === "public"
-          ? "형식과 분위기를 다듬고, 이미지와 링크를 함께 준비하세요."
-          : "비공개 챕터는 이미지로만 저장하거나 공유할 수 있어요."}
+        eyebrow="INSTAGRAM SHARE"
+        title="인스타그램 공유"
+        description="형식과 분위기를 다듬고, 챕터를 인스타그램용 이미지로 준비하세요."
       />
-
-      <section className="chapter-share-summary">
-        <div className="chapter-share-summary-cover">
-          <ChapterCover archive={archive} chapter={chapter} />
-        </div>
-        <div className="chapter-share-summary-copy">
-          <span className="section-label">{availableTracks.length}곡</span>
-          <strong>{formatChapterTitle(activeChapter)}</strong>
-          {activeChapter.description ? <p>{activeChapter.description}</p> : null}
-        </div>
-      </section>
 
       <div className="chapter-share-workspace">
         <section className="chapter-share-preview-section">
@@ -537,19 +464,12 @@ function ChapterShareEditorScreen({
               <h2>실시간 미리보기</h2>
               <p>{normalizedStyle.format === "story" ? "1080 × 1920" : "1080 × 1350"} · {resolvedTracks.length}곡</p>
             </div>
-            <span className={`chapter-share-mode-badge is-${renderMode}`}>{renderMode === "public-share" ? "링크 포함 가능" : "이미지 전용"}</span>
           </div>
           <div className="chapter-share-preview-device">
             <div className={`chapter-share-preview-card is-${normalizedStyle.format}`}>
               <div className="chapter-share-preview-svg" dangerouslySetInnerHTML={{ __html: previewSvg }} />
             </div>
           </div>
-          {activeChapter.visibility !== "public" ? (
-            <div className="chapter-share-private-note">
-              <ImageIcon size={16} aria-hidden="true" />
-              <p>비공개 챕터에서는 링크와 태그가 이미지에 포함되지 않아요. 제목, 아티스트, 선택한 기록 사진은 그대로 유지됩니다.</p>
-            </div>
-          ) : null}
         </section>
 
         <section className="chapter-share-controls" aria-label="공유 이미지 설정">
@@ -566,14 +486,6 @@ function ChapterShareEditorScreen({
               </button>
             ))}
           </nav>
-          <div className="chapter-share-step-heading">
-            <span>{activeStepIndex + 1} / {SHARE_EDITOR_STEPS.length}</span>
-            <div>
-              <h2>{activeStepMeta.label}</h2>
-              <p>{activeStepMeta.description}</p>
-            </div>
-          </div>
-
           {activeStep === "layout" ? (
             <div className="chapter-share-step-content">
               <ShareChoiceGroup title="형식" value={normalizedStyle.format} items={SHARE_FORMATS} onSelect={(format) => updateStyle({ format })} label={formatLabel} />
@@ -590,7 +502,7 @@ function ChapterShareEditorScreen({
 
           {activeStep === "tracks" ? (
             <div className="chapter-share-step-content">
-              <ShareChoiceGroup title="이미지 모드" value={normalizedStyle.trackImageMode} items={SHARE_TRACK_IMAGE_MODES} onSelect={(trackImageMode) => updateStyle({ trackImageMode })} label={imageModeLabel} />
+              <ShareChoiceGroup title="이미지 모드" value={instagramTrackImageMode} items={INSTAGRAM_TRACK_IMAGE_MODES} onSelect={(trackImageMode) => updateStyle({ trackImageMode })} label={imageModeLabel} />
               <section className="chapter-share-section">
                 <div className="chapter-share-section-head">
                   <div>
@@ -599,28 +511,24 @@ function ChapterShareEditorScreen({
                   </div>
                   <button className="text-button" type="button" onClick={() => updateStyle({ selectedTrackIds: [] })}>추천으로 다시 고르기</button>
                 </div>
-                <div className="chapter-share-selected-list" aria-label="선택한 곡 순서">
-                  {selectedTracks.map((track, index) => (
-                    <article className="chapter-share-track-row is-selected" key={track.id}>
+                <div className="chapter-share-track-list" aria-label="곡 선택 및 순서">
+                  {orderedTracks.map((track) => {
+                    const index = normalizedStyle.selectedTrackIds.indexOf(track.id);
+                    const selected = index >= 0;
+                    return (
+                    <article className={`chapter-share-track-row${selected ? " is-selected" : ""}`} key={track.id}>
                       <div className="chapter-share-track-copy">
-                        <span className="chapter-share-track-index">{String(index + 1).padStart(2, "0")}</span>
+                        <span className="chapter-share-track-index">{selected ? String(index + 1).padStart(2, "0") : "—"}</span>
                         <div><strong>{track.track.title}</strong><span>{track.track.artist}</span></div>
                       </div>
                       <div className="chapter-share-track-actions">
-                        <button type="button" onClick={() => moveSelectedTrack(track.id, -1)} disabled={index === 0} aria-label={`${track.track.title} 위로 이동`}><MoveVertical size={15} aria-hidden="true" /></button>
-                        <button type="button" onClick={() => moveSelectedTrack(track.id, 1)} disabled={index === selectedTracks.length - 1} aria-label={`${track.track.title} 아래로 이동`}><MoveVertical size={15} aria-hidden="true" /></button>
-                        <button type="button" onClick={() => toggleTrack(track.id)}>제외</button>
+                        {selected ? <>
+                          <button type="button" onClick={() => moveSelectedTrack(track.id, -1)} disabled={index === 0} aria-label={`${track.track.title} 위로 이동`}><MoveVertical size={15} aria-hidden="true" /></button>
+                          <button type="button" onClick={() => moveSelectedTrack(track.id, 1)} disabled={index === selectedTracks.length - 1} aria-label={`${track.track.title} 아래로 이동`}><MoveVertical size={15} aria-hidden="true" /></button>
+                        </> : null}
+                        <button type="button" onClick={() => toggleTrack(track.id)}>{selected ? "제외" : "선택"}</button>
                       </div>
                     </article>
-                  ))}
-                </div>
-                <div className="chapter-share-track-bank" aria-label="챕터 전체 곡">
-                  {availableTracks.map((track) => {
-                    const selected = normalizedStyle.selectedTrackIds.includes(track.id);
-                    return (
-                      <button key={track.id} className={`chapter-share-track-pill${selected ? " is-active" : ""}`} type="button" onClick={() => toggleTrack(track.id)} aria-pressed={selected}>
-                        <span>{track.track.title}</span><small>{track.track.artist}</small>
-                      </button>
                     );
                   })}
                 </div>
@@ -640,7 +548,6 @@ function ChapterShareEditorScreen({
                   <label><input type="checkbox" checked={normalizedStyle.showTags} onChange={(event) => updateStyle({ showTags: event.target.checked })} />태그</label>
                   <label><input type="checkbox" checked={normalizedStyle.showAuthor} onChange={(event) => updateStyle({ showAuthor: event.target.checked })} />작성자</label>
                   <label><input type="checkbox" checked={normalizedStyle.showTrackCount} onChange={(event) => updateStyle({ showTrackCount: event.target.checked })} />곡 수</label>
-                  <label className={activeChapter.visibility !== "public" ? "is-disabled" : ""}><input type="checkbox" checked={normalizedStyle.showPublicLink} disabled={activeChapter.visibility !== "public"} onChange={(event) => updateStyle({ showPublicLink: event.target.checked })} />공개 링크</label>
                 </div>
               </section>
             </div>
@@ -650,7 +557,7 @@ function ChapterShareEditorScreen({
             <div className="chapter-share-section-head">
           <div>
             <h2>완료</h2>
-            <p>이미지를 만들고, 필요하면 링크도 함께 건네세요.</p>
+            <p>이미지를 저장하거나 인스타그램으로 공유한 뒤, 챕터에서 기록을 계속해 보세요.</p>
           </div>
         </div>
         <div className="chapter-share-export-actions">
@@ -662,28 +569,10 @@ function ChapterShareEditorScreen({
             <Download size={16} aria-hidden="true" />
             {activeExportAction === "download" ? "내리는 중…" : "다운로드"}
           </button>
-          {activeChapter.visibility === "public" ? (
-            <button className="button" type="button" onClick={() => { void handleCopyPublicLink(); }}>
-              <Link2 size={16} aria-hidden="true" />
-              링크 복사
-            </button>
-          ) : (
-            <button className="button" type="button" onClick={handleMakePublic}>
-              <Unlock size={16} aria-hidden="true" />
-              공개하고 링크 공유
-            </button>
-          )}
+          <Link className="button" href={`/chapter?id=${encodeURIComponent(activeChapter.id)}`} intent="back">
+            챕터로 돌아가기
+          </Link>
         </div>
-        {activeChapter.visibility !== "public" ? (
-          <p className="chapter-share-private-cta">
-            비공개를 유지하려면 이미지로만 저장하세요. 링크가 필요하면 위 버튼으로 공개 전환을 먼저 확인해야 합니다.
-          </p>
-        ) : (
-          <div className="chapter-share-link-note">
-            <ExternalLink size={16} aria-hidden="true" />
-            <p>인스타그램 스토리에서 링크 스티커를 추가한 뒤, 방금 복사한 공개 링크를 붙여 넣으세요.</p>
-          </div>
-        )}
         {exportError ? <p className="field-error" role="alert">{exportError}</p> : null}
           </section> : null}
 

@@ -3327,10 +3327,15 @@ test("adds a dedicated chapter share editor route with persisted mobile share co
   assert.match(chapterSource, /href=\{`\/chapter\/share\?id=\$\{encodeURIComponent\(activeChapter\.id\)\}`\}/);
   assert.match(shareSource, /trackShareClarityEvent\("editor_open"/);
   assert.match(shareSource, /exportShareCardPng\(\{ model, normalizeAssetUrl: normalizeShareExportAssetUrl \}\)/);
-  assert.match(shareSource, /buildPublicChapterShareLink/);
   assert.match(shareSource, /commit\(updateCube\(archive, activeChapter\.id, \{ shareStyle: normalizedStyle \}\)\)/);
-  assert.match(shareSource, /window\.confirm\("공개하면 탐색과 링크에서 이 챕터를 볼 수 있어요\./);
   assert.match(shareSource, /normalizeChapterShareStyle/);
+  assert.match(shareSource, /title="인스타그램 공유"/);
+  assert.match(chapterSource, />\s*인스타그램 공유\s*</);
+  assert.match(shellSource, /chapterShare: \{ title: "인스타그램 공유"/);
+  assert.match(shareSource, /INSTAGRAM_TRACK_IMAGE_MODES = \["all", "none"\]/);
+  assert.match(shareSource, /aria-label="곡 선택 및 순서"/);
+  assert.match(shareSource, /챕터로 돌아가기/);
+  assert.doesNotMatch(shareSource, /chapter-share-summary|chapter-share-step-heading|링크 포함 가능|공개 링크|buildPublicChapterShareLink/);
   assert.match(css, /\.chapter-share-view\s*\{/);
   assert.match(css, /\.chapter-share-export-actions\s*\{/);
   assert.match(shareSource, /SHARE_EDITOR_STEPS/);
@@ -3339,6 +3344,7 @@ test("adds a dedicated chapter share editor route with persisted mobile share co
   assert.match(shareSource, /function moveStep\(direction: -1 \| 1\)/);
   assert.match(css, /\.chapter-share-workspace\s*\{/);
   assert.match(css, /\.chapter-share-step-nav\s*\{/);
+  assert.doesNotMatch(css, /\.chapter-share-summary\s*\{|\.chapter-share-step-heading\s*\{/);
   assert.match(css, /\.chapter-share-preview-section\s*\{[^}]*position:\s*sticky;/s);
 });
 

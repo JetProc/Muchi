@@ -138,6 +138,7 @@ export function ChapterDetailHero({
   actionsOutsideCopy = false,
   utilitiesOutsideCopy = false,
   compactUtilityRow = false,
+  actionsBelowCopy = false,
   style,
 }: {
   cover: ReactNode;
@@ -153,9 +154,10 @@ export function ChapterDetailHero({
   actionsOutsideCopy?: boolean;
   utilitiesOutsideCopy?: boolean;
   compactUtilityRow?: boolean;
+  actionsBelowCopy?: boolean;
   style?: CSSProperties;
 }) {
-  const showMetaRow = Boolean(meta || (!compactUtilityRow && !utilitiesOutsideCopy && utilities) || (!actionsOutsideCopy && actions));
+  const showMetaRow = Boolean(meta || (!compactUtilityRow && !utilitiesOutsideCopy && utilities) || (!actionsOutsideCopy && !actionsBelowCopy && actions));
   return (
     <section className="chapter-hero chapter-detail-hero" style={style}>
       {cover}
@@ -175,6 +177,7 @@ export function ChapterDetailHero({
           {!compactUtilityRow && !utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities is-inline">{utilities}</div> : null}
           {!actionsOutsideCopy && actions ? <div className="chapter-detail-meta-action">{actions}</div> : null}
         </div> : null}
+        {actionsBelowCopy && actions ? <div className="chapter-detail-hero-action">{actions}</div> : null}
       </div>
       {actionsOutsideCopy && actions ? <div className="chapter-detail-meta-action is-outside-copy">{actions}</div> : null}
       {utilitiesOutsideCopy && utilities ? <div className="chapter-detail-utilities is-outside-copy">{utilities}</div> : null}
@@ -698,10 +701,10 @@ export function ChapterDetail({
             sharedId={activeChapter.id}
           >
             <Sparkles size={16} aria-hidden="true" />
-            공유/꾸미기
+            인스타그램 공유
           </Link>
         ) : undefined}
-        actionsOutsideCopy
+        actionsBelowCopy
         menu={!monthlyChapter ? (
           <div className="chapter-menu" ref={menuRef}>
             <button

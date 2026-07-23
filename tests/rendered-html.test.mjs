@@ -454,7 +454,7 @@ test("publishes OAuth-ready public information pages from the signed-out homepag
   assert.match(termsPage, /비공개 YouTube 플레이리스트를 생성/);
 });
 
-test("offers reusable general-purpose tag starter packs during onboarding and tag management", async () => {
+test("lets users select individual starter tags during onboarding and tag management", async () => {
   const [starterPackDomain, managerSource, pickerSource, css] = await Promise.all([
     loadTagStarterPackDomain(),
     readFile(new URL("../app/_components/editorial-views-tags.tsx", import.meta.url), "utf8"),

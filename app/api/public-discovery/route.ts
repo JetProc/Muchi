@@ -1,10 +1,14 @@
 import { ApiAuthError, getOptionalAuthenticatedUser, requireAuthenticatedUser } from "@/lib/server/auth";
 import { readPublicDiscoveryCatalog, setChapterLike, setProfileFollow } from "@/lib/server/public-discovery-repository";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { supabase, userId } = await getOptionalAuthenticatedUser();
-    return Response.json(await readPublicDiscoveryCatalog(supabase, userId), {
+    const url = new URL(request.url);
+    return Response.json(await readPublicDiscoveryCatalog(supabase, userId, {
+      chapterId: url.searchParams.get("chapterId"),
+      profileId: url.searchParams.get("profileId"),
+    }), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch {

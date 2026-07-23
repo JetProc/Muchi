@@ -15,6 +15,7 @@ export type PublicProfile = {
   avatarUrl: string | null;
   avatarTone: string;
   followerCount: number;
+  followedByViewer: boolean;
   space: PublicSpacePresentation;
 };
 
@@ -54,7 +55,6 @@ export type PublicDiscoveryCatalog = {
 };
 
 export type DiscoveryInteractionState = {
-  followedProfileIds: string[];
   readActivityIds: string[];
 };
 
@@ -72,6 +72,7 @@ export type PublicDiscoveryRow = {
   authorAvatarUrl?: string | null;
   authorBio?: string;
   followerCount?: number;
+  followedByViewer?: boolean;
   payload: PublicChapter;
 };
 
@@ -100,6 +101,26 @@ export function withPublicChapterLike(
   };
 }
 
+export function withPublicProfileFollow(
+  catalog: PublicDiscoveryCatalog,
+  profileId: string,
+  followedByViewer: boolean,
+): PublicDiscoveryCatalog {
+  const profile = catalog.profiles[profileId];
+  if (!profile || profile.followedByViewer === followedByViewer) return catalog;
+  return {
+    ...catalog,
+    profiles: {
+      ...catalog.profiles,
+      [profileId]: {
+        ...profile,
+        followedByViewer,
+        followerCount: Math.max(0, profile.followerCount + (followedByViewer ? 1 : -1)),
+      },
+    },
+  };
+}
+
 export function createPublicDiscoveryCatalog(rows: PublicDiscoveryRow[]): PublicDiscoveryCatalog {
   const catalog = createEmptyPublicDiscoveryCatalog();
   for (const row of rows) {
@@ -114,6 +135,7 @@ export function createPublicDiscoveryCatalog(rows: PublicDiscoveryRow[]): Public
       avatarUrl: typeof row.authorAvatarUrl === "string" ? row.authorAvatarUrl : null,
       avatarTone: "#6f7898",
       followerCount: typeof row.followerCount === "number" && row.followerCount >= 0 ? row.followerCount : 0,
+      followedByViewer: row.followedByViewer === true,
       space: { themeId: "paper", layoutId: "shelf", featuredChapterIds: [] },
     };
     catalog.chapters[chapter.id] = { ...chapter, profileId };
@@ -131,7 +153,7 @@ export function createPublicDiscoveryCatalog(rows: PublicDiscoveryRow[]): Public
 }
 
 export function createDiscoveryInteractionState(): DiscoveryInteractionState {
-  return { followedProfileIds: [], readActivityIds: [] };
+  return { readActivityIds: [] };
 }
 
 function uniqueIds(ids: string[]): string[] {
@@ -145,15 +167,11 @@ function validState(value: unknown, catalog?: PublicDiscoveryCatalog): Discovery
     Array.isArray(ids) ? uniqueIds(ids.filter((id): id is string => typeof id === "string" && id.length <= 180 && (!lookup || Boolean(lookup[id])))).slice(0, 500) : []
   );
   const activityLookup = catalog ? Object.fromEntries(catalog.activities.map((activity) => [activity.id, activity])) : undefined;
-  return {
-    followedProfileIds: filterKnown(raw.followedProfileIds, catalog?.profiles),
-    readActivityIds: filterKnown(raw.readActivityIds, activityLookup),
-  };
+  return { readActivityIds: filterKnown(raw.readActivityIds, activityLookup) };
 }
 
 export function serializeDiscoveryInteractionState(state: DiscoveryInteractionState): string {
   return JSON.stringify({
-    followedProfileIds: uniqueIds(state.followedProfileIds),
     readActivityIds: uniqueIds(state.readActivityIds),
   });
 }
@@ -168,14 +186,6 @@ export function parseDiscoveryInteractionState(
   } catch {
     return createDiscoveryInteractionState();
   }
-}
-
-function toggled(ids: string[], id: string): string[] {
-  return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
-}
-
-export function toggleFollow(state: DiscoveryInteractionState, profileId: string): DiscoveryInteractionState {
-  return { ...state, followedProfileIds: toggled(state.followedProfileIds, profileId) };
 }
 
 export function markActivityRead(state: DiscoveryInteractionState, activityId: string): DiscoveryInteractionState {
@@ -200,11 +210,9 @@ export function getProfileChapters(catalog: PublicDiscoveryCatalog, profileId: s
 
 export function getFollowingActivities(
   catalog: PublicDiscoveryCatalog,
-  state: DiscoveryInteractionState,
 ): FollowActivity[] {
-  const followed = new Set(state.followedProfileIds);
   return catalog.activities
-    .filter((activity) => followed.has(activity.profileId))
+    .filter((activity) => catalog.profiles[activity.profileId]?.followedByViewer)
     .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
 }
 

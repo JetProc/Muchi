@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { ChevronRight, X } from "lucide-react";
 import {
   createTags,
@@ -133,6 +133,7 @@ export function Search({
   const [query, setQuery] = useState(initialQuery);
   const [tagIds, setTagIds] = useState<string[]>(validRequestedTagIds);
   const [tagMatch, setTagMatch] = useState<"all" | "any">("all");
+  const deferredQuery = useDeferredValue(query);
   const tags = useMemo(() => Object.values(archive.data.tags), [archive.data.tags]);
   const tagUsageCounts = useMemo(() => Object.values(archive.data.cubeTracks)
     .reduce<Record<string, number>>((counts, item) => {
@@ -149,10 +150,10 @@ export function Search({
     ))
     .slice(0, 5)
     .map((tag) => tag.id), [tagIds, tagUsageCounts, tags]);
-  const hasSearch = Boolean(query.trim() || tagIds.length);
-  const results = hasSearch
-    ? searchArchive(archive, { query, tagIds, tagMatch, includeInbox: true })
-    : [];
+  const hasSearch = Boolean(deferredQuery.trim() || tagIds.length);
+  const results = useMemo(() => hasSearch
+    ? searchArchive(archive, { query: deferredQuery, tagIds, tagMatch, includeInbox: true })
+    : [], [archive, deferredQuery, hasSearch, tagIds, tagMatch]);
 
   useEffect(() => {
     const containsInvalidOrDuplicate = requestedKey !== validRequestedKey;

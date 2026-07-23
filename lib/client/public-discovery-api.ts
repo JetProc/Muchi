@@ -9,10 +9,15 @@ export class PublicDiscoveryApiError extends Error {
   }
 }
 
-export async function fetchPublicDiscoveryCatalog(): Promise<PublicDiscoveryCatalog> {
+export type PublicDiscoveryTarget = { chapterId?: string | null; profileId?: string | null };
+
+export async function fetchPublicDiscoveryCatalog(target: PublicDiscoveryTarget = {}): Promise<PublicDiscoveryCatalog> {
   let response: Response;
   try {
-    response = await fetch("/api/public-discovery", { cache: "no-store" });
+    const search = new URLSearchParams();
+    if (target.chapterId) search.set("chapterId", target.chapterId);
+    if (target.profileId) search.set("profileId", target.profileId);
+    response = await fetch(`/api/public-discovery${search.size ? `?${search}` : ""}`, { cache: "no-store" });
   } catch {
     throw new PublicDiscoveryApiError("unavailable", "공개 챕터를 불러오지 못했어요.");
   }

@@ -96,7 +96,7 @@ function ActivityFeed({
   state: DiscoveryInteractionState;
   actions: DiscoveryActions;
 }) {
-  const activities = getFollowingActivities(catalog, state);
+  const activities = getFollowingActivities(catalog);
   if (!activities.length) {
     return <CenteredEmptyMessage>팔로우한 뮤커의 새 글이 아직 없어요.</CenteredEmptyMessage>;
   }
@@ -234,13 +234,11 @@ export function PublicChapterDetail({
 
 export function PublicProfileDetail({
   catalog,
-  state,
   profileId,
   showAll,
   actions,
 }: {
   catalog: PublicDiscoveryCatalog;
-  state: DiscoveryInteractionState;
   profileId: string | null;
   showAll: boolean;
   actions: DiscoveryActions;
@@ -248,7 +246,7 @@ export function PublicProfileDetail({
   const profile = getPublicProfile(catalog, profileId);
   if (!profile) return <div className="page-content"><EmptyState title="뮤커를 찾지 못했어요" action={<Link className="button" href="/discover">탐색으로 돌아가기</Link>} /></div>;
   const chapters = getProfileChapters(catalog, profile.id);
-  const followed = state.followedProfileIds.includes(profile.id);
+  const followed = profile.followedByViewer;
   const featured = profile.space.featuredChapterIds
     .map((id) => catalog.chapters[id])
     .filter((chapter): chapter is NonNullable<typeof chapter> => Boolean(chapter && chapter.profileId === profile.id));

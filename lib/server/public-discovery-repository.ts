@@ -1,6 +1,7 @@
 import {
   getLatestCubeTrackNote,
   getVisitorSpaceChapters,
+  isChapterCoverStorageUrl,
   type ArchiveEnvelopeV1,
 } from "@/lib/archive";
 import {
@@ -27,6 +28,13 @@ type PublicAuthorProfile = {
   bio: string;
 };
 
+export type PublicProjectionInput = {
+  author: PublicAuthorProfile;
+  chapters: Array<{ chapterId: string; payload: PublicChapter; publishedAt: string }>;
+};
+
+export type PublicDiscoveryQuery = { chapterId?: string | null; profileId?: string | null };
+
 function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ chapterId: string; payload: PublicChapter }> {
   return getVisitorSpaceChapters(archive).map(({ chapter, tracks }) => ({
     chapterId: chapter.id,
@@ -36,7 +44,8 @@ function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ 
       name: chapter.name,
       description: chapter.description,
       color: chapter.color,
-      artworkUrl: chapter.coverImageUrl,
+      // Legacy data URLs stay private. Public feeds only ever receive a CDN-backed cover URL.
+      artworkUrl: safePublicCoverUrl(chapter.coverImageUrl),
       createdAt: chapter.createdAt,
       likeCount: 0,
       likedByViewer: false,
@@ -50,6 +59,10 @@ function toPublicChapter(authorId: string, archive: ArchiveEnvelopeV1): Array<{ 
       })),
     },
   }));
+}
+
+function safePublicCoverUrl(value: unknown): string | null {
+  return isChapterCoverStorageUrl(value) ? value : null;
 }
 
 function safeAvatarUrl(value: unknown): string | null {
@@ -79,6 +92,22 @@ async function readAuthorProfile(supabase: SupabaseClient, userId: string): Prom
   };
 }
 
+export async function createPublicProjectionInput(
+  supabase: SupabaseClient,
+  userId: string,
+  archive: ArchiveEnvelopeV1,
+): Promise<PublicProjectionInput> {
+  const author = await readAuthorProfile(supabase, userId);
+  return {
+    author,
+    chapters: toPublicChapter(userId, archive).map(({ chapterId, payload }) => ({
+      chapterId,
+      payload,
+      publishedAt: payload.createdAt,
+    })),
+  };
+}
+
 export async function syncPublishedAuthorProfile(
   supabase: SupabaseClient,
   userId: string,
@@ -101,10 +130,11 @@ export async function syncPublishedChapters(
   userId: string,
   archive: ArchiveEnvelopeV1,
 ): Promise<void> {
-  const chapters = toPublicChapter(userId, archive);
+  const projection = await createPublicProjectionInput(supabase, userId, archive);
+  const chapters = projection.chapters;
   const { data: existing, error: existingError } = await supabase
     .from("published_chapters")
-    .select("chapter_id, author_name, payload")
+    .select("chapter_id, author_name, author_avatar_url, author_bio, payload")
     .eq("author_id", userId);
   if (existingError) throw existingError;
 
@@ -118,7 +148,7 @@ export async function syncPublishedChapters(
     return;
   }
 
-  const author = await readAuthorProfile(supabase, userId);
+  const author = projection.author;
   const existingByChapterId = new Map(
     ((existing ?? []) as PublishedChapterRow[]).map((row) => [row.chapter_id, row]),
   );
@@ -133,14 +163,14 @@ export async function syncPublishedChapters(
   if (publicProjectionUnchanged) return;
 
   const { error } = await supabase.from("published_chapters").upsert(
-    chapters.map(({ chapterId, payload }) => ({
+    chapters.map(({ chapterId, payload, publishedAt }) => ({
       author_id: userId,
       chapter_id: chapterId,
       author_name: author.name,
       author_avatar_url: author.avatarUrl,
       author_bio: author.bio,
       payload,
-      published_at: payload.createdAt,
+      published_at: publishedAt,
     })),
     { onConflict: "author_id,chapter_id" },
   );
@@ -160,37 +190,76 @@ export async function syncPublishedChapters(
   }
 }
 
-export async function readPublicDiscoveryCatalog(supabase: SupabaseClient, userId: string | null): Promise<PublicDiscoveryCatalog> {
+function parsePublicChapterId(value: string): { authorId: string; chapterId: string } | null {
+  if (!value.startsWith("public:")) return null;
+  const separator = value.indexOf(":", "public:".length);
+  if (separator < 0) return null;
+  const authorId = value.slice("public:".length, separator);
+  const chapterId = value.slice(separator + 1);
+  return authorId && chapterId ? { authorId, chapterId } : null;
+}
+
+export async function readPublicDiscoveryCatalog(
+  supabase: SupabaseClient,
+  userId: string | null,
+  queryInput: PublicDiscoveryQuery = {},
+): Promise<PublicDiscoveryCatalog> {
   let query = supabase
     .from("published_chapters")
     .select("author_id, chapter_id, author_name, author_avatar_url, author_bio, payload, like_count")
-    .order("published_at", { ascending: false })
-    .limit(60);
-  if (userId) query = query.neq("author_id", userId);
+    .order("published_at", { ascending: false });
+  const directChapter = typeof queryInput.chapterId === "string"
+    ? parsePublicChapterId(queryInput.chapterId)
+    : null;
+  if (directChapter) {
+    query = query.eq("author_id", directChapter.authorId).eq("chapter_id", directChapter.chapterId).limit(1);
+  } else if (typeof queryInput.profileId === "string" && queryInput.profileId) {
+    query = query.eq("author_id", queryInput.profileId).limit(100);
+  } else {
+    query = query.limit(20);
+    if (userId) query = query.neq("author_id", userId);
+  }
   const { data, error } = await query;
   if (error) throw error;
   const published = (data ?? []) as PublishedChapterRow[];
   const authorIds = [...new Set(published.map((row) => row.author_id))];
-  const { data: followCounts, error: followCountsError } = authorIds.length
-    ? await supabase.from("profile_follow_counts").select("profile_id, follower_count").in("profile_id", authorIds)
-    : { data: [], error: null };
-  if (followCountsError) throw followCountsError;
-  const followerCountByProfile = new Map((followCounts ?? []).map((item) => [item.profile_id, item.follower_count]));
-  const liked = new Set<string>();
-  if (userId) {
-    const { data: likes, error: likesError } = await supabase
+  const followCountsRequest = authorIds.length
+    ? supabase.from("profile_follow_counts").select("profile_id, follower_count").in("profile_id", authorIds)
+    : Promise.resolve({ data: [], error: null });
+  const followsRequest = userId && authorIds.length
+    ? supabase
+      .from("profile_follows")
+      .select("profile_id")
+      .eq("follower_id", userId)
+      .in("profile_id", authorIds)
+    : Promise.resolve({ data: [], error: null });
+  const likesRequest = userId && authorIds.length
+    ? supabase
       .from("chapter_likes")
       .select("author_id, chapter_id")
-      .eq("user_id", userId);
-    if (likesError) throw likesError;
-    (likes ?? []).forEach((like) => liked.add(`${like.author_id}:${like.chapter_id}`));
-  }
+      .eq("user_id", userId)
+      .in("author_id", authorIds)
+    : Promise.resolve({ data: [], error: null });
+  const [
+    { data: followCounts, error: followCountsError },
+    { data: follows, error: followsError },
+    { data: likes, error: likesError },
+  ] = await Promise.all([followCountsRequest, followsRequest, likesRequest]);
+  if (followCountsError) throw followCountsError;
+  const followerCountByProfile = new Map((followCounts ?? []).map((item) => [item.profile_id, item.follower_count]));
+  const followedProfiles = new Set<string>();
+  if (followsError) throw followsError;
+  (follows ?? []).forEach((follow) => followedProfiles.add(follow.profile_id));
+  const liked = new Set<string>();
+  if (likesError) throw likesError;
+  (likes ?? []).forEach((like) => liked.add(`${like.author_id}:${like.chapter_id}`));
   const rows: PublicDiscoveryRow[] = published.map((row) => ({
     authorId: row.author_id,
     authorName: row.author_name,
     authorAvatarUrl: row.author_avatar_url ?? null,
     authorBio: row.author_bio ?? "",
     followerCount: followerCountByProfile.get(row.author_id) ?? 0,
+    followedByViewer: followedProfiles.has(row.author_id),
     payload: {
       ...(row.payload as PublicChapter),
       likeCount: typeof row.like_count === "number" ? row.like_count : 0,

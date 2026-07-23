@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   useCallback,
   useEffect,
@@ -17,7 +18,6 @@ import {
 import {
   getPublicChapter,
   toPlaylistSource,
-  toggleFollow,
   markActivityRead,
 } from "@/lib/public-discovery";
 import { saveChapterLike, saveProfileFollow } from "@/lib/client/public-discovery-api";
@@ -34,38 +34,32 @@ import {
   RouteStage,
   useMotionRouter,
 } from "./editorial-motion";
-import {
-  Capture,
-  Inbox,
-} from "./editorial-views-primary";
-import { PersonalSpace, VisitorSpace } from "./editorial-personal-space";
-import {
-  ChapterDetail,
-  Chapters,
-  Memory,
-} from "./editorial-views-chapters";
-import {
-  Recap,
-  Search,
-  Settings,
-} from "./editorial-views-discovery";
-import { TagManager } from "./editorial-views-tags";
-import { Guide } from "./editorial-views-guide";
-import {
-  PlaylistBuilder,
-  type PlaylistStep,
-} from "./editorial-views-playlist";
-import {
-  Discover,
-  PublicChapterDetail,
-  PublicProfileDetail,
-} from "./editorial-views-public-discovery";
+import type { PlaylistStep } from "./editorial-views-playlist";
 import type { AppView, ToastMessage } from "./editorial-types";
 import { AuthGate, startGoogleSignIn } from "./auth-gate";
 import { OnboardingScreen } from "./onboarding-screen";
 import { useMuchiData } from "./muchi-data-provider";
+import { PersonalSpace } from "./editorial-personal-space";
 
 export type { AppView } from "./editorial-types";
+
+// Home is part of the first mobile render. Secondary views stay code-split and
+// always render an intentional interim state instead of a blank content area.
+const Capture = dynamic(() => import("./editorial-views-primary").then((module) => module.Capture), { loading: () => <CaptureLoadingSkeleton /> });
+const Inbox = dynamic(() => import("./editorial-views-primary").then((module) => module.Inbox), { loading: () => <LoadingSpinner /> });
+const VisitorSpace = dynamic(() => import("./editorial-personal-space").then((module) => module.VisitorSpace), { loading: () => <HomeLoadingSkeleton /> });
+const ChapterDetail = dynamic(() => import("./editorial-views-chapters").then((module) => module.ChapterDetail), { loading: () => <ChaptersLoadingSkeleton /> });
+const Chapters = dynamic(() => import("./editorial-views-chapters").then((module) => module.Chapters), { loading: () => <ChaptersLoadingSkeleton /> });
+const Memory = dynamic(() => import("./editorial-views-chapters").then((module) => module.Memory), { loading: () => <LoadingSpinner /> });
+const Recap = dynamic(() => import("./editorial-views-discovery").then((module) => module.Recap), { loading: () => <LoadingSpinner /> });
+const Search = dynamic(() => import("./editorial-views-discovery").then((module) => module.Search), { loading: () => <SearchLoadingSkeleton /> });
+const Settings = dynamic(() => import("./editorial-views-discovery").then((module) => module.Settings), { loading: () => <LoadingSpinner /> });
+const TagManager = dynamic(() => import("./editorial-views-tags").then((module) => module.TagManager), { loading: () => <LoadingSpinner /> });
+const Guide = dynamic(() => import("./editorial-views-guide").then((module) => module.Guide), { loading: () => <LoadingSpinner /> });
+const PlaylistBuilder = dynamic(() => import("./editorial-views-playlist").then((module) => module.PlaylistBuilder), { loading: () => <LoadingSpinner /> });
+const Discover = dynamic(() => import("./editorial-views-public-discovery").then((module) => module.Discover), { loading: () => <DiscoverLoadingSkeleton /> });
+const PublicChapterDetail = dynamic(() => import("./editorial-views-public-discovery").then((module) => module.PublicChapterDetail), { loading: () => <DiscoverLoadingSkeleton /> });
+const PublicProfileDetail = dynamic(() => import("./editorial-views-public-discovery").then((module) => module.PublicProfileDetail), { loading: () => <DiscoverLoadingSkeleton /> });
 
 const LOADING_ITEMS = [0, 1, 2];
 
@@ -272,6 +266,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
     online,
     ensureDiscoveryData,
     updatePublicChapterLike,
+    updatePublicProfileFollow,
     saveArchive: saveArchiveState,
     saveDiscovery: saveDiscoveryState,
     completeOnboarding,
@@ -415,11 +410,16 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   const publicDiscoveryRoute = view === "discover"
     || view === "discoverChapter"
     || view === "discoverProfile";
+  const discoveryTarget = useMemo(() => {
+    if (view === "discoverChapter" && queryId) return { chapterId: queryId };
+    if (view === "discoverProfile" && queryId) return { profileId: queryId };
+    return {};
+  }, [queryId, view]);
 
   useEffect(() => {
     if (!hydrated || !discoveryRoute) return;
-    void ensureDiscoveryData().catch(() => undefined);
-  }, [discoveryRoute, ensureDiscoveryData, hydrated]);
+    void ensureDiscoveryData(false, discoveryTarget).catch(() => undefined);
+  }, [discoveryRoute, discoveryTarget, ensureDiscoveryData, hydrated]);
 
   useEffect(() => {
     const handleSaveNotice = (event: Event) => {
@@ -461,13 +461,19 @@ export function MusicWorldApp({ view }: { view: AppView }) {
       void startGoogleSignIn().catch((error: unknown) => notify(error instanceof Error ? error.message : "로그인을 시작하지 못했어요."));
       return;
     }
-    const following = discoveryState.followedProfileIds.includes(profileId);
+    const profile = catalog.profiles[profileId];
+    if (!profile) return;
+    const following = profile.followedByViewer;
+    updatePublicProfileFollow(profileId, !following);
     void saveProfileFollow(profileId, !following)
       .then(() => {
-        saveDiscoveryState(toggleFollow(discoveryState, profileId), following ? "팔로우를 취소했어요." : "새 챕터 소식을 받아볼게요.");
-        return ensureDiscoveryData(true);
+        notify(following ? "팔로우를 취소했어요." : "새 챕터 소식을 받아볼게요.");
+        return ensureDiscoveryData(true, discoveryTarget);
       })
-      .catch((error: unknown) => notify(error instanceof Error ? error.message : "팔로우를 저장하지 못했어요."));
+      .catch((error: unknown) => {
+        updatePublicProfileFollow(profileId, following);
+        notify(error instanceof Error ? error.message : "팔로우를 저장하지 못했어요.");
+      });
   }
 
   function handleToggleLike(chapterId: string) {
@@ -630,17 +636,17 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           />
         );
       case "discover":
-        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true).catch(() => undefined); }} />;
+        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
         return <Discover archive={archive} catalog={catalog} state={discoveryState} activityOnly={searchParams.get("activity") === "1"} actions={discoveryActions} />;
       case "discoverChapter":
-        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true).catch(() => undefined); }} />;
+        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
         return <PublicChapterDetail catalog={catalog} chapterId={queryId} actions={discoveryActions} />;
       case "discoverProfile":
-        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true).catch(() => undefined); }} />;
+        if (discoveryError && !discoveryReady) return <DiscoveryLoadError message={discoveryError} onRetry={() => { void ensureDiscoveryData(true, discoveryTarget).catch(() => undefined); }} />;
         if (!discoveryReady) return <DiscoverLoadingSkeleton />;
-        return <PublicProfileDetail catalog={catalog} state={discoveryState} profileId={queryId} showAll={searchParams.get("view") === "all"} actions={discoveryActions} />;
+        return <PublicProfileDetail catalog={catalog} profileId={queryId} showAll={searchParams.get("view") === "all"} actions={discoveryActions} />;
       case "search":
         return (
           <Search

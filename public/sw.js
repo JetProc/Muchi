@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "muchi-shell";
-const CACHE_VERSION = "v6-ios-pwa";
+const CACHE_VERSION = "v7-performance";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline";
 
@@ -13,8 +13,6 @@ const APP_SHELL = [
 const STATIC_DESTINATIONS = new Set([
   "font",
   "image",
-  "script",
-  "style",
   "worker",
 ]);
 

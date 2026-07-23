@@ -469,6 +469,7 @@ test("offers reusable general-purpose tag starter packs during onboarding and ta
   assert.match(pickerSource, /aria-pressed=\{selected\}/);
   assert.match(css, /\.tag-starter-pack\[aria-pressed="true"\]/);
   assert.match(css, /\.tag-starter-pack-tags\s*\{[^}]*flex-wrap:\s*wrap;/s);
+  assert.match(css, /\.onboarding-screen\s*\{[^}]*height:\s*100dvh;[^}]*overflow-y:\s*auto;[^}]*-webkit-overflow-scrolling:\s*touch;/s);
 });
 
 test("hides only YouTube's generated Topic channel suffix in artist display", async () => {
@@ -1412,7 +1413,7 @@ test("exports reviewed matches to YouTube Music while Apple Music remains pendin
   assert.match(playlistSource, /서비스 선택/);
   assert.match(playlistSource, /매칭 확인/);
   assert.match(playlistSource, /플레이리스트 만들기 완료/);
-  assert.match(playlistSource, /서비스를 연결해 곡을 실제로 찾아볼게요/);
+  assert.match(playlistSource, /선택한 곡을 \{selectedService\.name\}에서 확인하고 있어요/);
   assert.match(playlistSource, /\/api\/playlist\/\$\{serviceId\}/);
   assert.match(playlistSource, /Apple Music 내보내기는 준비 중이에요/);
   assert.match(playlistSource, /id: "apple"[\s\S]*?status: "soon"/);
@@ -1426,9 +1427,10 @@ test("exports reviewed matches to YouTube Music while Apple Music remains pendin
   assert.match(playlistSource, /skipBrowserRedirect: true/);
   assert.match(playlistSource, /searchParams\.delete\("code"\)/);
   assert.match(playlistSource, /window\.location\.assign\(data\.url\)/);
-  assert.match(playlistSource, /if \(!youtubeAuthGranted \|\| forceReconnect\)/);
+  assert.match(playlistSource, /if \(!youtubeAuthGranted\)/);
   assert.doesNotMatch(playlistSource, /if \(!token \|\| forceReconnect\)/);
-  assert.match(playlistSource, /Authorization: `Bearer \$\{connectionToken\}`/);
+  assert.match(playlistSource, /const token = connectionToken \?\? await connectYoutube\(\)/);
+  assert.match(playlistSource, /Authorization: `Bearer \$\{token\}`/);
   assert.match(playlistSource, /자동 매칭/);
   assert.match(playlistSource, /확인 필요한 \{unresolvedCount\}곡의 후보를 선택하거나 제외/);
   assert.match(playlistSource, /YouTube Music에서 재생/);
@@ -1441,6 +1443,9 @@ test("exports reviewed matches to YouTube Music while Apple Music remains pendin
   assert.doesNotMatch(playlistSource, /playlist-track-toggle|service\.description|ChevronRight/);
   assert.doesNotMatch(playlistSource, /presetServiceId \? 3 : 2/);
   assert.match(playlistSource, /onClick=\{\(\) => onStepChange\(2\)\}>다음<\/button>/);
+  assert.match(playlistSource, /onStepChange\(3\); void connectAndMatch\(\);/);
+  assert.match(playlistSource, /className="playlist-match-loading" role="status"/);
+  assert.doesNotMatch(playlistSource, /연결하고 곡 찾기/);
   assert.match(appSource, /initialServiceId=\{searchParams\.get\("service"\)\}/);
   assert.match(appSource, /youtubeAuthGranted=\{youtubeAuthGranted\}/);
   assert.match(appSource, /const youtubeAuthGranted = searchParams\.get\("youtubeAuth"\) === "granted";/);
@@ -1455,6 +1460,7 @@ test("exports reviewed matches to YouTube Music while Apple Music remains pendin
   assert.match(appleTheme, /\.playlist-builder-actions\s*\{[^}]*position:\s*sticky;/s);
   assert.match(appleTheme, /\.music-service-mark\s*\{[^}]*object-fit:\s*contain;/s);
   assert.match(appleTheme, /\.playlist-simulation-note\s*\{[^}]*margin:\s*0 0 var\(--apple-space-3\);/s);
+  assert.match(appleTheme, /\.playlist-match-loading\s*\{[^}]*min-height:\s*220px;/s);
   assert.match(appleTheme, /\.playlist-match-choice\s*\{[^}]*grid-template-columns:\s*34px minmax\(0, 1fr\) 32px;/s);
   assert.match(appleTheme, /\.playlist-match-choice-copy select\s*\{[^}]*height:\s*28px;/s);
   assert.match(appleTheme, /\.public-chapter-detail \.chapter-hero-copy\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;/s);

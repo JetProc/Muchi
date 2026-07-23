@@ -50,9 +50,6 @@ function youtubeErrorMessage(errorCode: string | undefined) {
   if (errorCode === "accessNotConfigured") return "YouTube Data API가 아직 활성화되지 않았어요.";
   return "YouTube 검색 중 오류가 발생했어요. 다시 연결해 주세요.";
 }
-function canReconnectYoutube(errorCode: string | undefined) {
-  return errorCode === "insufficientPermissions" || errorCode === "forbidden" || errorCode === "unauthorized" || errorCode === "youtubeSignupRequired";
-}
 function isMatchStatus(value: unknown): value is MatchStatus {
   return value === "auto" || value === "review" || value === "missing";
 }
@@ -98,7 +95,6 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
   const [connectionToken, setConnectionToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [youtubeErrorCode, setYoutubeErrorCode] = useState<string | undefined>();
   const [result, setResult] = useState<{ url: string; addedCount: number; failedCount: number } | null>(null);
   const viewRef = useRef<HTMLDivElement>(null);
   const selectedService = MUSIC_SERVICES.find((service) => service.id === serviceId) ?? MUSIC_SERVICES[0];
@@ -112,42 +108,44 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
   useLayoutEffect(() => { viewRef.current?.closest<HTMLElement>(".shell-main")?.scrollTo({ top: 0 }); }, [step]);
   if (!source) return <div className="page-content"><EmptyState title="챕터를 찾을 수 없어요" action={<Link className="button" href="/chapters" intent="back">챕터 목록으로</Link>} /></div>;
 
-  function resetMatches() { setMatches([]); setConnectionToken(null); setError(null); setYoutubeErrorCode(undefined); }
+  function resetMatches() { setMatches([]); setConnectionToken(null); setError(null); }
   function toggleTrack(trackId: TrackId) { resetMatches(); setSelectedTrackIds((current) => current.includes(trackId) ? current.filter((id) => id !== trackId) : [...current, trackId]); }
-  async function connectAndMatch(forceReconnect = false) {
+  async function connectYoutube() {
+    if (serviceId !== "youtube") throw new Error("Apple Music 내보내기는 준비 중이에요. 지금은 YouTube Music으로 만들어 주세요.");
+    const supabase = createSupabaseBrowserClient();
+    if (!youtubeAuthGranted) {
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: youtubeOAuthCallbackUrl(),
+          scopes: YOUTUBE_SCOPE,
+          queryParams: {
+            include_granted_scopes: "true",
+          },
+          skipBrowserRedirect: true,
+        },
+      });
+      if (oauthError) throw oauthError;
+      if (!data.url) throw new Error("Google YouTube 권한 연결 주소를 만들지 못했어요.");
+      window.location.assign(data.url);
+      return null;
+    }
+    const { data, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    const token = (data.session as unknown as { provider_token?: string } | null)?.provider_token;
+    if (!token) {
+      const missingToken = new Error("Google YouTube 권한 토큰을 받지 못했어요.") as Error & { code?: string };
+      missingToken.code = "unauthorized";
+      throw missingToken;
+    }
+    return token;
+  }
+  async function connectAndMatch() {
     setLoading(true); setError(null);
     try {
       if (serviceId !== "youtube") throw new Error("Apple Music 내보내기는 준비 중이에요. 지금은 YouTube Music으로 만들어 주세요.");
-      const supabase = createSupabaseBrowserClient();
-      if (!youtubeAuthGranted || forceReconnect) {
-        const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: youtubeOAuthCallbackUrl(),
-            scopes: YOUTUBE_SCOPE,
-            queryParams: {
-              include_granted_scopes: "true",
-            },
-            skipBrowserRedirect: true,
-          },
-        });
-        if (oauthError) throw oauthError;
-        if (!data.url) throw new Error("Google YouTube 권한 연결 주소를 만들지 못했어요.");
-        window.location.assign(data.url);
-        return;
-      }
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
-      const token = (data.session as unknown as { provider_token?: string } | null)?.provider_token;
-      if (!token) {
-        const missingToken = new Error("Google YouTube 권한 토큰을 받지 못했어요.") as Error & { code?: string };
-        missingToken.code = "unauthorized";
-        throw missingToken;
-      }
-      setConnectionToken(token);
       const response = await fetch(`/api/playlist/${serviceId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "match", tracks: selectedEntries.map((entry) => entry.track) }) });
       const body = await responseJson(response) as { matches?: Array<{ trackId?: string; status?: unknown; confidence?: unknown; candidates?: Candidate[]; selectedId?: unknown; errorCode?: string }>; errorCode?: string };
-      setYoutubeErrorCode(body.errorCode);
       setError(body.errorCode ? youtubeErrorMessage(body.errorCode) : null);
       setMatches((body.matches ?? []).map((match) => {
         const candidates = match.candidates ?? [];
@@ -174,19 +172,20 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
       window.history.replaceState(window.history.state, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
     } catch (cause) {
       const errorCode = cause instanceof Error && "code" in cause && typeof cause.code === "string" ? cause.code : undefined;
-      setYoutubeErrorCode(errorCode);
       setError(errorCode ? youtubeErrorMessage(errorCode) : cause instanceof Error ? cause.message : "곡을 매칭하지 못했어요.");
     }
     finally { setLoading(false); }
   }
   async function exportPlaylist() {
-    if (!connectionToken) return;
     setLoading(true); setError(null);
     try {
+      const token = connectionToken ?? await connectYoutube();
+      if (!token) return;
+      setConnectionToken(token);
       const selections = matches.flatMap((match) => match.selectedId && !match.excluded ? [match.selectedId] : []);
       const response = await fetch(`/api/playlist/${serviceId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${connectionToken}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: "export", playlistName, selections }),
       });
       const body = await responseJson(response) as { url?: unknown; addedCount?: unknown; failedCount?: unknown };
@@ -198,7 +197,6 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
       onStepChange("done");
     } catch (cause) {
       const errorCode = cause instanceof Error && "code" in cause && typeof cause.code === "string" ? cause.code : undefined;
-      setYoutubeErrorCode(errorCode);
       setError(errorCode ? youtubeErrorMessage(errorCode) : cause instanceof Error ? cause.message : "플레이리스트를 만들지 못했어요.");
     }
     finally { setLoading(false); }
@@ -209,7 +207,7 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
   return <div ref={viewRef} className="page-content playlist-builder-view"><header className="playlist-builder-header"><div><span className="section-label">플레이리스트로 내보내기</span><h1>{STEP_LABEL[step - 1]}</h1></div><span className="playlist-step-count" aria-label={`${step}단계, 전체 3단계`}>{step} / 3</span></header><ol className="playlist-stepper" aria-label="플레이리스트 생성 단계">{STEP_LABEL.map((label, index) => <li className={step >= index + 1 ? "is-active" : ""} key={label}><span>{index + 1}</span><em>{label}</em></li>)}</ol>
     {step === 1 ? <section className="playlist-builder-section" aria-labelledby="playlist-name-label"><label className="field playlist-name-field" htmlFor="playlist-name"><span id="playlist-name-label">플레이리스트 이름</span><input id="playlist-name" className="input" value={playlistName} onChange={(event) => setPlaylistName(event.target.value)} maxLength={80} /></label><div className="playlist-selection-head"><strong>{selectedTrackIds.length}곡 선택</strong><button className="text-button" type="button" onClick={() => { resetMatches(); setSelectedTrackIds(selectedTrackIds.length === entries.length ? [] : entries.map((entry) => entry.track.id)); }}>{selectedTrackIds.length === entries.length ? "전체 해제" : "전체 선택"}</button></div><div className="track-list track-list-unified playlist-track-list">{entries.map((entry, index) => <TrackLine key={entry.id} track={entry.track} index={index} sharedId={entry.id} selectable selected={selectedTrackIds.includes(entry.track.id)} showAlbum={false} showIndex={false} onRowClick={() => toggleTrack(entry.track.id)} />)}</div></section> : null}
     {step === 2 ? <section className="playlist-builder-section"><p className="playlist-service-copy">내보낼 음악 서비스를 선택하세요.</p><div className="playlist-service-list" role="radiogroup" aria-label="음악 서비스">{MUSIC_SERVICES.map((service) => <button className={`playlist-service-row${serviceId === service.id ? " is-selected" : ""}`} type="button" role="radio" aria-checked={serviceId === service.id} disabled={service.status === "soon"} onClick={() => { resetMatches(); setServiceId(service.id); }} key={service.id}><span className={`playlist-service-icon is-${service.id}`} aria-hidden="true"><MusicServiceIcon service={service.id} size={42} /></span><span className="playlist-service-copy"><strong>{service.name}</strong>{service.status === "soon" ? <small>준비 중</small> : null}</span></button>)}</div></section> : null}
-    {step === 3 ? <section className="playlist-builder-section"><div className="playlist-match-summary" aria-label="곡 매칭 결과"><div><CircleCheck size={17} aria-hidden="true" /><span>자동 매칭</span><strong>{autoCount}</strong></div><div><Search size={17} aria-hidden="true" /><span>확인 필요</span><strong>{unresolvedCount}</strong></div><div><CircleAlert size={17} aria-hidden="true" /><span>찾지 못함</span><strong>{missingCount}</strong></div></div>{!matches.length && !loading ? <p className="playlist-simulation-note">서비스를 연결해 곡을 실제로 찾아볼게요. 연결 토큰은 저장하지 않아요.</p> : null}{matches.length ? <div className="playlist-match-list">{matches.map((match) => {
+    {step === 3 ? <section className="playlist-builder-section"><div className="playlist-match-summary" aria-label="곡 매칭 결과"><div><CircleCheck size={17} aria-hidden="true" /><span>자동 매칭</span><strong>{autoCount}</strong></div><div><Search size={17} aria-hidden="true" /><span>확인 필요</span><strong>{unresolvedCount}</strong></div><div><CircleAlert size={17} aria-hidden="true" /><span>찾지 못함</span><strong>{missingCount}</strong></div></div>{loading && !matches.length ? <div className="playlist-match-loading" role="status"><span aria-hidden="true" /><strong>곡을 찾고 있어요</strong><p>선택한 곡을 {selectedService.name}에서 확인하고 있어요.</p></div> : null}{!matches.length && !loading ? <p className="playlist-simulation-note">곡 매칭을 다시 시도해 주세요.</p> : null}{matches.length ? <div className="playlist-match-list">{matches.map((match) => {
       const track = selectedEntries.find((entry) => entry.track.id === match.trackId)?.track;
       const selectedCandidate = match.candidates.find((candidate) => candidate.id === match.selectedId) ?? null;
       const candidateMeta = [
@@ -256,5 +254,5 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
         )}
       </article>;
     })}</div> : null}{unresolvedCount ? <p className="playlist-match-guidance" role="status">확인 필요한 {unresolvedCount}곡의 후보를 선택하거나 제외해 주세요.</p> : null}</section> : null}
-    {error ? <p className="auth-gate-error" role="alert">{error}</p> : null}<div className="playlist-builder-actions">{step === 1 ? <button className="button button-primary" type="button" disabled={!selectedTrackIds.length || !playlistName.trim()} onClick={() => onStepChange(2)}>다음</button> : null}{step === 2 ? <button className="button button-primary" type="button" disabled={selectedService.status === "soon"} onClick={() => onStepChange(3)}>{selectedService.name}으로 계속</button> : null}{step === 3 && !matches.length && !youtubeErrorCode ? <button className="button button-primary" type="button" disabled={loading} onClick={() => void connectAndMatch()}>{loading ? "서비스 연결 중…" : `${selectedService.name} 연결하고 곡 찾기`}</button> : null}{step === 3 && youtubeErrorCode ? <button className="button button-primary" type="button" disabled={loading} onClick={() => void connectAndMatch(canReconnectYoutube(youtubeErrorCode))}>{loading ? canReconnectYoutube(youtubeErrorCode) ? "권한 연결 중…" : "다시 검색 중…" : canReconnectYoutube(youtubeErrorCode) ? "Google YouTube 권한 다시 연결" : "다시 검색"}</button> : null}{step === 3 && matches.length && !youtubeErrorCode ? <button className="button button-primary" type="button" disabled={!matchedCount || unresolvedCount > 0 || loading} onClick={() => void exportPlaylist()}><ListMusic size={16} aria-hidden="true" />{loading ? "만드는 중…" : unresolvedCount ? `${unresolvedCount}곡 확인 필요` : `${matchedCount}곡 내보내기`}</button> : null}</div></div>;
+    {error ? <p className="auth-gate-error" role="alert">{error}</p> : null}<div className="playlist-builder-actions">{step === 1 ? <button className="button button-primary" type="button" disabled={!selectedTrackIds.length || !playlistName.trim()} onClick={() => onStepChange(2)}>다음</button> : null}{step === 2 ? <button className="button button-primary" type="button" disabled={selectedService.status === "soon"} onClick={() => { onStepChange(3); void connectAndMatch(); }}>{loading ? "곡을 찾는 중…" : `${selectedService.name}에서 곡 찾기`}</button> : null}{step === 3 && !matches.length && !loading ? <button className="button button-primary" type="button" onClick={() => void connectAndMatch()}>다시 검색</button> : null}{step === 3 && matches.length ? <button className="button button-primary" type="button" disabled={!matchedCount || unresolvedCount > 0 || loading} onClick={() => void exportPlaylist()}><ListMusic size={16} aria-hidden="true" />{loading ? "만드는 중…" : unresolvedCount ? `${unresolvedCount}곡 확인 필요` : `${matchedCount}곡 내보내기`}</button> : null}</div></div>;
 }

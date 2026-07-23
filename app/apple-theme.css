@@ -3618,6 +3618,15 @@ button.tag {
   margin-top: 22px;
 }
 
+/* The app shell locks body scrolling; onboarding is rendered outside it. */
+.onboarding-screen {
+  height: 100dvh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .tag-starter-pack-grid {
   display: grid;
   gap: 10px;
@@ -4524,6 +4533,39 @@ button.tag {
 
 .playlist-match-list {
   display: grid;
+}
+
+.playlist-match-loading {
+  min-height: 220px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.playlist-match-loading > span {
+  width: 30px;
+  height: 30px;
+  border: 3px solid color-mix(in srgb, var(--apple-primary) 18%, transparent);
+  border-top-color: var(--apple-primary);
+  border-radius: 50%;
+  animation: playlist-match-spin 0.7s linear infinite;
+}
+
+.playlist-match-loading strong {
+  font-size: 15px;
+  color: var(--apple-ink);
+}
+
+.playlist-match-loading p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--apple-ink-muted);
+}
+
+@keyframes playlist-match-spin {
+  to { transform: rotate(360deg); }
 }
 
 .playlist-match-row {

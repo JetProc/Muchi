@@ -42,7 +42,14 @@
   --font-serif: "High1WonchuriTitle", sans-serif;
   --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-close: cubic-bezier(0.32, 0, 0.67, 0);
+  --app-safe-area-top: 0px;
   color-scheme: light;
+}
+
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --app-safe-area-top: env(safe-area-inset-top, 0px);
+  }
 }
 
 * {
@@ -128,7 +135,7 @@ img {
   min-height: 100dvh;
   display: grid;
   align-items: center;
-  padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  padding: max(24px, var(--app-safe-area-top)) 20px max(24px, env(safe-area-inset-bottom));
   color: var(--ink);
   background: var(--paper);
 }
@@ -277,7 +284,7 @@ img {
 
 .legal-page {
   min-height: 100dvh;
-  padding: max(36px, env(safe-area-inset-top)) 20px max(52px, env(safe-area-inset-bottom));
+  padding: max(36px, var(--app-safe-area-top)) 20px max(52px, env(safe-area-inset-bottom));
   color: var(--ink);
   background: var(--paper);
 }

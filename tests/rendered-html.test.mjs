@@ -333,6 +333,7 @@ test("locks every viewport to the mobile device frame", async () => {
   assert.match(appleTheme, /--app-frame-inset:\s*16px;/);
   assert.match(appleTheme, /--app-frame-radius:\s*28px;/);
   assert.match(appleTheme, /body\s*\{[^}]*overflow:\s*hidden;/s);
+  assert.match(globalStyles, /--app-safe-area-top:\s*0px;[\s\S]*?@supports \(-webkit-touch-callout: none\)[\s\S]*?--app-safe-area-top:\s*env\(safe-area-inset-top, 0px\);/s);
   assert.match(appleTheme, /\.app-shell,[\s\S]*?height:\s*100dvh;[^}]*container-type:\s*inline-size;[^}]*overflow:\s*hidden;/s);
   assert.match(appleTheme, /\.shell-main\s*\{[^}]*overflow-y:\s*auto;/s);
   assert.match(appleTheme, /@media \(min-width:\s*480px\)[\s\S]*?width:\s*var\(--app-canvas-width\);[\s\S]*?height:\s*calc\(100dvh - \(var\(--app-frame-inset\) \+ var\(--app-frame-inset\)\)\);/s);
@@ -581,7 +582,7 @@ test("uses Apple typography, whitespace, and flat mobile surfaces", async () => 
 
   assert.match(appleTheme, /body\s*\{[^}]*font-family:\s*var\(--apple-font-text\);[^}]*font-size:\s*15px;[^}]*line-height:\s*1\.42;/s);
   assert.match(appleTheme, /h1,\s*h2,\s*h3\s*\{[^}]*font-family:\s*var\(--apple-font-display\);[^}]*font-weight:\s*600;/s);
-  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*calc\(44px \+ env\(safe-area-inset-top\)\);[^}]*background:\s*var\(--apple-surface-black\);/s);
+  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*calc\(44px \+ var\(--app-safe-area-top\)\);[^}]*background:\s*var\(--apple-surface-black\);/s);
   assert.match(appleTheme, /\.page-content\s*\{[^}]*padding:\s*var\(--apple-space-6\) var\(--apple-page-gutter\)/s);
   assert.match(appleTheme, /\.centered-empty-message\s*\{[^}]*min-height:\s*min\(42dvh, 320px\);[^}]*place-items:\s*center;[^}]*color:\s*var\(--apple-ink-muted-48\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width:\s*419px\)[\s\S]*?h1\s*\{[^}]*font-size:\s*26px;/s);
@@ -595,7 +596,7 @@ test("keeps toast messages compact below the fixed mobile header", async () => {
   ]);
   const appleTheme = getAppleTheme(css);
 
-  assert.match(appleTheme, /\.toast\s*\{[^}]*top:\s*calc\(56px \+ env\(safe-area-inset-top\)\);[^}]*bottom:\s*auto;[^}]*width:\s*min\(420px, calc\(100% - 32px\)\);/s);
+  assert.match(appleTheme, /\.toast\s*\{[^}]*top:\s*calc\(56px \+ var\(--app-safe-area-top\)\);[^}]*bottom:\s*auto;[^}]*width:\s*min\(420px, calc\(100% - 32px\)\);/s);
   assert.match(appleTheme, /\.toast\s*\{[^}]*border-radius:\s*var\(--apple-radius-pill\) !important;[^}]*pointer-events:\s*none;/s);
   assert.match(appleTheme, /\.toast-with-action\s*\{[^}]*pointer-events:\s*auto;/s);
   assert.match(appleTheme, /\.toast-action\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
@@ -792,8 +793,8 @@ test("keeps compact Korean navigation inside the mobile shell", async () => {
   assert.match(source, /className="text-navigation icon-label-nav"/);
   const appleTheme = getAppleTheme(css);
   assert.match(appleTheme, /--apple-page-gutter:\s*max\(clamp\(16px, 5cqw, 22px\), env\(safe-area-inset-left\), env\(safe-area-inset-right\)\);/);
-  assert.match(appleTheme, /\.app-shell,[\s\S]*?\.app-shell\.has-player\s*\{[^}]*grid-template-rows:\s*calc\(44px \+ env\(safe-area-inset-top\)\) minmax\(0, 1fr\) calc\(70px \+ env\(safe-area-inset-bottom\)\);/s);
-  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*calc\(44px \+ env\(safe-area-inset-top\)\);[^}]*min-height:\s*calc\(44px \+ env\(safe-area-inset-top\)\);[^}]*padding:\s*env\(safe-area-inset-top\) max\(12px, env\(safe-area-inset-right\)\) 0 max\(12px, env\(safe-area-inset-left\)\);/s);
+  assert.match(appleTheme, /\.app-shell,[\s\S]*?\.app-shell\.has-player\s*\{[^}]*grid-template-rows:\s*calc\(44px \+ var\(--app-safe-area-top\)\) minmax\(0, 1fr\) calc\(70px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*height:\s*calc\(44px \+ var\(--app-safe-area-top\)\);[^}]*min-height:\s*calc\(44px \+ var\(--app-safe-area-top\)\);[^}]*padding:\s*var\(--app-safe-area-top\) max\(12px, env\(safe-area-inset-right\)\) 0 max\(12px, env\(safe-area-inset-left\)\);/s);
   assert.match(appleTheme, /\.footer-band\s*\{[^}]*position:\s*relative;[^}]*min-height:\s*calc\(70px \+ env\(safe-area-inset-bottom\)\);[^}]*backdrop-filter:\s*saturate\(180%\) blur\(20px\) !important;/s);
 });
 
@@ -1196,7 +1197,7 @@ test("keeps memory details and player surfaces legible on the mobile canvas", as
   assert.match(appleTheme, /\.player-dismiss-control\s*\{[^}]*position:\s*absolute;[^}]*min-height:\s*44px;/s);
   assert.match(appleTheme, /\.player-dismiss-control\s*\{[^}]*right:\s*20px;/s);
   assert.match(appleTheme, /\.player-dismiss-control:focus-visible\s*\{[^}]*outline-offset:\s*-2px;/s);
-  assert.match(appleTheme, /\.app-shell\.has-player\s*\{[^}]*grid-template-rows:\s*calc\(44px \+ env\(safe-area-inset-top\)\) minmax\(0, 1fr\) 68px calc\(70px \+ env\(safe-area-inset-bottom\)\);/s);
+  assert.match(appleTheme, /\.app-shell\.has-player\s*\{[^}]*grid-template-rows:\s*calc\(44px \+ var\(--app-safe-area-top\)\) minmax\(0, 1fr\) 68px calc\(70px \+ env\(safe-area-inset-bottom\)\);/s);
   assert.match(appleTheme, /\.app-shell\.has-player \.mini-player\s*\{[^}]*position:\s*relative;[^}]*grid-row:\s*3;/s);
   assert.match(appleTheme, /\.full-player-art\s*\{[^}]*padding-top:\s*var\(--apple-space-3\);/s);
   assert.doesNotMatch(globals, /\.full-player :focus-visible\s*\{[^}]*outline-color:\s*var\(--signal\);/s);
@@ -1238,7 +1239,7 @@ test("uses a compact swipe-first mobile home without primary playback", async ()
   assert.match(source, /className="chapter-preview-art"/);
   assert.match(source, /className="chapter-preview-art"[\s\S]*?<ChapterCover archive=\{archive\} chapter=\{chapter\} \/>/);
   const appleTheme = getAppleTheme(css);
-  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*position:\s*relative;[^}]*height:\s*calc\(44px \+ env\(safe-area-inset-top\)\);/s);
+  assert.match(appleTheme, /\.editorial-header\s*\{[^}]*position:\s*relative;[^}]*height:\s*calc\(44px \+ var\(--app-safe-area-top\)\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width: 430px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width: 419px\)[\s\S]*?\.album-feature\s*\{[^}]*grid-template-columns:\s*112px minmax\(0, 1fr\);/s);
   assert.match(appleTheme, /@container muchi-app \(max-width: 419px\)[\s\S]*?\.track-list-unified \.track-line\s*\{[^}]*--track-cover-size:\s*60px;/s);

@@ -413,7 +413,7 @@ test("collects a validated nickname and Google avatar before onboarding complete
   assert.match(onboardingSource, /한글·영문·숫자·띄어쓰기만 사용/);
   assert.match(onboardingSource, /setStep\("intro"\)/);
   assert.match(onboardingSource, /setStep\("tags"\)/);
-  assert.match(onboardingSource, /<TagStarterPackPicker selectedPackIds=\{selectedPackIds\}/);
+  assert.match(onboardingSource, /<TagStarterPackPicker selectedLabels=\{selectedTagLabels\}/);
   assert.match(onboardingSource, /onComplete\(nickname, selectedTagLabels, "capture"\)/);
   assert.match(onboardingSource, /기억할 곡 찾기/);
   assert.match(onboardingSource, /순간을 태그로 남기기/);
@@ -463,11 +463,14 @@ test("offers reusable general-purpose tag starter packs during onboarding and ta
   assert.equal(new Set(labels.map((label) => label.toLocaleLowerCase("ko-KR"))).size, labels.length);
   assert.match(managerSource, />추천 태그<\/button>/);
   assert.match(managerSource, /className="dialog tag-starter-dialog"/);
-  assert.match(managerSource, /getStarterTagLabels\(selectedStarterPackIds\)/);
+  assert.match(managerSource, /const \[selectedStarterTags, setSelectedStarterTags\] = useState<string\[]>\(\[\]\)/);
   assert.match(managerSource, /createTags\(archive, recommendedCandidates\)/);
   assert.match(pickerSource, /existingLabels\?\.has\(normalizeTagLabel\(tag\)\)/);
-  assert.match(pickerSource, /aria-pressed=\{selected\}/);
-  assert.match(css, /\.tag-starter-pack\[aria-pressed="true"\]/);
+  assert.match(pickerSource, /onClick=\{\(\) => onToggle\(tag\)\}/);
+  assert.match(pickerSource, /aria-pressed=\{isSelected\}/);
+  assert.match(pickerSource, /disabled=\{existing\}/);
+  assert.match(css, /\.tag-starter-pack\[data-selected="true"\]/);
+  assert.match(css, /\.tag-starter-pack-tags \.tag-starter-pack-tag\s*\{[^}]*min-height:\s*36px;[^}]*font-size:\s*12px;/s);
   assert.match(css, /\.tag-starter-pack-tags\s*\{[^}]*flex-wrap:\s*wrap;/s);
   assert.match(css, /\.onboarding-screen\s*\{[^}]*height:\s*100dvh;[^}]*overflow-y:\s*auto;[^}]*-webkit-overflow-scrolling:\s*touch;/s);
 });

@@ -11,10 +11,6 @@ import {
   type ArchiveEnvelopeV1,
   type TagDefinition,
 } from "@/lib/archive";
-import {
-  getStarterTagLabels,
-  type TagStarterPackId,
-} from "@/lib/tag-starter-packs";
 import { MotionLink as Link } from "./editorial-motion";
 import { useModalFocus } from "./editorial-accessibility";
 import { CenteredEmptyMessage, PageHeader } from "./editorial-ui";
@@ -49,7 +45,7 @@ export function TagManager({
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [recommendationOpen, setRecommendationOpen] = useState(false);
-  const [selectedStarterPackIds, setSelectedStarterPackIds] = useState<TagStarterPackId[]>([]);
+  const [selectedStarterTags, setSelectedStarterTags] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const createDialogRef = useModalFocus<HTMLFormElement>(createOpen, () => setCreateOpen(false));
@@ -62,7 +58,7 @@ export function TagManager({
     [allTags],
   );
   const newCandidates = candidates.filter((label) => !existingLabels.has(normalizeTagLabel(label)));
-  const recommendedCandidates = getStarterTagLabels(selectedStarterPackIds)
+  const recommendedCandidates = selectedStarterTags
     .filter((label) => !existingLabels.has(normalizeTagLabel(label)));
   const duplicateCount = candidates.length - newCandidates.length;
   const normalizedQuery = normalizeTagLabel(query);
@@ -98,14 +94,15 @@ export function TagManager({
     }
   }
 
-  function toggleStarterPack(packId: TagStarterPackId) {
-    setSelectedStarterPackIds((current) => current.includes(packId)
-      ? current.filter((id) => id !== packId)
-      : [...current, packId]);
+  function toggleStarterTag(label: string) {
+    const normalized = normalizeTagLabel(label);
+    setSelectedStarterTags((current) => current.some((item) => normalizeTagLabel(item) === normalized)
+      ? current.filter((item) => normalizeTagLabel(item) !== normalized)
+      : [...current, label]);
   }
 
   function openRecommendations() {
-    setSelectedStarterPackIds([]);
+    setSelectedStarterTags([]);
     setRecommendationOpen(true);
   }
 
@@ -114,7 +111,7 @@ export function TagManager({
     try {
       const result = createTags(archive, recommendedCandidates);
       if (commit(result.archive, `${result.created}개의 추천 태그를 추가했어요.`)) {
-        setSelectedStarterPackIds([]);
+        setSelectedStarterTags([]);
         setRecommendationOpen(false);
       }
     } catch (error) {
@@ -194,8 +191,8 @@ export function TagManager({
       {recommendationOpen ? (
         <div className="dialog-backdrop" role="presentation" onClick={() => setRecommendationOpen(false)}>
           <section ref={recommendationDialogRef} className="dialog tag-starter-dialog" role="dialog" aria-modal="true" aria-labelledby="recommended-tags-title" onClick={(event) => event.stopPropagation()}>
-            <div><span className="section-label">추천 태그</span><h2 id="recommended-tags-title">스타터팩 고르기</h2><p>자주 쓸 만한 묶음을 선택하세요. 이미 등록된 태그는 자동으로 제외돼요.</p></div>
-            <TagStarterPackPicker selectedPackIds={selectedStarterPackIds} onToggle={toggleStarterPack} existingLabels={existingLabels} />
+            <div><span className="section-label">추천 태그</span><h2 id="recommended-tags-title">스타터팩 고르기</h2><p>원하는 태그를 자유롭게 선택하세요. 이미 등록된 태그는 자동으로 제외돼요.</p></div>
+            <TagStarterPackPicker selectedLabels={selectedStarterTags} onToggle={toggleStarterTag} existingLabels={existingLabels} />
             <div className="dialog-actions"><button className="button" type="button" onClick={() => setRecommendationOpen(false)}>취소</button><button className="button button-primary" type="button" disabled={!recommendedCandidates.length} onClick={addRecommendedTags}>{recommendedCandidates.length ? `${recommendedCandidates.length}개 추가` : "스타터팩 선택"}</button></div>
           </section>
         </div>

@@ -6,10 +6,7 @@ import {
   NICKNAME_MAX_LENGTH,
   validateNickname,
 } from "@/lib/profile";
-import {
-  getStarterTagLabels,
-  type TagStarterPackId,
-} from "@/lib/tag-starter-packs";
+import { normalizeTagLabel } from "@/lib/archive";
 import { TagStarterPackPicker } from "./tag-starter-pack-picker";
 
 export function OnboardingScreen({
@@ -29,14 +26,14 @@ export function OnboardingScreen({
   const [nickname, setNickname] = useState(suggested.ok ? suggested.nickname : "");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [step, setStep] = useState<"profile" | "intro" | "tags">("profile");
-  const [selectedPackIds, setSelectedPackIds] = useState<TagStarterPackId[]>([]);
+  const [selectedTagLabels, setSelectedTagLabels] = useState<string[]>([]);
   const nicknameLength = Array.from(nickname).length;
-  const selectedTagLabels = getStarterTagLabels(selectedPackIds);
 
-  function toggleStarterPack(packId: TagStarterPackId) {
-    setSelectedPackIds((current) => current.includes(packId)
-      ? current.filter((id) => id !== packId)
-      : [...current, packId]);
+  function toggleStarterTag(label: string) {
+    const normalized = normalizeTagLabel(label);
+    setSelectedTagLabels((current) => current.some((item) => normalizeTagLabel(item) === normalized)
+      ? current.filter((item) => normalizeTagLabel(item) !== normalized)
+      : [...current, label]);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -62,7 +59,7 @@ export function OnboardingScreen({
           </div>
           <p className="entry-eyebrow">{step === "profile" ? "WELCOME TO MUCHI" : step === "intro" ? "YOUR MUSIC WORLD" : "TAG STARTER PACK"}</p>
           <h1 id="onboarding-title">{step === "profile" ? <>뮤키에서 사용할<br />이름을 정해 주세요</> : step === "intro" ? <>좋아한 곡을<br />나만의 세계로 쌓아 보세요</> : <>자주 쓸 태그를<br />미리 담아둘까요?</>}</h1>
-          {step === "intro" ? <p className="onboarding-description">한 곡의 순간을 남기고, 태그로 다시 찾고,<br />챕터로 이어 보세요.</p> : step === "tags" ? <p className="onboarding-description">원하는 묶음만 선택하세요.<br />태그는 나중에도 추가하거나 지울 수 있어요.</p> : null}
+          {step === "intro" ? <p className="onboarding-description">한 곡의 순간을 남기고, 태그로 다시 찾고,<br />챕터로 이어 보세요.</p> : step === "tags" ? <p className="onboarding-description">원하는 태그를 자유롭게 선택하세요.<br />태그는 나중에도 추가하거나 지울 수 있어요.</p> : null}
         </header>
         {step === "profile" ? <section className="onboarding-profile" aria-labelledby="nickname-label">
           <div className="onboarding-google-profile">
@@ -100,7 +97,7 @@ export function OnboardingScreen({
           <div><span>02</span><Tags aria-hidden="true" size={18} /><p><strong>순간을 태그로 남기기</strong><small>나만의 언어로 다시 찾을 단서를 만들어요.</small></p></div>
           <div><span>03</span><BookOpen aria-hidden="true" size={18} /><p><strong>챕터로 음악 세계 쌓기</strong><small>기록한 곡들을 하나의 장면으로 엮어요.</small></p></div>
         </section> : <section className="onboarding-tag-starters" aria-label="태그 스타터팩 선택">
-          <TagStarterPackPicker selectedPackIds={selectedPackIds} onToggle={toggleStarterPack} />
+          <TagStarterPackPicker selectedLabels={selectedTagLabels} onToggle={toggleStarterTag} />
         </section>}
         <footer className="onboarding-action">
           {step === "profile" ? <>

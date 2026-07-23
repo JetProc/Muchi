@@ -3647,17 +3647,11 @@ button.tag {
   color: var(--apple-ink);
   background: var(--apple-canvas);
   text-align: left;
-  cursor: pointer;
 }
 
-.tag-starter-pack[aria-pressed="true"] {
+.tag-starter-pack[data-selected="true"] {
   border-color: var(--apple-primary-focus);
   background: color-mix(in srgb, var(--apple-primary) 6%, var(--apple-canvas));
-}
-
-.tag-starter-pack:disabled {
-  cursor: default;
-  opacity: 0.64;
 }
 
 .tag-starter-pack-head {
@@ -3700,17 +3694,19 @@ button.tag {
   gap: 6px;
 }
 
-.tag-starter-pack-tags .tag {
-  min-height: 26px;
-  padding: 4px 8px;
-  font-size: 10px;
+.tag-starter-pack-tags .tag-starter-pack-tag {
+  min-height: 36px;
+  gap: 4px;
+  padding: 7px 11px;
+  font-size: 12px;
 }
 
-.tag-starter-pack-tags .tag.is-existing {
+.tag-starter-pack-tags .tag-starter-pack-tag.is-existing {
   color: var(--apple-ink-muted-48);
   background: var(--apple-canvas-parchment);
   text-decoration: line-through;
   opacity: 0.72;
+  cursor: default;
 }
 
 .tag-starter-dialog > div:first-child > p {

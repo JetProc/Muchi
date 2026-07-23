@@ -1633,7 +1633,7 @@ test("batches optimistic archive patches and returns a compact save acknowledgem
     readFile(new URL("../lib/server/archive-repository.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/archive/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/20260723005919_reduce_archive_save_response.sql", import.meta.url), "utf8"),
-    readFile(new URL("../supabase/migrations/20260723120000_allow_empty_public_projection_reset.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260723054520_allow_empty_public_projection_reset.sql", import.meta.url), "utf8"),
   ]);
 
   assert.match(providerSource, /ARCHIVE_SAVE_DEBOUNCE_MS\s*=\s*250/);

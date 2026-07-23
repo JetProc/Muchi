@@ -6,8 +6,9 @@ import {
   ARCHIVE_LIMITS,
   type ChapterVisibility,
 } from "@/lib/archive";
+import { uploadChapterCover } from "@/lib/client/chapter-cover-api";
 
-async function prepareCoverImage(file: File): Promise<string> {
+async function prepareCoverImage(file: File): Promise<Blob> {
   if (!/^image\/(?:jpeg|png|webp)$/.test(file.type)) {
     throw new Error("JPG, PNG, WEBP 이미지만 사용할 수 있어요.");
   }
@@ -29,16 +30,23 @@ async function prepareCoverImage(file: File): Promise<string> {
     const context = canvas.getContext("2d");
     if (!context) throw new Error("이미지를 처리하지 못했어요.");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    let result = canvas.toDataURL("image/jpeg", 0.8);
-    if (result.length > ARCHIVE_LIMITS.chapterCoverDataUrl) {
+    let outputCanvas = canvas;
+    let quality = 0.8;
+    const createBlob = async () => new Promise<Blob>((resolve, reject) => {
+      outputCanvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("이미지를 처리하지 못했어요.")), "image/jpeg", quality);
+    });
+    let result = await createBlob();
+    if (result.size > ARCHIVE_LIMITS.chapterCoverDataUrl) {
       const retryScale = Math.min(1, 720 / Math.max(canvas.width, canvas.height));
       const retry = document.createElement("canvas");
       retry.width = Math.max(1, Math.round(canvas.width * retryScale));
       retry.height = Math.max(1, Math.round(canvas.height * retryScale));
       retry.getContext("2d")?.drawImage(canvas, 0, 0, retry.width, retry.height);
-      result = retry.toDataURL("image/jpeg", 0.72);
+      outputCanvas = retry;
+      quality = 0.72;
+      result = await createBlob();
     }
-    if (result.length > ARCHIVE_LIMITS.chapterCoverDataUrl) {
+    if (result.size > ARCHIVE_LIMITS.chapterCoverDataUrl) {
       throw new Error("이미지가 너무 커요. 더 작은 이미지를 선택해 주세요.");
     }
     return result;
@@ -90,7 +98,7 @@ export function ChapterFields({
     setCoverError(null);
     setCoverLoading(true);
     try {
-      onCoverImageChange(await prepareCoverImage(file));
+      onCoverImageChange(await uploadChapterCover(await prepareCoverImage(file)));
     } catch (error) {
       setCoverError(error instanceof Error ? error.message : "이미지를 불러오지 못했어요.");
     } finally {

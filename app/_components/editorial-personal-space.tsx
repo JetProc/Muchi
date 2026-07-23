@@ -144,7 +144,11 @@ export function PersonalSpace({
       owner={(
         <span className="music-room-owner-self">
           <span className="music-room-owner-avatar" aria-hidden="true">
-            {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" /> : ownerInitial}
+            {profile?.avatarUrl ? (
+              // Google avatar URLs are remote and may not be covered by a fixed next/image allowlist.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatarUrl} alt="" referrerPolicy="no-referrer" />
+            ) : ownerInitial}
           </span>
           <strong>{ownerName}</strong>
         </span>

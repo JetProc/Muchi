@@ -1852,12 +1852,14 @@ test("stores chapter-local record photos and share style while migrating schema 
       layout: "photo-tracklist",
       mood: "film",
       decorationLevel: "light",
+      font: "classic",
       trackImageMode: "all",
       selectedTrackIds: [moved.cubeTrack.id, moved.cubeTrack.id, "missing"],
       description: "  늦은 밤   기록  ",
       showTags: true,
       showAuthor: true,
       showTrackCount: true,
+      showDescription: false,
       showPublicLink: true,
     },
   });
@@ -1866,6 +1868,8 @@ test("stores chapter-local record photos and share style while migrating schema 
   assert.deepEqual(withStyle.data.cubes[created.cube.id].shareStyle.selectedTrackIds, [moved.cubeTrack.id]);
   assert.equal(withStyle.data.cubes[created.cube.id].shareStyle.description, "늦은 밤 기록");
   assert.equal(withStyle.data.cubes[created.cube.id].shareStyle.customColor, "#6f5bff");
+  assert.equal(withStyle.data.cubes[created.cube.id].shareStyle.font, "classic");
+  assert.equal(withStyle.data.cubes[created.cube.id].shareStyle.showDescription, false);
   assert.throws(
     () => archiveDomain.updateCubeTrack(withStyle, moved.cubeTrack.id, {
       customImagePath: "record-photos/not-an-owner/track/file.jpg",
@@ -3657,8 +3661,11 @@ test("adds a dedicated chapter share editor route with persisted mobile share co
   assert.doesNotMatch(shareSource, /eyebrow="INSTAGRAM SHARE"|description="형식과 분위기|실시간 미리보기|chapter-share-preview-head/);
   assert.match(chapterSource, />\s*인스타그램 공유\s*</);
   assert.match(shellSource, /chapterShare: \{ title: "인스타그램 공유"/);
-  assert.match(shareSource, /INSTAGRAM_TRACK_IMAGE_MODES = \["all", "none"\]/);
+  assert.doesNotMatch(shareSource, /INSTAGRAM_TRACK_IMAGE_MODES|이미지 모드|텍스트만/);
   assert.match(shareSource, /INSTAGRAM_SHARE_DESCRIPTION_MAX_LENGTH = 60/);
+  assert.match(shareSource, /SHARE_FONTS/);
+  assert.match(shareSource, /title="폰트"/);
+  assert.match(shareSource, /챕터 설명/);
   assert.match(shareSource, /aria-label="곡 선택 및 순서"/);
   assert.match(shareSource, /챕터로 돌아가기/);
   assert.doesNotMatch(shareSource, /chapter-share-summary|chapter-share-step-heading|링크 포함 가능|공개 링크|buildPublicChapterShareLink/);
@@ -3676,6 +3683,8 @@ test("adds a dedicated chapter share editor route with persisted mobile share co
   assert.match(shareSource, /function moveStep\(direction: -1 \| 1\)/);
   assert.match(css, /\.chapter-share-workspace\s*\{/);
   assert.match(css, /\.chapter-share-step-nav\s*\{/);
+  assert.match(css, /\.chapter-share-controls\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*2;/s);
+  assert.doesNotMatch(css, /\.chapter-share-footer-note\s*\{/);
   assert.doesNotMatch(css, /\.chapter-share-summary\s*\{|\.chapter-share-step-heading\s*\{/);
   assert.match(css, /\.chapter-share-preview-section\s*\{[^}]*position:\s*sticky;/s);
 });

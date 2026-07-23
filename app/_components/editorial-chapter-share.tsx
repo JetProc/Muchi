@@ -12,7 +12,6 @@ import {
   ChevronRight,
   MoveVertical,
   Share2,
-  Sparkles,
 } from "lucide-react";
 import {
   type Cube,
@@ -34,11 +33,13 @@ import {
   type ShareClarityPayload,
   type ShareFormat,
   type ShareLayout,
+  type ShareFont,
   type ShareMood,
   type ShareTrackInput,
 } from "@/lib/share";
 import {
   SHARE_DECORATION_LEVELS,
+  SHARE_FONTS,
   SHARE_FORMATS,
   SHARE_LAYOUTS,
   SHARE_MOODS,
@@ -64,7 +65,6 @@ const SHARE_EDITOR_STEPS = [
   { id: "complete", label: "완료" },
 ] as const;
 
-const INSTAGRAM_TRACK_IMAGE_MODES = ["all", "none"] as const;
 const INSTAGRAM_SHARE_DESCRIPTION_MAX_LENGTH = 60;
 
 type ShareEditorStep = (typeof SHARE_EDITOR_STEPS)[number]["id"];
@@ -103,9 +103,12 @@ function decorationLabel(level: ShareDecorationLevel): string {
   return "풍성";
 }
 
-function imageModeLabel(mode: (typeof INSTAGRAM_TRACK_IMAGE_MODES)[number]): string {
-  if (mode === "all") return "모든 곡";
-  return "텍스트만";
+function fontLabel(font: ShareFont): string {
+  if (font === "modern") return "모던";
+  if (font === "classic") return "명조";
+  if (font === "rounded") return "라운드";
+  if (font === "mono") return "모노";
+  return "디스플레이";
 }
 
 function exportFileName(chapterName: string, format: ShareFormat): string {
@@ -286,7 +289,6 @@ function ChapterShareEditorScreen({
     ...selectedTracks,
     ...availableTracks.filter((track) => !normalizedStyle.selectedTrackIds.includes(track.id)),
   ];
-  const instagramTrackImageMode = normalizedStyle.trackImageMode === "none" ? "none" : "all";
 
   useEffect(() => {
     trackShareClarityEvent("editor_open", {
@@ -508,13 +510,13 @@ function ChapterShareEditorScreen({
                   </label>
                 </section>
               ) : null}
+              <ShareChoiceGroup title="폰트" value={normalizedStyle.font} items={SHARE_FONTS} onSelect={(font) => updateStyle({ font })} label={fontLabel} />
               <ShareChoiceGroup title="장식" value={normalizedStyle.decorationLevel} items={SHARE_DECORATION_LEVELS} onSelect={(decorationLevel) => updateStyle({ decorationLevel })} label={decorationLabel} />
             </div>
           ) : null}
 
           {activeStep === "tracks" ? (
             <div className="chapter-share-step-content">
-              <ShareChoiceGroup title="이미지 모드" value={instagramTrackImageMode} items={INSTAGRAM_TRACK_IMAGE_MODES} onSelect={(trackImageMode) => updateStyle({ trackImageMode })} label={imageModeLabel} />
               <section className="chapter-share-section">
                 <div className="chapter-share-section-head">
                   <div>
@@ -535,8 +537,8 @@ function ChapterShareEditorScreen({
                       </div>
                       <div className="chapter-share-track-actions">
                         {selected ? <>
-                          <button type="button" onClick={() => moveSelectedTrack(track.id, -1)} disabled={index === 0} aria-label={`${track.track.title} 위로 이동`}><MoveVertical size={15} aria-hidden="true" /></button>
-                          <button type="button" onClick={() => moveSelectedTrack(track.id, 1)} disabled={index === selectedTracks.length - 1} aria-label={`${track.track.title} 아래로 이동`}><MoveVertical size={15} aria-hidden="true" /></button>
+                          <button type="button" onClick={() => moveSelectedTrack(track.id, -1)} disabled={index === 0} aria-label={`${track.track.title} 위로 이동`}><MoveVertical className="is-up" size={15} aria-hidden="true" /></button>
+                          <button type="button" onClick={() => moveSelectedTrack(track.id, 1)} disabled={index === selectedTracks.length - 1} aria-label={`${track.track.title} 아래로 이동`}><MoveVertical className="is-down" size={15} aria-hidden="true" /></button>
                         </> : null}
                         <button type="button" onClick={() => toggleTrack(track.id)}>{selected ? "제외" : "선택"}</button>
                       </div>
@@ -560,6 +562,7 @@ function ChapterShareEditorScreen({
                   <label><input type="checkbox" checked={normalizedStyle.showTags} onChange={(event) => updateStyle({ showTags: event.target.checked })} />태그</label>
                   <label><input type="checkbox" checked={normalizedStyle.showAuthor} onChange={(event) => updateStyle({ showAuthor: event.target.checked })} />작성자</label>
                   <label><input type="checkbox" checked={normalizedStyle.showTrackCount} onChange={(event) => updateStyle({ showTrackCount: event.target.checked })} />곡 수</label>
+                  <label><input type="checkbox" checked={normalizedStyle.showDescription} onChange={(event) => updateStyle({ showDescription: event.target.checked })} />챕터 설명</label>
                 </div>
               </section>
             </div>
@@ -595,10 +598,6 @@ function ChapterShareEditorScreen({
         </section>
       </div>
 
-      <section className="chapter-share-footer-note">
-        <Sparkles size={16} aria-hidden="true" />
-        <p>이 화면에서 바꾼 형식, 곡 순서, 토글은 자동으로 저장되어 다음에 다시 열어도 이어집니다.</p>
-      </section>
     </div>
   );
 }

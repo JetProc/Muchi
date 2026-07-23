@@ -1,11 +1,13 @@
 import {
   CHAPTER_SHARE_DECORATION_LEVELS,
+  CHAPTER_SHARE_FONTS,
   CHAPTER_SHARE_FORMATS,
   CHAPTER_SHARE_LAYOUTS,
   CHAPTER_SHARE_LIMITS,
   CHAPTER_SHARE_MOODS,
   CHAPTER_SHARE_TRACK_IMAGE_MODES,
   type ChapterShareDecorationLevel,
+  type ChapterShareFont,
   type ChapterShareFormat,
   type ChapterShareLayout,
   type ChapterShareMood,
@@ -19,12 +21,14 @@ import {
 
 export {
   CHAPTER_SHARE_DECORATION_LEVELS,
+  CHAPTER_SHARE_FONTS,
   CHAPTER_SHARE_FORMATS,
   CHAPTER_SHARE_LAYOUTS,
   CHAPTER_SHARE_LIMITS,
   CHAPTER_SHARE_MOODS,
   CHAPTER_SHARE_TRACK_IMAGE_MODES,
   type ChapterShareDecorationLevel,
+  type ChapterShareFont,
   type ChapterShareFormat,
   type ChapterShareLayout,
   type ChapterShareMood,
@@ -622,6 +626,10 @@ function validChapterShareDecorationLevel(
   );
 }
 
+function validChapterShareFont(value: unknown): value is ChapterShareFont {
+  return CHAPTER_SHARE_FONTS.includes(value as ChapterShareFont);
+}
+
 function validChapterShareTrackImageMode(
   value: unknown,
 ): value is ChapterShareTrackImageMode {
@@ -710,6 +718,9 @@ function normalizeChapterShareStyle(
   if (!validChapterShareDecorationLevel(value.decorationLevel)) {
     throw new ArchiveDomainError("invalid-input", "공유 장식 단계가 올바르지 않습니다.");
   }
+  if (value.font !== undefined && !validChapterShareFont(value.font)) {
+    throw new ArchiveDomainError("invalid-input", "공유 폰트가 올바르지 않습니다.");
+  }
   if (!validChapterShareTrackImageMode(value.trackImageMode)) {
     throw new ArchiveDomainError("invalid-input", "트랙 이미지 표시 방식이 올바르지 않습니다.");
   }
@@ -730,7 +741,8 @@ function normalizeChapterShareStyle(
     mood: value.mood,
     customColor: normalizeShareCustomColor(value.customColor),
     decorationLevel: value.decorationLevel,
-    trackImageMode: value.trackImageMode,
+    font: value.font ?? "modern",
+    trackImageMode: "all",
     selectedTrackIds: normalizeChapterShareSelectedTrackIds(
       value.selectedTrackIds,
       chapterTrackIds,
@@ -739,6 +751,7 @@ function normalizeChapterShareStyle(
     showTags: value.showTags,
     showAuthor: value.showAuthor,
     showTrackCount: value.showTrackCount,
+    showDescription: value.showDescription !== false,
     showPublicLink: value.showPublicLink,
   };
 }
@@ -753,11 +766,13 @@ function chapterShareStyleEqual(
     && left.mood === right.mood
     && normalizeShareCustomColor(left.customColor) === normalizeShareCustomColor(right.customColor)
     && left.decorationLevel === right.decorationLevel
+    && (left.font ?? "modern") === (right.font ?? "modern")
     && left.trackImageMode === right.trackImageMode
     && left.description === right.description
     && left.showTags === right.showTags
     && left.showAuthor === right.showAuthor
     && left.showTrackCount === right.showTrackCount
+    && (left.showDescription !== false) === (right.showDescription !== false)
     && left.showPublicLink === right.showPublicLink
     && left.selectedTrackIds.length === right.selectedTrackIds.length
     && left.selectedTrackIds.every((trackId, index) => trackId === right.selectedTrackIds[index]);
@@ -770,6 +785,7 @@ function isChapterShareStyleShape(value: unknown): value is ChapterShareStyle {
     && validChapterShareMood(value.mood)
     && (value.customColor === undefined || (typeof value.customColor === "string" && /^#[0-9a-f]{6}$/i.test(value.customColor)))
     && validChapterShareDecorationLevel(value.decorationLevel)
+    && (value.font === undefined || validChapterShareFont(value.font))
     && validChapterShareTrackImageMode(value.trackImageMode)
     && hasOnlyStrings(value.selectedTrackIds)
     && value.selectedTrackIds.length <= CHAPTER_SHARE_LIMITS.selectedTrackIds
@@ -778,6 +794,7 @@ function isChapterShareStyleShape(value: unknown): value is ChapterShareStyle {
     && typeof value.showTags === "boolean"
     && typeof value.showAuthor === "boolean"
     && typeof value.showTrackCount === "boolean"
+    && (value.showDescription === undefined || typeof value.showDescription === "boolean")
     && typeof value.showPublicLink === "boolean";
 }
 

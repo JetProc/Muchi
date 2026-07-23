@@ -1,12 +1,14 @@
 import type { AffectionLevel, ChapterVisibility, RecordVisibility, TrackReference } from "@/lib/archive";
 import {
   CHAPTER_SHARE_DECORATION_LEVELS,
+  CHAPTER_SHARE_FONTS,
   CHAPTER_SHARE_FORMATS,
   CHAPTER_SHARE_LAYOUTS,
   CHAPTER_SHARE_LIMITS,
   CHAPTER_SHARE_MOODS,
   CHAPTER_SHARE_TRACK_IMAGE_MODES,
   type ChapterShareDecorationLevel,
+  type ChapterShareFont,
   type ChapterShareFormat,
   type ChapterShareLayout,
   type ChapterShareMood,
@@ -18,6 +20,7 @@ export const SHARE_FORMATS = CHAPTER_SHARE_FORMATS;
 export const SHARE_LAYOUTS = CHAPTER_SHARE_LAYOUTS;
 export const SHARE_MOODS = CHAPTER_SHARE_MOODS;
 export const SHARE_DECORATION_LEVELS = CHAPTER_SHARE_DECORATION_LEVELS;
+export const SHARE_FONTS = CHAPTER_SHARE_FONTS;
 export const SHARE_TRACK_IMAGE_MODES = CHAPTER_SHARE_TRACK_IMAGE_MODES;
 export const SHARE_RENDER_MODES = ["public-share", "private-image-only"] as const;
 export const SHARE_DISPLAY_IMAGE_SOURCES = ["custom", "artwork", "cover-fallback", "muchi-fallback"] as const;
@@ -26,13 +29,17 @@ export type ShareFormat = ChapterShareFormat;
 export type ShareLayout = ChapterShareLayout;
 export type ShareMood = ChapterShareMood;
 export type ShareDecorationLevel = ChapterShareDecorationLevel;
+export type ShareFont = ChapterShareFont;
 export type ShareTrackImageMode = ChapterShareTrackImageMode;
 export type ShareRenderMode = (typeof SHARE_RENDER_MODES)[number];
 export type ShareDisplayImageSource = (typeof SHARE_DISPLAY_IMAGE_SOURCES)[number];
 
 export type ChapterShareStyle = PersistedChapterShareStyle;
 
-export type NormalizedChapterShareStyle = Readonly<ChapterShareStyle>;
+export type NormalizedChapterShareStyle = Readonly<ChapterShareStyle & {
+  font: ShareFont;
+  showDescription: boolean;
+}>;
 
 export type ShareCardDimensions = Readonly<{
   width: number;
@@ -121,6 +128,7 @@ export interface ShareCardRenderContent {
   readonly showTags: boolean;
   readonly showAuthor: boolean;
   readonly showTrackCount: boolean;
+  readonly showDescription: boolean;
   readonly showPublicLink: boolean;
 }
 

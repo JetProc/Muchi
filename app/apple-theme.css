@@ -6138,6 +6138,8 @@ button.tag {
 }
 
 .chapter-share-controls {
+  position: relative;
+  z-index: 2;
   display: grid;
   gap: 18px;
   padding: 18px;
@@ -6216,15 +6218,13 @@ button.tag {
 }
 
 .chapter-share-section,
-.chapter-share-preview-section,
-.chapter-share-footer-note {
+.chapter-share-preview-section {
   padding: 18px;
   border: 1px solid var(--apple-line);
   border-radius: 24px;
   background: var(--apple-canvas);
 }
 
-.chapter-share-footer-note p,
 .chapter-share-section-head p {
   margin: 0;
   color: var(--apple-ink-muted-48);
@@ -6233,6 +6233,8 @@ button.tag {
 }
 
 .chapter-share-preview-section {
+  position: relative;
+  z-index: 0;
   display: grid;
   gap: 14px;
   padding: 0;
@@ -6281,18 +6283,6 @@ button.tag {
   display: block;
   width: 100%;
   height: auto;
-}
-
-.chapter-share-footer-note {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.chapter-share-footer-note svg {
-  flex: none;
-  margin-top: 1px;
-  color: var(--apple-primary);
 }
 
 .chapter-share-chip-row {
@@ -6401,10 +6391,10 @@ button.tag {
 .chapter-share-track-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  min-height: 52px;
-  padding: 8px 10px;
+  min-height: 46px;
+  padding: 6px 8px;
   border: 1px solid var(--apple-line);
   border-radius: 14px;
   background: var(--apple-canvas);
@@ -6417,8 +6407,8 @@ button.tag {
 
 .chapter-share-track-copy {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 7px;
   align-items: center;
 }
 
@@ -6427,6 +6417,7 @@ button.tag {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
 }
 
 .chapter-share-track-copy span,
@@ -6437,14 +6428,14 @@ button.tag {
 
 .chapter-share-track-actions {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   align-items: center;
 }
 
 .chapter-share-track-actions > button {
-  min-width: 34px;
-  min-height: 34px;
-  padding: 0 9px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 7px;
   border: 0;
   border-radius: 10px;
   color: var(--apple-ink);
@@ -6452,6 +6443,9 @@ button.tag {
   font: inherit;
   font-size: 12px;
 }
+
+.chapter-share-track-actions .is-up { transform: rotate(-90deg); }
+.chapter-share-track-actions .is-down { transform: rotate(90deg); }
 
 .chapter-share-track-actions > button:disabled {
   opacity: .38;
@@ -6479,7 +6473,6 @@ button.tag {
 @container muchi-app (max-width: 430px) {
   .chapter-share-preview-section,
   .chapter-share-section,
-  .chapter-share-footer-note,
   .chapter-share-controls {
     padding: 16px;
   }
@@ -6491,7 +6484,7 @@ button.tag {
 
   .chapter-share-preview-section {
     position: sticky;
-    z-index: 4;
+    z-index: 0;
     top: 8px;
     gap: 10px;
     padding: 0;
@@ -6512,11 +6505,7 @@ button.tag {
   }
 
   .chapter-share-track-row {
-    grid-template-columns: 1fr;
-  }
-
-  .chapter-share-track-actions {
-    justify-content: flex-end;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .chapter-share-mobile-completion {

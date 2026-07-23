@@ -2,23 +2,23 @@ import { autoSelectShareTrackIds } from "@/lib/share/selection";
 import {
   SHARE_DECORATION_LEVELS,
   SHARE_DESCRIPTION_MAX_LENGTH,
+  SHARE_FONTS,
   SHARE_FORMATS,
   SHARE_LAYOUTS,
   SHARE_LAYOUT_CAPS,
   SHARE_MAX_SELECTED_TRACKS,
   SHARE_MOODS,
-  SHARE_TRACK_IMAGE_MODES,
 } from "@/lib/share/types";
 import type {
   ChapterShareStyle,
   NormalizedChapterShareStyle,
   ShareDecorationLevel,
+  ShareFont,
   ShareFormat,
   ShareLayout,
   ShareMood,
   ShareRenderMode,
   ShareSelectionCandidate,
-  ShareTrackImageMode,
 } from "@/lib/share/types";
 import type { ChapterVisibility } from "@/lib/archive";
 
@@ -28,12 +28,14 @@ const DEFAULT_SHARE_STYLE: NormalizedChapterShareStyle = {
   mood: "paper",
   customColor: "#6f5bff",
   decorationLevel: "light",
+  font: "modern",
   trackImageMode: "all",
   selectedTrackIds: [],
   description: "",
   showTags: true,
   showAuthor: true,
   showTrackCount: true,
+  showDescription: true,
   showPublicLink: true,
 };
 
@@ -92,8 +94,8 @@ export function isShareDecorationLevel(value: unknown): value is ShareDecoration
   return isOneOf(value, SHARE_DECORATION_LEVELS);
 }
 
-export function isShareTrackImageMode(value: unknown): value is ShareTrackImageMode {
-  return isOneOf(value, SHARE_TRACK_IMAGE_MODES);
+export function isShareFont(value: unknown): value is ShareFont {
+  return isOneOf(value, SHARE_FONTS);
 }
 
 export function getShareLayoutCap(format: ShareFormat, layout: ShareLayout): number {
@@ -115,10 +117,7 @@ export function normalizeChapterShareStyle(
   const decorationLevel = isShareDecorationLevel(value?.decorationLevel)
     ? value.decorationLevel
     : base.decorationLevel;
-  const savedTrackImageMode = isShareTrackImageMode(value?.trackImageMode)
-    ? value.trackImageMode
-    : base.trackImageMode;
-  const trackImageMode = savedTrackImageMode === "none" ? "none" : "all";
+  const font = isShareFont(value?.font) ? value.font : base.font;
   const validTrackIds = new Set(options.availableTracks.map((track) => track.id));
   const cap = getShareLayoutCap(format, layout);
   const selectedTrackIds = normalizeSelectedTrackIds(value?.selectedTrackIds, validTrackIds, cap);
@@ -140,12 +139,14 @@ export function normalizeChapterShareStyle(
     mood,
     customColor: sanitizeCustomColor(value?.customColor),
     decorationLevel,
-    trackImageMode,
+    font,
+    trackImageMode: "all",
     selectedTrackIds: autoSelectedTrackIds.slice(0, cap),
     description: sanitizeDescription(value?.description),
     showTags: allowTags && value?.showTags !== false,
     showAuthor: value?.showAuthor !== false,
     showTrackCount: value?.showTrackCount !== false,
+    showDescription: value?.showDescription !== false,
     showPublicLink: false,
   };
 }

@@ -6,6 +6,7 @@ import type {
   ShareCardRenderContent,
   ShareDecorationLevel,
   ShareDisplayImageView,
+  ShareFont,
   ShareMood,
 } from "@/lib/share/types";
 
@@ -58,6 +59,29 @@ const THEME_BY_MOOD: Record<ShareMood, ThemePalette> = {
     stroke: "#6f573b",
     fontTitle: "'Courier New', Courier, monospace",
     fontBody: "'Avenir Next', Helvetica, Arial, sans-serif",
+  },
+};
+
+const FONT_BY_STYLE: Record<ShareFont, Pick<ThemePalette, "fontTitle" | "fontBody">> = {
+  modern: {
+    fontTitle: "'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif",
+    fontBody: "'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif",
+  },
+  classic: {
+    fontTitle: "'Nanum Myeongjo', AppleMyungjo, Georgia, serif",
+    fontBody: "'Nanum Myeongjo', AppleMyungjo, Georgia, serif",
+  },
+  rounded: {
+    fontTitle: "'Arial Rounded MT Bold', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
+    fontBody: "'Arial Rounded MT Bold', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
+  },
+  mono: {
+    fontTitle: "'SFMono-Regular', 'Noto Sans Mono CJK KR', Menlo, monospace",
+    fontBody: "'SFMono-Regular', 'Noto Sans Mono CJK KR', Menlo, monospace",
+  },
+  display: {
+    fontTitle: "Impact, 'Arial Black', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
+    fontBody: "'Trebuchet MS', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
   },
 };
 
@@ -114,9 +138,10 @@ function customTheme(background: string | undefined): ThemePalette {
 }
 
 function resolveThemePalette(model: ShareCardModel): ThemePalette {
-  return model.style.mood === "film"
+  const palette = model.style.mood === "film"
     ? customTheme(model.style.customColor)
     : THEME_BY_MOOD[model.style.mood];
+  return { ...palette, ...FONT_BY_STYLE[model.style.font] };
 }
 
 function escapeXml(value: string): string {
@@ -261,6 +286,7 @@ function renderTrackRow(
     showImage: boolean;
     showTags?: boolean;
     compact?: boolean;
+    emphasized?: boolean;
   },
 ): string {
   const compact = options.compact ?? false;
@@ -269,8 +295,12 @@ function renderTrackRow(
   const gap = compact ? 18 : 28;
   const copyX = options.x + (options.showImage ? imageSize + gap : 0);
   const indexFontSize = compact ? clamp(options.rowHeight * 0.22, 14, 18) : clamp(options.rowHeight * 0.24, 16, 20);
-  const titleFontSize = compact ? clamp(options.rowHeight * 0.27, 17, 24) : clamp(options.rowHeight * 0.31, 20, 28);
-  const artistFontSize = compact ? clamp(options.rowHeight * 0.21, 13, 18) : clamp(options.rowHeight * 0.24, 16, 22);
+  const titleFontSize = compact
+    ? clamp(options.rowHeight * (options.emphasized ? 0.31 : 0.27), 17, options.emphasized ? 26 : 24)
+    : clamp(options.rowHeight * (options.emphasized ? 0.36 : 0.31), 20, options.emphasized ? 32 : 28);
+  const artistFontSize = compact
+    ? clamp(options.rowHeight * (options.emphasized ? 0.24 : 0.21), 13, options.emphasized ? 20 : 18)
+    : clamp(options.rowHeight * (options.emphasized ? 0.28 : 0.24), 16, options.emphasized ? 25 : 22);
   const titleY = options.y + (compact ? clamp(options.rowHeight * 0.36, 24, 30) : clamp(options.rowHeight * 0.34, 28, 34));
   const artistY = options.y + (compact ? clamp(options.rowHeight * 0.66, 46, 56) : clamp(options.rowHeight * 0.64, 52, 64));
   const titleLength = compact ? 26 : 30;
@@ -288,12 +318,6 @@ function renderTrackRow(
     pieces.push(renderTagRow(track.tags, copyX + gap, options.y + clamp(options.rowHeight * 0.92, 78, 94), palette));
   }
   return pieces.join("");
-}
-
-function shouldShowTrackImage(mode: ShareCardModel["style"]["trackImageMode"], index: number): boolean {
-  if (mode === "none" || mode === "cover-only") return false;
-  if (mode === "featured") return index === 0;
-  return true;
 }
 
 function resolveHeroImage(model: ShareCardModel): ShareDisplayImageView | null {
@@ -317,13 +341,15 @@ function renderCoverLayout(model: ShareCardModel, content: ShareCardRenderConten
   const innerTop = 362;
   const innerBottom = cardY + cardHeight - 32;
   const rowGap = 14;
-  const listHeight = clamp(rows.length * 92 + Math.max(0, rows.length - 1) * rowGap, 280, Math.floor(cardHeight * 0.48));
+  const listHeight = clamp(rows.length * 108 + Math.max(0, rows.length - 1) * rowGap, 320, Math.floor(cardHeight * 0.56));
   const availableHeroHeight = innerBottom - innerTop - listHeight - 36;
-  const heroHeight = clamp(availableHeroHeight, height === 1920 ? 460 : 260, height === 1920 ? 760 : 420);
+  const heroHeight = height === 1920
+    ? clamp(Math.floor(availableHeroHeight * 0.52), 300, 380)
+    : clamp(availableHeroHeight, 260, 420);
   const rowHeight = clamp(
     Math.floor((listHeight - Math.max(0, rows.length - 1) * rowGap) / Math.max(1, rows.length)),
-    64,
-    90,
+    72,
+    height === 1920 ? 108 : 90,
   );
   const listStartY = innerTop + heroHeight + 36;
   const parts = [
@@ -338,9 +364,10 @@ function renderCoverLayout(model: ShareCardModel, content: ShareCardRenderConten
       y: listStartY + index * (rowHeight + rowGap),
       width: width - 224,
       rowHeight,
-      showImage: shouldShowTrackImage(model.style.trackImageMode, index),
+      showImage: true,
       showTags: false,
       compact: rowHeight < 78,
+      emphasized: height === 1920,
     }));
   });
   return parts.join("");
@@ -378,9 +405,10 @@ function renderPhotoTracklistLayout(model: ShareCardModel, content: ShareCardRen
       y: innerTop + 18 + index * (rowHeight + rowGap),
       width: width - columnWidth - 224,
       rowHeight,
-      showImage: shouldShowTrackImage(model.style.trackImageMode, index),
+      showImage: true,
       showTags: false,
       compact: rowHeight < 88,
+      emphasized: height === 1920,
     }));
   });
   return parts.join("");
@@ -406,15 +434,17 @@ function renderCompactTracklistLayout(model: ShareCardModel, content: ShareCardR
       y: innerTop + index * (rowHeight + rowGap),
       width: width - 184,
       rowHeight,
-      showImage: shouldShowTrackImage(model.style.trackImageMode, index),
+      showImage: true,
       showTags: false,
       compact: true,
+      emphasized: height === 1920,
     }));
   });
   return parts.join("");
 }
 
-function renderFooter(model: ShareCardModel, palette: ThemePalette, width: number, height: number): string {
+function renderFooter(model: ShareCardModel, content: ShareCardRenderContent, palette: ThemePalette, width: number, height: number): string {
+  if (!content.showDescription || !model.chapterDescription.trim()) return "";
   const footerY = height - 120;
   const parts = [
     `<line x1="84" y1="${footerY - 34}" x2="${width - 84}" y2="${footerY - 34}" stroke="${palette.stroke}" stroke-width="2"/>`,
@@ -428,6 +458,7 @@ export function resolveShareCardRenderContent(model: ShareCardModel): ShareCardR
     showTags: model.renderMode === "public-share" && model.style.showTags,
     showAuthor: model.style.showAuthor,
     showTrackCount: model.style.showTrackCount,
+    showDescription: model.style.showDescription,
     showPublicLink: false,
   };
 }
@@ -449,7 +480,7 @@ export function renderShareCardSvg(model: ShareCardModel): string {
     renderDecorations(model.style.mood, model.style.decorationLevel, width, height, palette),
     renderHeader(model, content, palette, width),
     body,
-    renderFooter(model, palette, width, height),
+    renderFooter(model, content, palette, width, height),
     "</svg>",
   ].join("");
 }

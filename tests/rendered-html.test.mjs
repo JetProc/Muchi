@@ -245,9 +245,11 @@ test("keeps Add search compact and opens link import in a modal", async () => {
   assert.doesNotMatch(source, /className="capture-selection-bar"|type="checkbox"/);
   const changeQuerySource = sliceBetween(source, "function changeQuery(", "async function importLink", "changeQuery");
   assert.doesNotMatch(changeQuerySource, /setSelectedResults/);
-  assert.match(source, /function saveSelectedResults\(\)/);
-  assert.match(source, /text:\s*`\$\{added\}곡을 보관함에 우선 저장했어요\.`[\s\S]*?label:\s*"보관함 보기"[\s\S]*?href:\s*"\/inbox"/s);
-  assert.match(source, /이미 보관함에 저장한 곡이에요\.|보관함에 우선 저장했어요\./);
+  assert.match(source, /const \[batchAssigning, setBatchAssigning\] = useState<TrackReference\[\]>\(\[\]\)/);
+  assert.match(source, /function recordSelectedResults\(\)[\s\S]*?setBatchAssigning\(selectedResults\)/s);
+  assert.match(source, /function recordSelectedInChapter\(chapterId: string, sourceArchive = archive\)/);
+  assert.match(source, /\$\{recorded\}곡을 한 챕터에 기록했어요\./);
+  assert.match(source, /id="batch-assign-title">챕터 선택/);
   assert.match(appleTheme, /\.capture-results-count\s*\{[^}]*font-size:\s*14px !important;/s);
   assert.match(appleTheme, /\.capture-results\s*\{[^}]*margin-top:\s*var\(--apple-space-6\);/s);
   assert.match(appleTheme, /\.capture-link-action\s*\{[^}]*min-height:\s*32px;[^}]*font-size:\s*11px;/s);

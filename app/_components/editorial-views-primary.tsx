@@ -411,6 +411,7 @@ export function Capture({
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [assigning, setAssigning] = useState<TrackReference | null>(null);
+  const [batchAssigning, setBatchAssigning] = useState<TrackReference[]>([]);
   const [recordMode, setRecordMode] = useState<"choose" | "tag" | "chapter" | "complete">("choose");
   const [selectedTagLabels, setSelectedTagLabels] = useState<string[]>([]);
   const [newTagLabel, setNewTagLabel] = useState("");
@@ -433,6 +434,10 @@ export function Capture({
   const assignDialogRef = useModalFocus<HTMLDivElement>(
     Boolean(assigning),
     () => setAssigning(null),
+  );
+  const batchAssignDialogRef = useModalFocus<HTMLDivElement>(
+    batchAssigning.length > 0,
+    () => setBatchAssigning([]),
   );
   const linkDialogRef = useModalFocus<HTMLDivElement>(
     linkDialogOpen,
@@ -517,6 +522,7 @@ export function Capture({
       setManualArtist("");
       setManualAlbum("");
       setResultSource(null);
+      setBatchAssigning([]);
       resetRecordDialog();
     };
     window.addEventListener("muchi:reset-capture", resetCapture);
@@ -723,42 +729,47 @@ export function Capture({
       : [...current, track]);
   }
 
-  function saveSelectedResults() {
-    if (!selectedResults.length) return;
-
-    let next = archive;
-    let added = 0;
-    let already = 0;
-    for (const track of selectedResults) {
-      const wasInInbox = Boolean(next.data.inbox[track.id]);
-      const captured = captureTrackToInbox(next, track);
-      const isInInbox = Boolean(captured.data.inbox[track.id]);
-      if (!wasInInbox && isInInbox) added += 1;
-      else already += 1;
-      next = captured;
-    }
-
-    const message = added
-      ? {
-        text: `${added}곡을 보관함에 우선 저장했어요.`,
-        action: { label: "보관함 보기", href: "/inbox" },
-      }
-      : already
-        ? "선택한 곡은 이미 기록되어 있어요."
-        : "기록할 곡이 없어요.";
-
-    if (commit(next, message)) {
-      clearCaptureDraft();
-      setSelectedResults([]);
-    }
-  }
-
   function recordSelectedResults() {
     if (selectedResults.length === 1) {
       startRecord(selectedResults[0]);
       return;
     }
-    saveSelectedResults();
+    setBatchAssigning(selectedResults);
+  }
+
+  function recordSelectedInChapter(chapterId: string, sourceArchive = archive) {
+    try {
+      let next = sourceArchive;
+      let recorded = 0;
+      for (const track of batchAssigning) {
+        const captured = captureTrackToInbox(next, track);
+        if (!captured.data.inbox[track.id]) continue;
+        const moved = moveInboxTrackToCube(captured, track.id, chapterId);
+        next = moved.archive;
+        if (moved.added) recorded += 1;
+      }
+      if (!recorded) {
+        notify("선택한 곡은 이미 기록되어 있어요.");
+        return;
+      }
+      if (commit(next, `${recorded}곡을 한 챕터에 기록했어요.`)) {
+        clearCaptureDraft();
+        setSelectedResults([]);
+        setBatchAssigning([]);
+        router.push(`/chapter?id=${encodeURIComponent(chapterId)}`, "shared", chapterId);
+      }
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : "챕터에 곡을 기록하지 못했어요.");
+    }
+  }
+
+  function createChapterAndRecordSelected(name: string) {
+    try {
+      const created = createCube(archive, { name });
+      recordSelectedInChapter(created.cube.id, created.archive);
+    } catch (cause) {
+      notify(cause instanceof Error ? cause.message : "챕터를 만들고 곡을 기록하지 못했어요.");
+    }
   }
 
   function toggleSuggestedTag(label: string) {
@@ -981,6 +992,34 @@ export function Capture({
                 <div className="dialog-actions"><button className="button button-ghost" type="button" onClick={() => setManualFallback(null)}>뒤로</button><button className="button button-primary" type="submit">이 곡 확인하기</button></div>
               </form>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {batchAssigning.length ? (
+        <div className="dialog-backdrop" role="presentation" onClick={() => setBatchAssigning([])}>
+          <div ref={batchAssignDialogRef} className="dialog record-dialog" role="dialog" aria-modal="true" aria-labelledby="batch-assign-title" onClick={(event) => event.stopPropagation()}>
+            <h2 id="batch-assign-title">챕터 선택</h2>
+            <p className="record-tag-guide">선택한 {batchAssigning.length}곡을 한 챕터에 함께 기록할게요.</p>
+            <InlineChapterCreate onCreate={createChapterAndRecordSelected} />
+            <div className="track-list record-chapter-list">
+              {getCubesInTreeOrder(archive)
+                .filter((chapter) => isAssignableChapter(chapter) && isVisibleChapter(archive, chapter))
+                .map((chapter, index) => (
+                  <ChapterChoice
+                    archive={archive}
+                    chapter={chapter}
+                    detail={`${getCubeTracks(archive, chapter.id).length}곡`}
+                    index={index}
+                    key={chapter.id}
+                    onSelect={recordSelectedInChapter}
+                  />
+                ))}
+            </div>
+            {!getUserVisibleChapters(archive).some((chapter) => isAssignableChapter(chapter) && isVisibleChapter(archive, chapter)) ? (
+              <p className="record-tag-guide">먼저 챕터를 하나 만들어 주세요.</p>
+            ) : null}
+            <div className="dialog-actions"><button className="button" type="button" onClick={() => setBatchAssigning([])}>취소</button></div>
           </div>
         </div>
       ) : null}

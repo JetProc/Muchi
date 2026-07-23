@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { normalizeAuthDestination } from "@/lib/auth-redirect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  GOOGLE_INCREMENTAL_AUTH_PARAMS,
+  YOUTUBE_PLAYLIST_SCOPE,
+} from "@/lib/youtube-oauth";
 
 function currentDestination() {
   return normalizeAuthDestination(`${window.location.pathname}${window.location.search}`);
@@ -19,6 +23,8 @@ export async function startGoogleSignIn(destination = currentDestination()) {
     provider: "google",
     options: {
       redirectTo: callback.toString(),
+      scopes: YOUTUBE_PLAYLIST_SCOPE,
+      queryParams: GOOGLE_INCREMENTAL_AUTH_PARAMS,
       // Keep the redirect target generated from the current browser origin.
       // This matters when the same Supabase project serves both local and
       // production environments.
@@ -78,7 +84,7 @@ export function AuthGate({ message }: { message?: string }) {
           <button className="button auth-google-button" type="button" onClick={signIn} disabled={loading} aria-busy={loading}>
             {loading ? "로그인으로 이동 중…" : <><GoogleMark />Google로 시작하기</>}
           </button>
-          <p className="entry-notice">로그인하면 어떤 기기에서도 내 음악 세계를 이어갈 수 있어요.</p>
+          <p className="entry-notice">로그인할 때 YouTube 플레이리스트 내보내기 권한도 함께 연결하며, 실제 내보내기를 요청할 때만 사용해요.</p>
           <nav className="entry-legal-links" aria-label="서비스 정책">
             <a href="/privacy">개인정보처리방침</a>
             <a href="/terms">이용약관</a>

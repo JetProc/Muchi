@@ -4,6 +4,10 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, CircleAlert, CircleCheck, ExternalLink, ListMusic, Play, Search } from "lucide-react";
 import { getCubeTracks, isUserVisibleChapter, type ArchiveEnvelopeV1, type TrackId, type TrackReference } from "@/lib/archive";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  GOOGLE_INCREMENTAL_AUTH_PARAMS,
+  YOUTUBE_PLAYLIST_SCOPE,
+} from "@/lib/youtube-oauth";
 import { MotionLink as Link } from "./editorial-motion";
 import { formatTrackArtist } from "./editorial-format";
 import { EmptyState, TrackLine } from "./editorial-ui";
@@ -41,8 +45,6 @@ const MUSIC_SERVICES: MusicService[] = [
   { id: "youtube", name: "YouTube Music", url: "https://music.youtube.com/" },
 ];
 const STEP_LABEL = ["곡 확인", "서비스 선택", "매칭 확인"] as const;
-const YOUTUBE_SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl";
-const YOUTUBE_GRANT_PREFIX = "muchi:youtube-oauth-granted:";
 
 function isMusicServiceId(value: string | null): value is MusicServiceId { return value === "apple" || value === "youtube"; }
 function isYoutubeAuthError(errorCode: string | undefined) {
@@ -86,8 +88,8 @@ async function responseJson(response: Response) {
   return body;
 }
 
-export function PlaylistBuilder({ archive, chapterId, playlistSource, initialServiceId, youtubeAuthGranted, step, onStepChange }: {
-  archive: ArchiveEnvelopeV1; chapterId: string | null; playlistSource?: PlaylistSource | null; initialServiceId: string | null; youtubeAuthGranted: boolean; step: PlaylistStep; onStepChange: (step: PlaylistStep) => void;
+export function PlaylistBuilder({ archive, chapterId, playlistSource, initialServiceId, step, onStepChange }: {
+  archive: ArchiveEnvelopeV1; chapterId: string | null; playlistSource?: PlaylistSource | null; initialServiceId: string | null; step: PlaylistStep; onStepChange: (step: PlaylistStep) => void;
 }) {
   const requestedChapter = chapterId ? archive.data.cubes[chapterId] : null;
   const chapter = isUserVisibleChapter(requestedChapter) ? requestedChapter : null;
@@ -103,7 +105,6 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ url: string; addedCount: number; failedCount: number } | null>(null);
   const viewRef = useRef<HTMLDivElement>(null);
-  const grantKeyRef = useRef<string | null>(null);
   const selectedService = MUSIC_SERVICES.find((service) => service.id === serviceId) ?? MUSIC_SERVICES[0];
   const selectedEntries = entries.filter((entry) => selectedTrackIds.includes(entry.track.id));
   const matchedCount = matches.filter((match) => match.selectedId && !match.excluded).length;
@@ -117,30 +118,20 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
 
   function resetMatches() { setMatches([]); setConnectionToken(null); setError(null); }
   function toggleTrack(trackId: TrackId) { resetMatches(); setSelectedTrackIds((current) => current.includes(trackId) ? current.filter((id) => id !== trackId) : [...current, trackId]); }
-  async function connectYoutube() {
+  async function connectYoutube(forceReconnect = false) {
     if (serviceId !== "youtube") throw new Error("Apple Music 내보내기는 준비 중이에요. 지금은 YouTube Music으로 만들어 주세요.");
     const supabase = createSupabaseBrowserClient();
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
     const session = sessionData.session as (typeof sessionData.session & { provider_token?: string }) | null;
     const token = session?.provider_token;
-    const grantKey = session?.user.id ? `${YOUTUBE_GRANT_PREFIX}${session.user.id}` : null;
-    grantKeyRef.current = grantKey;
-    const hasYoutubeGrant = grantKey !== null
-      && (youtubeAuthGranted || window.localStorage.getItem(grantKey) === "true");
-    if (token && hasYoutubeGrant) {
-      if (youtubeAuthGranted && grantKey) window.localStorage.setItem(grantKey, "true");
-      return token;
-    }
-    if (grantKey) window.localStorage.removeItem(grantKey);
+    if (token && !forceReconnect) return token;
     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: youtubeOAuthCallbackUrl(),
-        scopes: YOUTUBE_SCOPE,
-        queryParams: {
-          include_granted_scopes: "true",
-        },
+        scopes: YOUTUBE_PLAYLIST_SCOPE,
+        queryParams: GOOGLE_INCREMENTAL_AUTH_PARAMS,
         skipBrowserRedirect: true,
       },
     });
@@ -153,9 +144,6 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
     setLoading(true); setError(null);
     try {
       if (serviceId !== "youtube") throw new Error("Apple Music 내보내기는 준비 중이에요. 지금은 YouTube Music으로 만들어 주세요.");
-      const token = connectionToken ?? await connectYoutube();
-      if (!token) return;
-      setConnectionToken(token);
       const response = await fetch(`/api/playlist/${serviceId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "match", tracks: selectedEntries.map((entry) => entry.track) }) });
       const body = await responseJson(response) as { matches?: Array<{ trackId?: string; status?: unknown; confidence?: unknown; candidates?: Candidate[]; selectedId?: unknown; errorCode?: string }>; errorCode?: string };
       setError(body.errorCode ? youtubeErrorMessage(body.errorCode) : null);
@@ -210,8 +198,9 @@ export function PlaylistBuilder({ archive, chapterId, playlistSource, initialSer
     } catch (cause) {
       const errorCode = cause instanceof Error && "code" in cause && typeof cause.code === "string" ? cause.code : undefined;
       if (isYoutubeAuthError(errorCode)) {
-        if (grantKeyRef.current) window.localStorage.removeItem(grantKeyRef.current);
         setConnectionToken(null);
+        await connectYoutube(true);
+        return;
       }
       setError(errorCode ? youtubeErrorMessage(errorCode) : cause instanceof Error ? cause.message : "플레이리스트를 만들지 못했어요.");
     }

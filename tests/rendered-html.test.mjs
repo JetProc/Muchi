@@ -447,11 +447,11 @@ test("publishes OAuth-ready public information pages from the signed-out homepag
   assert.match(authGate, /href="\/terms">이용약관/);
   assert.match(aboutPage, /<h1>뮤키<\/h1>/);
   assert.match(aboutPage, /뮤키는 좋아했던 음악에 태그, 메모, 사진을 더해/);
-  assert.match(aboutPage, /사용자가 직접 요청한 경우에만 Google 계정의 YouTube 권한을 사용/);
+  assert.match(aboutPage, /Google 로그인 때 YouTube 플레이리스트 내보내기 권한을 함께 연결/);
   assert.match(aboutPage, /href="\/privacy">개인정보처리방침/);
   assert.match(aboutPage, /href="\/terms">이용약관/);
   assert.match(privacyPage, /Google 및 YouTube 데이터/);
-  assert.match(privacyPage, /OAuth 액세스 토큰은 해당 요청을 처리하는 동안에만 사용/);
+  assert.match(privacyPage, /OAuth 액세스 토큰은 뮤키 데이터베이스에 저장하지 않습니다/);
   assert.match(termsPage, /비공개 YouTube 플레이리스트를 생성/);
 });
 
@@ -1435,9 +1435,11 @@ test("keeps archive search compact with the shared tag picker", async () => {
 });
 
 test("exports reviewed matches to YouTube Music while Apple Music remains pending", async () => {
-  const [chapterSource, playlistSource, serviceIconSource, appSource, typesSource, routeSource, css, appleIcon, youtubeIcon, appleRoute, youtubeRoute, youtubeApi, matcherSource, serviceSource, cacheMigration] = await Promise.all([
+  const [chapterSource, playlistSource, authSource, youtubeOauthSource, serviceIconSource, appSource, typesSource, routeSource, css, appleIcon, youtubeIcon, appleRoute, youtubeRoute, youtubeApi, matcherSource, serviceSource, cacheMigration] = await Promise.all([
     readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-views-playlist.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/youtube-oauth.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-service-icon.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/editorial-types.ts", import.meta.url), "utf8"),
@@ -1484,17 +1486,17 @@ test("exports reviewed matches to YouTube Music while Apple Music remains pendin
   assert.match(playlistSource, /disabled=\{service\.status === "soon"\}/);
   assert.doesNotMatch(playlistSource, /MusicKit/);
   assert.doesNotMatch(playlistSource, /music\.apple\.com\/musickit/);
-  assert.match(playlistSource, /https:\/\/www\.googleapis\.com\/auth\/youtube\.force-ssl/);
-  assert.match(playlistSource, /include_granted_scopes: "true"/);
+  assert.match(youtubeOauthSource, /https:\/\/www\.googleapis\.com\/auth\/youtube\.force-ssl/);
+  assert.match(youtubeOauthSource, /include_granted_scopes: "true"/);
+  assert.match(authSource, /scopes: YOUTUBE_PLAYLIST_SCOPE/);
+  assert.match(authSource, /queryParams: GOOGLE_INCREMENTAL_AUTH_PARAMS/);
   assert.doesNotMatch(playlistSource, /prompt: "consent"|access_type: "offline"/);
   assert.match(playlistSource, /skipBrowserRedirect: true/);
   assert.match(playlistSource, /searchParams\.delete\("code"\)/);
   assert.match(playlistSource, /window\.location\.assign\(data\.url\)/);
-  assert.match(playlistSource, /muchi:youtube-oauth-granted:/);
-  assert.match(playlistSource, /youtubeAuthGranted \|\| window\.localStorage\.getItem\(grantKey\) === "true"/);
-  assert.match(playlistSource, /window\.localStorage\.setItem\(grantKey, "true"\)/);
-  assert.doesNotMatch(playlistSource, /if \(!youtubeAuthGranted\)/);
-  assert.doesNotMatch(playlistSource, /if \(!token \|\| forceReconnect\)/);
+  assert.doesNotMatch(playlistSource, /muchi:youtube-oauth-granted:|localStorage/);
+  assert.match(playlistSource, /if \(token && !forceReconnect\) return token/);
+  assert.match(playlistSource, /await connectYoutube\(true\)/);
   assert.match(playlistSource, /const token = connectionToken \?\? await connectYoutube\(\)/);
   assert.match(playlistSource, /Authorization: `Bearer \$\{token\}`/);
   assert.match(playlistSource, /자동 매칭/);
@@ -1509,12 +1511,12 @@ test("exports reviewed matches to YouTube Music while Apple Music remains pendin
   assert.doesNotMatch(playlistSource, /playlist-track-toggle|service\.description|ChevronRight/);
   assert.doesNotMatch(playlistSource, /presetServiceId \? 3 : 2/);
   assert.match(playlistSource, /onClick=\{\(\) => onStepChange\(2\)\}>다음<\/button>/);
-  assert.match(playlistSource, /const token = connectionToken \?\? await connectYoutube\(\);[\s\S]*?onStepChange\(3\);/s);
+  assert.match(playlistSource, /async function connectAndMatch\(\)[\s\S]*?action: "match"[\s\S]*?onStepChange\(3\);/s);
   assert.match(playlistSource, /step === 2[\s\S]*?onClick=\{\(\) => void connectAndMatch\(\)\}/s);
   assert.match(playlistSource, /className="playlist-match-loading" role="status"/);
   assert.doesNotMatch(playlistSource, /연결하고 곡 찾기/);
   assert.match(appSource, /initialServiceId=\{searchParams\.get\("service"\)\}/);
-  assert.match(appSource, /youtubeAuthGranted=\{youtubeAuthGranted\}/);
+  assert.doesNotMatch(appSource, /youtubeAuthGranted=\{youtubeAuthGranted\}/);
   assert.match(appSource, /const youtubeAuthGranted = searchParams\.get\("youtubeAuth"\) === "granted";/);
   assert.match(appSource, /: youtubeAuthGranted \? 2 : 1;/);
   assert.match(appSource, /case "playlist":/);

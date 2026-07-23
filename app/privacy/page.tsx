@@ -24,7 +24,7 @@ export default function PrivacyPage() {
         </section>
         <section>
           <h2>3. Google 및 YouTube 데이터</h2>
-          <p>사용자가 YouTube Music 내보내기를 선택한 경우에만 Google OAuth 권한을 요청합니다. 권한은 사용자가 검토한 곡으로 비공개 YouTube 플레이리스트를 만들고 곡을 추가하는 데 사용합니다. OAuth 액세스 토큰은 해당 요청을 처리하는 동안에만 사용하며 뮤키 데이터베이스에 저장하지 않습니다.</p>
+          <p>Google 로그인 과정에서 YouTube 플레이리스트 생성에 필요한 OAuth 권한을 함께 요청합니다. 권한은 사용자가 직접 내보내기를 요청했을 때 검토한 곡으로 비공개 YouTube 플레이리스트를 만들고 곡을 추가하는 데만 사용합니다. OAuth 액세스 토큰은 뮤키 데이터베이스에 저장하지 않습니다.</p>
         </section>
         <section>
           <h2>4. 보관과 삭제</h2>

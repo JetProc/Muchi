@@ -678,7 +678,6 @@ export function MusicWorldApp({ view }: { view: AppView }) {
             chapterId={queryId}
             playlistSource={publicPlaylistSource}
             initialServiceId={searchParams.get("service")}
-            youtubeAuthGranted={youtubeAuthGranted}
             step={playlistStep}
             onStepChange={handlePlaylistStepChange}
           />

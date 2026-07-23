@@ -20,7 +20,7 @@ export default function AboutPage() {
         </section>
         <section>
           <h2>YouTube Music 연동</h2>
-          <p>사용자가 직접 요청한 경우에만 Google 계정의 YouTube 권한을 사용해 검토한 곡을 비공개 YouTube 플레이리스트로 내보냅니다. YouTube 플레이리스트 가져오기는 공개 링크를 이용하며 사용자 계정 권한을 요청하지 않습니다.</p>
+          <p>Google 로그인 때 YouTube 플레이리스트 내보내기 권한을 함께 연결합니다. 이 권한은 사용자가 내보내기를 요청한 경우에만 검토한 곡으로 비공개 YouTube 플레이리스트를 만드는 데 사용합니다. YouTube 플레이리스트 가져오기는 공개 링크를 이용합니다.</p>
         </section>
         <section>
           <h2>개인정보와 이용 안내</h2>

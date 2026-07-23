@@ -49,6 +49,7 @@ const Capture = dynamic(() => import("./editorial-views-primary").then((module) 
 const Inbox = dynamic(() => import("./editorial-views-primary").then((module) => module.Inbox), { loading: () => <LoadingSpinner /> });
 const VisitorSpace = dynamic(() => import("./editorial-personal-space").then((module) => module.VisitorSpace), { loading: () => <HomeLoadingSkeleton /> });
 const ChapterDetail = dynamic(() => import("./editorial-views-chapters").then((module) => module.ChapterDetail), { loading: () => <ChaptersLoadingSkeleton /> });
+const ChapterShareEditor = dynamic(() => import("./editorial-chapter-share").then((module) => module.ChapterShareEditor), { loading: () => <LoadingSpinner /> });
 const Chapters = dynamic(() => import("./editorial-views-chapters").then((module) => module.Chapters), { loading: () => <ChaptersLoadingSkeleton /> });
 const Memory = dynamic(() => import("./editorial-views-chapters").then((module) => module.Memory), { loading: () => <LoadingSpinner /> });
 const Recap = dynamic(() => import("./editorial-views-discovery").then((module) => module.Recap), { loading: () => <LoadingSpinner /> });
@@ -340,6 +341,14 @@ export function MusicWorldApp({ view }: { view: AppView }) {
             sharedId: requestedChapter.parentId,
           }
           : { label: "챕터로", fallbackHref: "/chapters" };
+      case "chapterShare":
+        return queryId
+          ? {
+            label: "챕터로",
+            fallbackHref: `/chapter?id=${encodeURIComponent(queryId)}`,
+            sharedId: queryId,
+          }
+          : { label: "챕터로", fallbackHref: "/chapters" };
       case "memory":
         if (!requestedMemoryChapter) return { label: "챕터로", fallbackHref: "/chapters" };
         if (requestedMemoryChapter.kind === "capture") return { label: "미분류 기록으로", fallbackHref: "/tags" };
@@ -616,6 +625,8 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           return <LoadingSpinner label="안전한 음악 목록으로 이동하는 중입니다." />;
         }
         return <ChapterDetail archive={archive} chapterId={queryId} commit={commit} notify={notify} router={router} />;
+      case "chapterShare":
+        return <ChapterShareEditor archive={archive} chapterId={queryId} commit={commit} notify={notify} authorName={onboarding?.displayName ?? null} />;
       case "memory":
         if (monthlyMemoryRoute) {
           return <LoadingSpinner label="월별 기록으로 이동하는 중입니다." />;

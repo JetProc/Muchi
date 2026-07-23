@@ -7,6 +7,7 @@ export type AppView =
   | "inbox"
   | "chapters"
   | "chapter"
+  | "chapterShare"
   | "memory"
   | "playlist"
   | "discover"

@@ -5786,3 +5786,402 @@ button.tag {
   color: var(--apple-primary);
   background: color-mix(in srgb, var(--apple-primary) 8%, var(--apple-canvas));
 }
+
+/* Chapter share + record photo ------------------------------------------- */
+
+.memory-photo-field {
+  display: grid;
+  gap: 12px;
+}
+
+.memory-photo-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.memory-photo-head .field-hint {
+  margin: 4px 0 0;
+}
+
+.memory-photo-progress {
+  flex: none;
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: var(--apple-primary);
+  background: color-mix(in srgb, var(--apple-primary) 8%, var(--apple-canvas));
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.memory-photo-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--apple-line);
+  border-radius: 22px;
+  background: var(--apple-canvas);
+}
+
+.memory-photo-card.is-uploading {
+  opacity: .8;
+}
+
+.memory-photo-preview {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  object-fit: cover;
+  background: var(--apple-surface-pearl);
+}
+
+.memory-photo-empty {
+  display: grid;
+  gap: 6px;
+  min-height: 150px;
+  padding: 20px;
+  border-radius: 18px;
+  color: var(--apple-ink-muted-48);
+  background: color-mix(in srgb, var(--apple-primary) 5%, var(--apple-canvas-parchment));
+  align-content: center;
+  text-align: center;
+}
+
+.memory-photo-empty strong {
+  color: var(--apple-ink);
+  font-size: 15px;
+}
+
+.memory-photo-empty span {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.memory-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.chapter-share-entry {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chapter-share-view {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 34px;
+}
+
+.chapter-share-summary,
+.chapter-share-section,
+.chapter-share-preview-section,
+.chapter-share-footer-note {
+  padding: 18px;
+  border: 1px solid var(--apple-line);
+  border-radius: 24px;
+  background: var(--apple-canvas);
+}
+
+.chapter-share-summary {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.chapter-share-summary-cover .chapter-artwork {
+  min-height: 96px;
+}
+
+.chapter-share-summary-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.chapter-share-summary-copy strong {
+  font-size: 18px;
+  letter-spacing: -.4px;
+}
+
+.chapter-share-summary-copy p,
+.chapter-share-preview-head p,
+.chapter-share-private-note p,
+.chapter-share-footer-note p,
+.chapter-share-link-note p,
+.chapter-share-private-cta,
+.chapter-share-section-head p {
+  margin: 0;
+  color: var(--apple-ink-muted-48);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chapter-share-preview-section {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  background: color-mix(in srgb, var(--apple-primary) 4%, var(--apple-canvas));
+}
+
+.chapter-share-preview-head,
+.chapter-share-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.chapter-share-preview-head h2,
+.chapter-share-section-head h2 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: -.4px;
+}
+
+.chapter-share-mode-badge {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--apple-surface-pearl);
+  color: var(--apple-ink);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chapter-share-mode-badge.is-private-image-only {
+  color: color-mix(in srgb, var(--apple-primary) 70%, var(--apple-ink));
+  background: color-mix(in srgb, var(--apple-primary) 10%, var(--apple-canvas));
+}
+
+.chapter-share-preview-device {
+  display: flex;
+  justify-content: center;
+}
+
+.chapter-share-preview-card {
+  width: min(100%, 332px);
+  padding: 12px;
+  border-radius: 32px;
+  background: #232326;
+  box-shadow: 0 26px 44px color-mix(in srgb, var(--apple-ink) 16%, transparent);
+}
+
+.chapter-share-preview-card.is-feed {
+  width: min(100%, 352px);
+}
+
+.chapter-share-preview-svg {
+  overflow: hidden;
+  border-radius: 24px;
+  background: #f4ead9;
+  line-height: 0;
+}
+
+.chapter-share-preview-svg > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chapter-share-private-note,
+.chapter-share-link-note,
+.chapter-share-footer-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.chapter-share-private-note svg,
+.chapter-share-link-note svg,
+.chapter-share-footer-note svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--apple-primary);
+}
+
+.chapter-share-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.chapter-share-chip {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--apple-line);
+  border-radius: 999px;
+  color: var(--apple-ink);
+  background: var(--apple-canvas);
+  font: inherit;
+  font-size: 13px;
+}
+
+.chapter-share-chip.is-active {
+  border-color: var(--apple-ink);
+  color: var(--apple-canvas);
+  background: var(--apple-ink);
+}
+
+.chapter-share-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.chapter-share-toggle-grid label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 16px;
+  background: var(--apple-canvas-parchment);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chapter-share-toggle-grid label.is-disabled {
+  opacity: .58;
+}
+
+.chapter-share-toggle-grid input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--apple-primary);
+}
+
+.chapter-share-selected-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.chapter-share-track-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--apple-canvas-parchment);
+}
+
+.chapter-share-track-copy {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.chapter-share-track-copy strong,
+.chapter-share-track-pill span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter-share-track-copy span,
+.chapter-share-track-pill small,
+.chapter-share-track-index {
+  color: var(--apple-ink-muted-48);
+  font-size: 12px;
+}
+
+.chapter-share-track-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chapter-share-track-actions > button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--apple-ink);
+  background: var(--apple-canvas);
+  font: inherit;
+  font-size: 12px;
+}
+
+.chapter-share-track-actions > button:disabled {
+  opacity: .38;
+}
+
+.chapter-share-track-bank {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.chapter-share-track-pill {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--apple-line);
+  border-radius: 16px;
+  color: var(--apple-ink);
+  background: var(--apple-canvas);
+  text-align: left;
+}
+
+.chapter-share-track-pill.is-active {
+  border-color: color-mix(in srgb, var(--apple-primary) 34%, var(--apple-line));
+  background: color-mix(in srgb, var(--apple-primary) 7%, var(--apple-canvas));
+}
+
+.chapter-share-export-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.chapter-share-export-actions .button {
+  display: inline-flex;
+  justify-content: center;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.chapter-share-private-cta {
+  margin-top: 12px;
+}
+
+@container muchi-app (max-width: 430px) {
+  .chapter-share-summary {
+    grid-template-columns: 84px minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .chapter-share-preview-section,
+  .chapter-share-section,
+  .chapter-share-footer-note {
+    padding: 16px;
+  }
+
+  .chapter-share-toggle-grid,
+  .chapter-share-export-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-share-track-row {
+    grid-template-columns: 1fr;
+  }
+
+  .chapter-share-track-actions {
+    justify-content: flex-end;
+  }
+}

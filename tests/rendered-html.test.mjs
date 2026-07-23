@@ -3285,3 +3285,74 @@ test("uses shared chapter components for public discovery details and playlist e
     assert.equal(response.status, 200, pathname);
   }
 });
+
+test("adds a dedicated chapter share editor route with persisted mobile share controls", async () => {
+  const [typesSource, shellSource, appSource, routeSource, chapterSource, shareSource, css] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-types.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-shell.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/chapter/share/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-chapter-share.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/apple-theme.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(typesSource, /\| "chapterShare"/);
+  assert.match(shellSource, /chapterShare: \{ label: "SHARE", path: "\/chapters", index: "03" \}/);
+  assert.match(shellSource, /view === "chapter" \|\| view === "chapterShare" \|\| view === "memory"/);
+  assert.match(appSource, /const ChapterShareEditor = dynamic\(\(\) => import\("\.\/editorial-chapter-share"\)/);
+  assert.match(appSource, /case "chapterShare":/);
+  assert.match(appSource, /fallbackHref: `\/chapter\?id=\$\{encodeURIComponent\(queryId\)\}`/);
+  assert.match(appSource, /authorName=\{onboarding\?\.displayName \?\? null\}/);
+  assert.match(routeSource, /<MusicWorldApp view="chapterShare" \/>/);
+  assert.match(chapterSource, /href=\{`\/chapter\/share\?id=\$\{encodeURIComponent\(activeChapter\.id\)\}`\}/);
+  assert.match(shareSource, /trackShareClarityEvent\("editor_open"/);
+  assert.match(shareSource, /exportShareCardPng\(\{ model, normalizeAssetUrl: normalizeShareExportAssetUrl \}\)/);
+  assert.match(shareSource, /buildPublicChapterShareLink/);
+  assert.match(shareSource, /commit\(updateCube\(archive, activeChapter\.id, \{ shareStyle: normalizedStyle \}\)\)/);
+  assert.match(shareSource, /window\.confirm\("공개하면 탐색과 링크에서 이 챕터를 볼 수 있어요\./);
+  assert.match(shareSource, /normalizeChapterShareStyle/);
+  assert.match(css, /\.chapter-share-view\s*\{/);
+  assert.match(css, /\.chapter-share-export-actions\s*\{/);
+});
+
+test("keeps record photos private after visibility changes and proxies only approved export images", async () => {
+  const [publicMediaSource, imageProxySource, shareLinkSource, migrationSource] = await Promise.all([
+    readFile(new URL("../app/api/public-record-media/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/share-image/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/share/link.ts", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/20260723103000_private_record_photos.sql", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(publicMediaSource, /"Cache-Control": "private, no-store"/);
+  assert.match(publicMediaSource, /readPublishedPublicRecordPhoto/);
+  assert.match(imageProxySource, /url\.protocol === "https:" && isAllowedImageUrl/);
+  assert.match(imageProxySource, /redirect: "error"/);
+  assert.match(imageProxySource, /\^image\\\/\(\?:jpeg\|png\|webp\)\$\/\.test\(contentType\)/);
+  assert.match(imageProxySource, /MAX_IMAGE_BYTES/);
+  assert.match(shareLinkSource, /rawUrl\.startsWith\("\/"\) \|\| rawUrl\.startsWith\("data:"\)/);
+  assert.match(shareLinkSource, /`\/api\/share-image\?\$\{search\.toString\(\)\}`/);
+  assert.match(migrationSource, /\[A-Za-z0-9:_-\]\{1,200\}\/\[A-Za-z0-9_-\]\{1,64\}\\\.jpg/);
+});
+
+test("supports record-photo drafts and chapter-local artwork overrides without mutating track metadata", async () => {
+  const [mediaSource, chapterSource, discoverySource] = await Promise.all([
+    readFile(new URL("../app/_components/editorial-media.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-chapters.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/_components/editorial-views-public-discovery.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(mediaSource, /customImageUrl\?: string \| null/);
+  assert.match(mediaSource, /const preferredSource = customImageUrl \?\? track\.artworkUrl/);
+  assert.match(chapterSource, /uploadRecordPhoto,\s*type RecordPhotoUploadResult/);
+  assert.match(chapterSource, /function discardPendingRecordPhoto/);
+  assert.match(chapterSource, /deleteUploadedRecordPhoto\(draft\.upload\.customImagePath\)/);
+  assert.match(chapterSource, /photoDraftRef\.current = emptyMemoryPhotoDraft\(\)/);
+  assert.match(chapterSource, /function RecordPhotoField/);
+  assert.match(chapterSource, /const existingPhotoUrl = photoDraft\.removed[\s\S]*?getOwnedRecordPhotoUrl\(activeCubeTrack\.id, activeCubeTrack\.customImageVersion\)/);
+  assert.match(chapterSource, /const upload = await uploadRecordPhoto\(file, activeCubeTrack\.id\)/);
+  assert.match(chapterSource, /next = updateCubeTrack\(next, activeCubeTrack\.id, \{\s*customImagePath: photoDraft\.upload\.customImagePath,\s*customImageVersion: photoDraft\.upload\.customImageVersion,/s);
+  assert.match(chapterSource, /customImageUrl: getOwnedRecordPhotoUrl\(entry\.cubeTrack\.id, entry\.cubeTrack\.customImageVersion\)/);
+  assert.match(discoverySource, /customImageUrl: item\.visibility === "public" \? item\.recordPhoto\?\.displayUrl \?\? null : null/);
+  assert.doesNotMatch(chapterSource, /track\.artworkUrl =/);
+});

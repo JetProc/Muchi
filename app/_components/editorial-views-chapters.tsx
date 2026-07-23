@@ -15,6 +15,7 @@ import {
   Lock,
   MoreHorizontal,
   Plus,
+  Sparkles,
   Trash2,
   Unlock,
 } from "lucide-react";
@@ -689,6 +690,18 @@ export function ChapterDetail({
           </button>
         ) : undefined}
         meta={null}
+        actions={!monthlyChapter && entries.length ? (
+          <Link
+            className="button button-primary chapter-share-entry"
+            href={`/chapter/share?id=${encodeURIComponent(activeChapter.id)}`}
+            intent="shared"
+            sharedId={activeChapter.id}
+          >
+            <Sparkles size={16} aria-hidden="true" />
+            공유/꾸미기
+          </Link>
+        ) : undefined}
+        actionsOutsideCopy
         menu={!monthlyChapter ? (
           <div className="chapter-menu" ref={menuRef}>
             <button

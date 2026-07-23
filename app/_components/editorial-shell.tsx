@@ -37,6 +37,7 @@ const VIEW_META: Record<AppView, { label: string; path: string; index: string }>
   inbox: { label: "INBOX", path: "/inbox", index: "01" },
   chapters: { label: "CHAPTERS", path: "/chapters", index: "02" },
   chapter: { label: "CHAPTER", path: "/chapters", index: "02" },
+  chapterShare: { label: "SHARE", path: "/chapters", index: "03" },
   memory: { label: "MEMORY", path: "/chapters", index: "03" },
   playlist: { label: "PLAYLIST", path: "/chapters", index: "03" },
   discover: { label: "DISCOVER", path: "/discover", index: "04" },
@@ -74,6 +75,7 @@ const CONTEXTUAL_HELP: Record<AppView, { title: string; description: string }> =
   inbox: { title: "보관함", description: "아직 챕터에 넣지 않은 곡을 모아 두는 곳이에요. 여러 곡을 골라 한 챕터로 정리할 수 있어요." },
   chapters: { title: "챕터", description: "같은 장면이나 시기의 곡을 챕터로 모아 보세요. 챕터 안에서는 추가순 또는 애정도순으로 볼 수 있어요." },
   chapter: { title: "챕터", description: "이 챕터에 담긴 곡과 기억을 살펴보세요. 곡을 더 기록하거나 챕터 공개 범위를 바꿀 수도 있어요." },
+  chapterShare: { title: "챕터 공유", description: "형식과 분위기를 고르고, 곡 순서를 정리한 뒤 공유용 이미지를 만들 수 있어요." },
   memory: { title: "곡 기록", description: "태그, 애정도, 메모는 모두 선택 사항이에요. 다만 곡은 하나 이상의 챕터에 담겨야 기록할 수 있어요." },
   playlist: { title: "플레이리스트", description: "챕터에 담긴 곡을 확인하고, 지원이 준비된 음악 서비스로 내보낼 수 있어요." },
   discover: { title: "탐색", description: "다른 뮤커가 공개한 챕터를 둘러보고, 마음에 드는 뮤커를 팔로우해 보세요." },
@@ -143,7 +145,7 @@ export function TextNavigation({ view }: { view: AppView }) {
         const meta = VIEW_META[item];
         const Icon = MOBILE_NAV_ICON[item];
         const active = item === view || (
-          item === "chapters" && (view === "chapter" || view === "memory" || (view === "playlist" && !discoverPlaylist))
+          item === "chapters" && (view === "chapter" || view === "chapterShare" || view === "memory" || (view === "playlist" && !discoverPlaylist))
           || item === "discover" && (view === "discoverChapter" || view === "discoverProfile" || discoverPlaylist)
         );
         return (

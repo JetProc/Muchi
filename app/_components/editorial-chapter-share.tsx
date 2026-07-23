@@ -8,6 +8,8 @@ import {
 } from "react";
 import {
   Download,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Image as ImageIcon,
   Link2,
@@ -62,6 +64,16 @@ type GeneratedShareAsset = {
   blob: Blob;
   objectUrl: string;
 };
+
+const SHARE_EDITOR_STEPS = [
+  { id: "layout", label: "구성", description: "형식과 레이아웃" },
+  { id: "mood", label: "분위기", description: "무드와 장식" },
+  { id: "tracks", label: "곡", description: "보일 곡과 이미지" },
+  { id: "details", label: "정보", description: "설명과 표시 정보" },
+  { id: "complete", label: "완료", description: "공유 준비" },
+] as const;
+
+type ShareEditorStep = (typeof SHARE_EDITOR_STEPS)[number]["id"];
 
 function stringifyStyle(style: NormalizedChapterShareStyle): string {
   return JSON.stringify(style);
@@ -258,6 +270,7 @@ function ChapterShareEditorScreen({
   const [activeExportAction, setActiveExportAction] = useState<"share" | "download" | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [generatedAsset, setGeneratedAsset] = useState<GeneratedShareAsset | null>(null);
+  const [activeStep, setActiveStep] = useState<ShareEditorStep>("layout");
   const exportPromiseRef = useRef<Promise<GeneratedShareAsset> | null>(null);
   const exportKeyRef = useRef<string | null>(null);
   const activeChapter = chapter;
@@ -303,6 +316,8 @@ function ChapterShareEditorScreen({
     tracks: resolvedTracks,
   }), [activeChapter, authorName, normalizedStyle, publicUrl, renderMode, resolvedTracks]);
   const previewSvg = useMemo(() => renderShareCardSvg(model), [model]);
+  const activeStepIndex = SHARE_EDITOR_STEPS.findIndex((step) => step.id === activeStep);
+  const activeStepMeta = SHARE_EDITOR_STEPS[activeStepIndex];
 
   useEffect(() => {
     trackShareClarityEvent("editor_open", {
@@ -489,6 +504,11 @@ function ChapterShareEditorScreen({
     );
   }
 
+  function moveStep(direction: -1 | 1) {
+    const next = SHARE_EDITOR_STEPS[activeStepIndex + direction];
+    if (next) setActiveStep(next.id);
+  }
+
   return (
     <div className="page-content chapter-share-view">
       <PageHeader
@@ -510,161 +530,124 @@ function ChapterShareEditorScreen({
         </div>
       </section>
 
-      <section className="chapter-share-preview-section">
-        <div className="chapter-share-preview-head">
-          <div>
-            <h2>실시간 미리보기</h2>
-            <p>{normalizedStyle.format === "story" ? "1080 × 1920" : "1080 × 1350"} · {resolvedTracks.length}곡</p>
+      <div className="chapter-share-workspace">
+        <section className="chapter-share-preview-section">
+          <div className="chapter-share-preview-head">
+            <div>
+              <h2>실시간 미리보기</h2>
+              <p>{normalizedStyle.format === "story" ? "1080 × 1920" : "1080 × 1350"} · {resolvedTracks.length}곡</p>
+            </div>
+            <span className={`chapter-share-mode-badge is-${renderMode}`}>{renderMode === "public-share" ? "링크 포함 가능" : "이미지 전용"}</span>
           </div>
-          <span className={`chapter-share-mode-badge is-${renderMode}`}>{renderMode === "public-share" ? "링크 포함 가능" : "이미지 전용"}</span>
-        </div>
-        <div className="chapter-share-preview-device">
-          <div className={`chapter-share-preview-card is-${normalizedStyle.format}`}>
-            <div className="chapter-share-preview-svg" dangerouslySetInnerHTML={{ __html: previewSvg }} />
+          <div className="chapter-share-preview-device">
+            <div className={`chapter-share-preview-card is-${normalizedStyle.format}`}>
+              <div className="chapter-share-preview-svg" dangerouslySetInnerHTML={{ __html: previewSvg }} />
+            </div>
           </div>
-        </div>
-        {activeChapter.visibility !== "public" ? (
-          <div className="chapter-share-private-note">
-            <ImageIcon size={16} aria-hidden="true" />
-            <p>비공개 챕터에서는 링크와 태그가 이미지에 포함되지 않아요. 제목, 아티스트, 선택한 기록 사진은 그대로 유지됩니다.</p>
-          </div>
-        ) : null}
-      </section>
+          {activeChapter.visibility !== "public" ? (
+            <div className="chapter-share-private-note">
+              <ImageIcon size={16} aria-hidden="true" />
+              <p>비공개 챕터에서는 링크와 태그가 이미지에 포함되지 않아요. 제목, 아티스트, 선택한 기록 사진은 그대로 유지됩니다.</p>
+            </div>
+          ) : null}
+        </section>
 
-      <div className="chapter-share-mobile-completion">
-        <button className="button button-primary" type="button" onClick={() => { void handleNativeShare(); }} disabled={activeExportAction !== null}>
-          <Share2 size={16} aria-hidden="true" />
-          {activeExportAction === "share" ? "준비 중…" : "파일 공유"}
-        </button>
-      </div>
-
-      <ShareChoiceGroup
-        title="형식"
-        value={normalizedStyle.format}
-        items={SHARE_FORMATS}
-        onSelect={(format) => updateStyle({ format })}
-        label={formatLabel}
-      />
-      <ShareChoiceGroup
-        title="레이아웃"
-        value={normalizedStyle.layout}
-        items={SHARE_LAYOUTS}
-        onSelect={(layout) => updateStyle({ layout })}
-        label={layoutLabel}
-      />
-      <ShareChoiceGroup
-        title="분위기"
-        value={normalizedStyle.mood}
-        items={SHARE_MOODS}
-        onSelect={(mood) => updateStyle({ mood })}
-        label={moodLabel}
-      />
-      <ShareChoiceGroup
-        title="장식"
-        value={normalizedStyle.decorationLevel}
-        items={SHARE_DECORATION_LEVELS}
-        onSelect={(decorationLevel) => updateStyle({ decorationLevel })}
-        label={decorationLabel}
-      />
-      <ShareChoiceGroup
-        title="이미지 모드"
-        value={normalizedStyle.trackImageMode}
-        items={SHARE_TRACK_IMAGE_MODES}
-        onSelect={(trackImageMode) => updateStyle({ trackImageMode })}
-        label={imageModeLabel}
-      />
-
-      <section className="chapter-share-section">
-        <div className="chapter-share-section-head">
-          <h2>한 줄 설명</h2>
-          <span>{normalizedStyle.description.length} / {SHARE_DESCRIPTION_MAX_LENGTH}</span>
-        </div>
-        <input
-          className="input"
-          maxLength={SHARE_DESCRIPTION_MAX_LENGTH}
-          placeholder="이 챕터의 결을 한 줄로 남겨 보세요"
-          value={normalizedStyle.description}
-          onChange={(event) => updateStyle({ description: event.target.value })}
-        />
-      </section>
-
-      <section className="chapter-share-section">
-        <div className="chapter-share-section-head">
-          <h2>표시 정보</h2>
-        </div>
-        <div className="chapter-share-toggle-grid">
-          <label><input type="checkbox" checked={normalizedStyle.showTags} onChange={(event) => updateStyle({ showTags: event.target.checked })} />태그</label>
-          <label><input type="checkbox" checked={normalizedStyle.showAuthor} onChange={(event) => updateStyle({ showAuthor: event.target.checked })} />작성자</label>
-          <label><input type="checkbox" checked={normalizedStyle.showTrackCount} onChange={(event) => updateStyle({ showTrackCount: event.target.checked })} />곡 수</label>
-          <label className={activeChapter.visibility !== "public" ? "is-disabled" : ""}>
-            <input
-              type="checkbox"
-              checked={normalizedStyle.showPublicLink}
-              disabled={activeChapter.visibility !== "public"}
-              onChange={(event) => updateStyle({ showPublicLink: event.target.checked })}
-            />
-            공개 링크
-          </label>
-        </div>
-      </section>
-
-      <section className="chapter-share-section">
-        <div className="chapter-share-section-head">
-          <div>
-            <h2>곡 선택</h2>
-            <p>{normalizedStyle.selectedTrackIds.length} / {selectionCap}곡</p>
-          </div>
-          <button
-            className="text-button"
-            type="button"
-            onClick={() => updateStyle({ selectedTrackIds: [] })}
-          >
-            추천으로 다시 고르기
-          </button>
-        </div>
-        <div className="chapter-share-selected-list" aria-label="선택한 곡 순서">
-          {selectedTracks.map((track, index) => (
-            <article className="chapter-share-track-row is-selected" key={track.id}>
-              <div className="chapter-share-track-copy">
-                <span className="chapter-share-track-index">{String(index + 1).padStart(2, "0")}</span>
-                <div>
-                  <strong>{track.track.title}</strong>
-                  <span>{track.track.artist}</span>
-                </div>
-              </div>
-              <div className="chapter-share-track-actions">
-                <button type="button" onClick={() => moveSelectedTrack(track.id, -1)} disabled={index === 0} aria-label={`${track.track.title} 위로 이동`}>
-                  <MoveVertical size={15} aria-hidden="true" />
-                </button>
-                <button type="button" onClick={() => moveSelectedTrack(track.id, 1)} disabled={index === selectedTracks.length - 1} aria-label={`${track.track.title} 아래로 이동`}>
-                  <MoveVertical size={15} aria-hidden="true" />
-                </button>
-                <button type="button" onClick={() => toggleTrack(track.id)}>제외</button>
-              </div>
-            </article>
-          ))}
-        </div>
-        <div className="chapter-share-track-bank" aria-label="챕터 전체 곡">
-          {availableTracks.map((track) => {
-            const selected = normalizedStyle.selectedTrackIds.includes(track.id);
-            return (
+        <section className="chapter-share-controls" aria-label="공유 이미지 설정">
+          <nav className="chapter-share-step-nav" aria-label="설정 단계">
+            {SHARE_EDITOR_STEPS.map((step, index) => (
               <button
-                key={track.id}
-                className={`chapter-share-track-pill${selected ? " is-active" : ""}`}
+                className={`chapter-share-step${activeStep === step.id ? " is-active" : ""}`}
                 type="button"
-                onClick={() => toggleTrack(track.id)}
-                aria-pressed={selected}
+                key={step.id}
+                onClick={() => setActiveStep(step.id)}
+                aria-current={activeStep === step.id ? "step" : undefined}
               >
-                <span>{track.track.title}</span>
-                <small>{track.track.artist}</small>
+                <span>{index + 1}</span>{step.label}
               </button>
-            );
-          })}
-        </div>
-      </section>
+            ))}
+          </nav>
+          <div className="chapter-share-step-heading">
+            <span>{activeStepIndex + 1} / {SHARE_EDITOR_STEPS.length}</span>
+            <div>
+              <h2>{activeStepMeta.label}</h2>
+              <p>{activeStepMeta.description}</p>
+            </div>
+          </div>
 
-      <section className="chapter-share-section chapter-share-export-section">
-        <div className="chapter-share-section-head">
+          {activeStep === "layout" ? (
+            <div className="chapter-share-step-content">
+              <ShareChoiceGroup title="형식" value={normalizedStyle.format} items={SHARE_FORMATS} onSelect={(format) => updateStyle({ format })} label={formatLabel} />
+              <ShareChoiceGroup title="레이아웃" value={normalizedStyle.layout} items={SHARE_LAYOUTS} onSelect={(layout) => updateStyle({ layout })} label={layoutLabel} />
+            </div>
+          ) : null}
+
+          {activeStep === "mood" ? (
+            <div className="chapter-share-step-content">
+              <ShareChoiceGroup title="분위기" value={normalizedStyle.mood} items={SHARE_MOODS} onSelect={(mood) => updateStyle({ mood })} label={moodLabel} />
+              <ShareChoiceGroup title="장식" value={normalizedStyle.decorationLevel} items={SHARE_DECORATION_LEVELS} onSelect={(decorationLevel) => updateStyle({ decorationLevel })} label={decorationLabel} />
+            </div>
+          ) : null}
+
+          {activeStep === "tracks" ? (
+            <div className="chapter-share-step-content">
+              <ShareChoiceGroup title="이미지 모드" value={normalizedStyle.trackImageMode} items={SHARE_TRACK_IMAGE_MODES} onSelect={(trackImageMode) => updateStyle({ trackImageMode })} label={imageModeLabel} />
+              <section className="chapter-share-section">
+                <div className="chapter-share-section-head">
+                  <div>
+                    <h2>곡 선택</h2>
+                    <p>{normalizedStyle.selectedTrackIds.length} / {selectionCap}곡</p>
+                  </div>
+                  <button className="text-button" type="button" onClick={() => updateStyle({ selectedTrackIds: [] })}>추천으로 다시 고르기</button>
+                </div>
+                <div className="chapter-share-selected-list" aria-label="선택한 곡 순서">
+                  {selectedTracks.map((track, index) => (
+                    <article className="chapter-share-track-row is-selected" key={track.id}>
+                      <div className="chapter-share-track-copy">
+                        <span className="chapter-share-track-index">{String(index + 1).padStart(2, "0")}</span>
+                        <div><strong>{track.track.title}</strong><span>{track.track.artist}</span></div>
+                      </div>
+                      <div className="chapter-share-track-actions">
+                        <button type="button" onClick={() => moveSelectedTrack(track.id, -1)} disabled={index === 0} aria-label={`${track.track.title} 위로 이동`}><MoveVertical size={15} aria-hidden="true" /></button>
+                        <button type="button" onClick={() => moveSelectedTrack(track.id, 1)} disabled={index === selectedTracks.length - 1} aria-label={`${track.track.title} 아래로 이동`}><MoveVertical size={15} aria-hidden="true" /></button>
+                        <button type="button" onClick={() => toggleTrack(track.id)}>제외</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <div className="chapter-share-track-bank" aria-label="챕터 전체 곡">
+                  {availableTracks.map((track) => {
+                    const selected = normalizedStyle.selectedTrackIds.includes(track.id);
+                    return (
+                      <button key={track.id} className={`chapter-share-track-pill${selected ? " is-active" : ""}`} type="button" onClick={() => toggleTrack(track.id)} aria-pressed={selected}>
+                        <span>{track.track.title}</span><small>{track.track.artist}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {activeStep === "details" ? (
+            <div className="chapter-share-step-content">
+              <section className="chapter-share-section">
+                <div className="chapter-share-section-head"><h2>한 줄 설명</h2><span>{normalizedStyle.description.length} / {SHARE_DESCRIPTION_MAX_LENGTH}</span></div>
+                <input className="input" maxLength={SHARE_DESCRIPTION_MAX_LENGTH} placeholder="이 챕터의 결을 한 줄로 남겨 보세요" value={normalizedStyle.description} onChange={(event) => updateStyle({ description: event.target.value })} />
+              </section>
+              <section className="chapter-share-section">
+                <div className="chapter-share-section-head"><h2>표시 정보</h2></div>
+                <div className="chapter-share-toggle-grid">
+                  <label><input type="checkbox" checked={normalizedStyle.showTags} onChange={(event) => updateStyle({ showTags: event.target.checked })} />태그</label>
+                  <label><input type="checkbox" checked={normalizedStyle.showAuthor} onChange={(event) => updateStyle({ showAuthor: event.target.checked })} />작성자</label>
+                  <label><input type="checkbox" checked={normalizedStyle.showTrackCount} onChange={(event) => updateStyle({ showTrackCount: event.target.checked })} />곡 수</label>
+                  <label className={activeChapter.visibility !== "public" ? "is-disabled" : ""}><input type="checkbox" checked={normalizedStyle.showPublicLink} disabled={activeChapter.visibility !== "public"} onChange={(event) => updateStyle({ showPublicLink: event.target.checked })} />공개 링크</label>
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {activeStep === "complete" ? <section className="chapter-share-section chapter-share-export-section">
+            <div className="chapter-share-section-head">
           <div>
             <h2>완료</h2>
             <p>이미지를 만들고, 필요하면 링크도 함께 건네세요.</p>
@@ -702,7 +685,14 @@ function ChapterShareEditorScreen({
           </div>
         )}
         {exportError ? <p className="field-error" role="alert">{exportError}</p> : null}
-      </section>
+          </section> : null}
+
+          <div className="chapter-share-step-actions">
+            <button className="button" type="button" onClick={() => moveStep(-1)} disabled={activeStepIndex === 0}><ChevronLeft size={16} aria-hidden="true" />이전</button>
+            {activeStepIndex < SHARE_EDITOR_STEPS.length - 1 ? <button className="button button-primary" type="button" onClick={() => moveStep(1)}>다음<ChevronRight size={16} aria-hidden="true" /></button> : null}
+          </div>
+        </section>
+      </div>
 
       <section className="chapter-share-footer-note">
         <Sparkles size={16} aria-hidden="true" />

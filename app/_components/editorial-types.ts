@@ -25,17 +25,27 @@ export type ArchiveCommit = (
   force?: boolean,
 ) => boolean;
 
+export type ToastKind = "success" | "info" | "error";
+
 export type ToastAction = {
   label: string;
-  href: string;
+  href?: string;
   external?: boolean;
+  onActivate?: () => void;
 };
 
-export type ToastMessage =
-  | string
-  | {
-    text: string;
-    action?: ToastAction;
-  };
+export type ToastNotice = {
+  text: string;
+  kind?: ToastKind;
+  action?: ToastAction;
+  /** Keep important state, such as an unsynced save, visible until it resolves. */
+  persistent?: boolean;
+  /** Override the default lifetime for action-oriented notices. */
+  durationMs?: number;
+  /** Allow a confirmed save to replace an existing persistent notice. */
+  replacePersistent?: boolean;
+};
+
+export type ToastMessage = string | ToastNotice;
 
 export type Notify = (message: ToastMessage) => void;

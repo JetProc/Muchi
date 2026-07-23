@@ -531,6 +531,13 @@ function ChapterShareEditorScreen({
         ) : null}
       </section>
 
+      <div className="chapter-share-mobile-completion">
+        <button className="button button-primary" type="button" onClick={() => { void handleNativeShare(); }} disabled={activeExportAction !== null}>
+          <Share2 size={16} aria-hidden="true" />
+          {activeExportAction === "share" ? "준비 중…" : "파일 공유"}
+        </button>
+      </div>
+
       <ShareChoiceGroup
         title="형식"
         value={normalizedStyle.format}

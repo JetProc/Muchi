@@ -32,7 +32,7 @@ import {
 } from "@/lib/client/onboarding-api";
 import { updateProfile as updateProfileRemote, type ProfileUpdate } from "@/lib/client/profile-api";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { ToastMessage } from "./editorial-types";
+import type { ToastMessage, ToastNotice } from "./editorial-types";
 
 const STALE_AFTER_MS = 60_000;
 const ARCHIVE_SAVE_DEBOUNCE_MS = 250;
@@ -74,6 +74,12 @@ function isAppRoute(pathname: string) {
 
 function isPublicDiscoveryRoute(pathname: string) {
   return pathname === "/discover" || pathname.startsWith("/discover/");
+}
+
+function savedNotice(message: ToastMessage): ToastNotice {
+  return typeof message === "string"
+    ? { text: message, kind: "success", replacePersistent: true }
+    : { ...message, kind: message.kind ?? "success", replacePersistent: true };
 }
 
 export function MuchiDataProvider({ children }: { children: ReactNode }) {
@@ -346,7 +352,7 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
         pendingArchiveRef.current.splice(0, batch.length);
         archiveRevisionRef.current = result.revision;
         archiveUpdatedAtRef.current = Date.now();
-        if (message) publishNotice(message);
+        if (message) publishNotice(savedNotice(message));
       } catch (cause) {
         if (cause instanceof ArchiveApiError && cause.code === "conflict" && cause.latest) {
           archiveRevisionRef.current = cause.latest.revision;
@@ -356,12 +362,12 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
               cause.latest.archive,
             );
             setLocalArchive(rebased);
-            publishNotice("다른 기기 변경 위에 내 변경사항을 다시 적용했어요.");
+            publishNotice({ text: "다른 기기 변경 위에 내 변경사항을 다시 적용했어요.", kind: "info", replacePersistent: true });
             continue;
           } catch {
             pendingArchiveRef.current = [];
             setLocalArchive(cause.latest.archive);
-            publishNotice("변경사항을 자동으로 합치지 못했어요. 최신 기록을 불러왔습니다.");
+            publishNotice({ text: "변경사항을 자동으로 합치지 못했어요. 최신 기록을 불러왔습니다.", kind: "error", persistent: true });
             break;
           }
         }
@@ -370,9 +376,17 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
           setAuthRequired(true);
           break;
         }
-        publishNotice(cause instanceof Error
-          ? `${cause.message} 연결되면 다시 저장할게요.`
-          : "음악 기록 변경사항을 연결되면 다시 저장할게요.");
+        publishNotice({
+          text: cause instanceof Error
+            ? `${cause.message} 연결되면 다시 저장할게요.`
+            : "음악 기록 변경사항을 연결되면 다시 저장할게요.",
+          kind: "error",
+          persistent: true,
+          action: {
+            label: "다시 시도",
+            onActivate: () => window.setTimeout(() => drainArchiveRef.current(), 0),
+          },
+        });
         if (archiveRetryTimerRef.current !== null) window.clearTimeout(archiveRetryTimerRef.current);
         archiveRetryTimerRef.current = window.setTimeout(() => {
           archiveRetryTimerRef.current = null;
@@ -451,7 +465,7 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
           const result = await saveDiscoveryState(pending.state, discoveryRevisionRef.current);
           discoveryRevisionRef.current = result.revision;
           if (!pendingDiscoveryRef.current) setDiscoveryState(result.state);
-          if (pending.message) publishNotice(pending.message);
+          if (pending.message) publishNotice(savedNotice(pending.message));
         } catch (cause) {
           pendingDiscoveryRef.current = null;
           if (cause instanceof ArchiveApiError && cause.code === "conflict") {
@@ -460,7 +474,7 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
               setDiscoveryState(latest.state);
             }).catch(() => undefined);
           }
-          publishNotice(cause instanceof Error ? cause.message : "탐색 상태를 저장하지 못했어요.");
+          publishNotice({ text: cause instanceof Error ? cause.message : "탐색 상태를 저장하지 못했어요.", kind: "error" });
         }
       }
       writingDiscoveryRef.current = false;

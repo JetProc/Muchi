@@ -18,6 +18,7 @@ import {
   Plus,
   Search,
   Settings,
+  X,
 } from "lucide-react";
 import { ITUNES_PREVIEW_ATTRIBUTION } from "@/lib/itunes";
 import { useModalFocus } from "./editorial-accessibility";
@@ -295,37 +296,37 @@ export function FullPlayer({
   );
 }
 
-export function ToastRegion({ toast }: { toast: ToastMessage | null }) {
+export function ToastRegion({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }) {
   if (!toast) return null;
-  if (typeof toast === "string") {
-    return (
-      <div className="toast" role="status" aria-live="polite">{toast}</div>
-    );
-  }
-  const actionHref = toast.action
-    ? toast.action.external
-      ? safeExternalHref(toast.action.href)
-      : safeInternalHref(toast.action.href)
+  const notice = typeof toast === "string" ? { text: toast } : toast;
+  const isError = notice.kind === "error";
+  const actionHref = notice.action?.href
+    ? notice.action.external
+      ? safeExternalHref(notice.action.href)
+      : safeInternalHref(notice.action.href)
     : null;
   return (
-    <div className="toast toast-with-action" role="status" aria-live="polite">
-      <span className="toast-copy">{toast.text}</span>
-      {toast.action && actionHref ? (
-        toast.action.external ? (
+    <div className={`toast${notice.action || notice.persistent ? " toast-with-action" : ""} is-${notice.kind ?? "success"}`} role={isError ? "alert" : "status"} aria-live={isError ? "assertive" : "polite"} aria-atomic="true">
+      <span className="toast-copy">{notice.text}</span>
+      {notice.action && notice.action.onActivate ? (
+        <button className="toast-action" type="button" onClick={notice.action.onActivate}>{notice.action.label}</button>
+      ) : notice.action && actionHref ? (
+        notice.action.external ? (
           <a
             className="toast-action"
             href={actionHref}
             target="_blank"
             rel="noopener noreferrer"
           >
-            {toast.action.label}
+            {notice.action.label}
           </a>
         ) : (
           <Link className="toast-action" href={actionHref} intent="forward">
-            {toast.action.label}
+            {notice.action.label}
           </Link>
         )
       ) : null}
+      {notice.action || notice.persistent ? <button className="toast-dismiss" type="button" onClick={onDismiss} aria-label="알림 닫기"><X size={16} aria-hidden="true" /></button> : null}
     </div>
   );
 }
@@ -336,6 +337,7 @@ export function EditorialShell({
   children,
   preview,
   toast,
+  onToastDismiss,
   online,
   scrollReady,
   backAction,
@@ -345,6 +347,7 @@ export function EditorialShell({
   children: ReactNode;
   preview: PreviewControls;
   toast: ToastMessage | null;
+  onToastDismiss: () => void;
   online: boolean;
   scrollReady: boolean;
   backAction: ContextBackAction | null;
@@ -493,7 +496,7 @@ export function EditorialShell({
             </section>
           </div>
         ) : null}
-        <ToastRegion toast={toast} />
+        <ToastRegion toast={toast} onDismiss={onToastDismiss} />
       </div>
     </div>
   );

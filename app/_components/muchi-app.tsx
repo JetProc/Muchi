@@ -35,7 +35,7 @@ import {
   useMotionRouter,
 } from "./editorial-motion";
 import type { PlaylistStep } from "./editorial-views-playlist";
-import type { AppView, ToastMessage } from "./editorial-types";
+import type { AppView, ToastKind, ToastMessage, ToastNotice } from "./editorial-types";
 import { AuthGate, startGoogleSignIn } from "./auth-gate";
 import { OnboardingScreen } from "./onboarding-screen";
 import { useMuchiData } from "./muchi-data-provider";
@@ -282,6 +282,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   }>({ routeKey: "", step: 1 });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const toastRef = useRef<ToastNotice | null>(null);
   const pendingLikeChapterIdsRef = useRef(new Set<string>());
 
   const inboxEntries = useMemo(
@@ -397,9 +398,29 @@ export function MusicWorldApp({ view }: { view: AppView }) {
   })();
 
   const notify = useCallback((message: ToastMessage) => {
-    setToast(message);
+    const text = typeof message === "string" ? message : message.text;
+    const inferredKind: ToastKind = /못했|실패|오류|만료|없어요|입력해|선택해/.test(text)
+      ? "error"
+      : "success";
+    const next: ToastNotice = typeof message === "string"
+      ? { text, kind: inferredKind }
+      : { ...message, kind: message.kind ?? inferredKind };
+    if (toastRef.current?.persistent && !next.persistent && !next.replacePersistent) return;
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 3200);
+    toastRef.current = next;
+    setToast(next);
+    if (next.persistent) return;
+    toastTimerRef.current = window.setTimeout(() => {
+      toastRef.current = null;
+      setToast(null);
+    }, next.durationMs ?? (next.action ? 8_000 : 3_200));
+  }, []);
+
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = null;
+    toastRef.current = null;
+    setToast(null);
   }, []);
 
   useEffect(() => {
@@ -576,6 +597,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
           inboxCount={0}
           preview={preview}
           toast={null}
+          onToastDismiss={dismissToast}
           online={online}
           scrollReady={false}
           backAction={contextBackAction}
@@ -691,6 +713,7 @@ export function MusicWorldApp({ view }: { view: AppView }) {
         inboxCount={inboxEntries.length}
         preview={preview}
         toast={toast}
+        onToastDismiss={dismissToast}
         online={online}
         scrollReady={hydrated}
         backAction={contextBackAction}

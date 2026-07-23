@@ -540,8 +540,12 @@ test("keeps toast messages compact below the fixed mobile header", async () => {
   assert.match(appleTheme, /\.toast-with-action\s*\{[^}]*pointer-events:\s*auto;/s);
   assert.match(appleTheme, /\.toast-action\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s);
   assert.doesNotMatch(appleTheme, /\.app-shell\.has-player \.toast/);
-  assert.match(typesSource, /export type ToastMessage\s*=\s*\| string/);
+  assert.match(typesSource, /export type ToastKind = "success" \| "info" \| "error"/);
+  assert.match(typesSource, /persistent\?: boolean;/);
+  assert.match(typesSource, /onActivate\?: \(\) => void;/);
   assert.match(shellSource, /typeof toast === "string"/);
+  assert.match(shellSource, /role=\{isError \? "alert" : "status"\}/);
+  assert.match(shellSource, /toast-dismiss/);
   assert.match(shellSource, /target="_blank"[\s\S]*?rel="noopener noreferrer"/s);
 });
 
@@ -554,9 +558,9 @@ test("renders toast and player actions only for safe destinations", async () => 
   assert.match(shellSource, /function safeExternalHref[\s\S]*?new URL\(value\)[\s\S]*?url\.protocol === "https:"/s);
   assert.match(shellSource, /function safeInternalHref[\s\S]*?value\.startsWith\("\/"\)[\s\S]*?!value\.startsWith\("\/\/"\)/s);
   assert.match(shellSource, /const externalHref = safeExternalHref\(preview\.state\.track\.externalUrl\)/);
-  assert.match(shellSource, /const actionHref = toast\.action[\s\S]*?safeExternalHref\(toast\.action\.href\)[\s\S]*?safeInternalHref\(toast\.action\.href\)/s);
-  assert.match(shellSource, /toast\.action && actionHref/);
-  assert.doesNotMatch(shellSource, /href=\{toast\.action\.href\}/);
+  assert.match(shellSource, /const actionHref = notice\.action\?\.href[\s\S]*?safeExternalHref\(notice\.action\.href\)[\s\S]*?safeInternalHref\(notice\.action\.href\)/s);
+  assert.match(shellSource, /notice\.action && actionHref/);
+  assert.doesNotMatch(shellSource, /href=\{notice\.action\.href\}/);
 });
 
 test("uses accessible settings and contextual help controls in the editorial header", async () => {

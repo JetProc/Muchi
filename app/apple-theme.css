@@ -4209,6 +4209,10 @@ button.tag {
   pointer-events: auto;
 }
 
+.toast.is-error {
+  background: #7c2d2d;
+}
+
 .toast-copy {
   min-width: 0;
 }
@@ -4227,6 +4231,19 @@ button.tag {
   font-size: 12px;
   font-weight: 600;
   text-decoration: none;
+}
+
+.toast-dismiss {
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: transparent;
 }
 
 .playlist-builder-view {
@@ -5792,6 +5809,11 @@ button.tag {
 .memory-photo-field {
   display: grid;
   gap: 12px;
+  order: 4;
+}
+
+.memory-record-footer {
+  order: 5;
 }
 
 .memory-photo-head {
@@ -6102,8 +6124,9 @@ button.tag {
 }
 
 .chapter-share-track-actions > button {
-  min-height: 32px;
-  padding: 0 10px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
   border: 0;
   border-radius: 12px;
   color: var(--apple-ink);
@@ -6148,6 +6171,10 @@ button.tag {
   margin-top: 14px;
 }
 
+.chapter-share-mobile-completion {
+  display: none;
+}
+
 .chapter-share-export-actions .button {
   display: inline-flex;
   justify-content: center;
@@ -6183,5 +6210,22 @@ button.tag {
 
   .chapter-share-track-actions {
     justify-content: flex-end;
+  }
+
+  .chapter-share-mobile-completion {
+    position: sticky;
+    z-index: 8;
+    bottom: 10px;
+    display: block;
+    padding: 8px;
+    border: 1px solid color-mix(in srgb, var(--apple-line) 80%, transparent);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--apple-canvas) 92%, transparent);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--apple-ink) 12%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .chapter-share-mobile-completion .button {
+    width: 100%;
   }
 }

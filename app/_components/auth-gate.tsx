@@ -1,19 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { normalizeAuthDestination } from "@/lib/auth-redirect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 function currentDestination() {
-  return `${window.location.pathname}${window.location.search}`;
+  return normalizeAuthDestination(`${window.location.pathname}${window.location.search}`);
 }
 
 export async function startGoogleSignIn(destination = currentDestination()) {
+  destination = normalizeAuthDestination(destination);
   const callback = new URL("/auth/callback", window.location.origin);
-  if (
-    destination !== "/"
-    && destination.startsWith("/")
-    && !destination.startsWith("//")
-  ) {
+  if (destination !== "/") {
     callback.searchParams.set("next", destination);
   }
   const supabase = createSupabaseBrowserClient();
@@ -81,6 +79,10 @@ export function AuthGate({ message }: { message?: string }) {
             {loading ? "로그인으로 이동 중…" : <><GoogleMark />Google로 시작하기</>}
           </button>
           <p className="entry-notice">로그인하면 어떤 기기에서도 내 음악 세계를 이어갈 수 있어요.</p>
+          <nav className="entry-legal-links" aria-label="서비스 정책">
+            <a href="/privacy">개인정보처리방침</a>
+            <a href="/terms">이용약관</a>
+          </nav>
           {error ? <p className="auth-gate-error" role="alert">{error}</p> : null}
         </div>
       </section>

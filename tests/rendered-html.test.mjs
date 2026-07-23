@@ -136,6 +136,17 @@ async function loadMusicDisplayDomain() {
   return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 }
 
+async function loadAuthRedirectDomain() {
+  const source = await readFile(new URL("../lib/auth-redirect.ts", import.meta.url), "utf8");
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
+}
+
 test("server-renders a deterministic MUCHI editorial archive shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
@@ -420,6 +431,20 @@ test("collects a validated nickname and Google avatar before onboarding complete
   assert.equal(profileDomain.validateNickname("a").ok, false);
   assert.equal(profileDomain.validateNickname("뮤키✨").ok, false);
   assert.doesNotMatch(appSource, /showWelcome|빈 아카이브|샘플 보기/);
+});
+
+test("publishes OAuth-ready privacy and terms pages from the signed-out homepage", async () => {
+  const [authGate, privacyPage, termsPage] = await Promise.all([
+    readFile(new URL("../app/_components/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/privacy/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/terms/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(authGate, /href="\/privacy">개인정보처리방침/);
+  assert.match(authGate, /href="\/terms">이용약관/);
+  assert.match(privacyPage, /Google 및 YouTube 데이터/);
+  assert.match(privacyPage, /OAuth 액세스 토큰은 해당 요청을 처리하는 동안에만 사용/);
+  assert.match(termsPage, /비공개 YouTube 플레이리스트를 생성/);
 });
 
 test("offers reusable general-purpose tag starter packs during onboarding and tag management", async () => {
@@ -3388,8 +3413,9 @@ test("excludes the signed-in user's own chapters from the public discovery query
 });
 
 test("keeps public chapters readable before login and restores the requested destination after Google login", async () => {
-  const [authSource, providerSource, appSource, routeSource, migrationSource] = await Promise.all([
+  const [authSource, callbackSource, providerSource, appSource, routeSource, migrationSource] = await Promise.all([
     readFile(new URL("../app/_components/auth-gate.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/auth/callback/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/muchi-data-provider.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/_components/muchi-app.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/public-discovery/route.ts", import.meta.url), "utf8"),
@@ -3398,6 +3424,11 @@ test("keeps public chapters readable before login and restores the requested des
 
   assert.match(authSource, /callback\.searchParams\.set\("next", destination\)/);
   assert.match(authSource, /redirectTo: callback\.toString\(\)/);
+  assert.match(authSource, /return normalizeAuthDestination\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\)/);
+  assert.match(authSource, /destination = normalizeAuthDestination\(destination\)/);
+  assert.match(callbackSource, /normalizeAuthDestination\(url\.searchParams\.get\("next"\)\)/);
+  assert.match(callbackSource, /Cache-Control", "private, no-store"/);
+  assert.match(callbackSource, /data\?\.claims\?\.sub/);
   assert.match(providerSource, /function isPublicDiscoveryRoute/);
   assert.match(providerSource, /setAuthRequired\(!publicDiscoveryRoute\)/);
   assert.match(appSource, /if \(!authenticated && !publicDiscoveryRoute\) return <AuthGate \/>;/);
@@ -3410,6 +3441,20 @@ test("keeps public chapters readable before login and restores the requested des
   assert.match(migrationSource, /public can read published chapters/);
   assert.match(migrationSource, /profile_follow_counts/);
   assert.match(migrationSource, /author_avatar_url/);
+});
+
+test("prevents OAuth callbacks and transient auth parameters from becoming the next login destination", async () => {
+  const { normalizeAuthDestination } = await loadAuthRedirectDomain();
+
+  assert.equal(normalizeAuthDestination("/chapters?sort=recent"), "/chapters?sort=recent");
+  assert.equal(normalizeAuthDestination("/auth/error"), "/");
+  assert.equal(normalizeAuthDestination("/auth/callback?code=stale"), "/");
+  assert.equal(
+    normalizeAuthDestination("/?code=stale&error_code=bad_oauth_state&tab=mine"),
+    "/?tab=mine",
+  );
+  assert.equal(normalizeAuthDestination("//attacker.example/path"), "/");
+  assert.equal(normalizeAuthDestination("https://attacker.example/path"), "/");
 });
 
 test("shows a retry state instead of an endless discovery skeleton and publishes real profile metadata", async () => {

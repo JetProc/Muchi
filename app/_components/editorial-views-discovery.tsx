@@ -505,7 +505,7 @@ export function Settings({
       <section className="settings-group" aria-labelledby="settings-guide-title">
         <h2 id="settings-guide-title">사용 가이드</h2>
         <div className="panel settings-list">
-          <div className="setting-row"><div><h3>뮤키 사용 방법</h3><small>곡 가져오기, PWA, 지원 현황</small></div><Link className="button" href="/guide" intent="forward">보기</Link></div>
+          <div className="setting-row"><div><h3>뮤키 사용 방법</h3><small>첫 기록, 링크 가져오기, 홈 화면 추가</small></div><Link className="button" href="/guide" intent="forward">보기</Link></div>
         </div>
       </section>
       <section className="settings-group settings-danger" aria-labelledby="settings-danger-title">

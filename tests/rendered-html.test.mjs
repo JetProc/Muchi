@@ -675,11 +675,12 @@ test("connects onboarding, the settings guide, and first-record hints", async ()
   assert.match(appSource, /guideMode=\{searchParams\.get\("guide"\) === "1"\}/);
   assert.match(captureSource, /className="capture-mini-guide"/);
   assert.match(captureSource, /className="record-tag-guide"/);
-  assert.match(guideSource, /YouTube Music[\s\S]*?<td>지원<\/td><td>지원<\/td><td>지원/s);
-  assert.match(guideSource, /Apple Music[\s\S]*?<td>지원<\/td><td>준비 중<\/td><td>준비 중/s);
-  assert.match(guideSource, /Spotify[\s\S]*?준비 중/s);
-  assert.match(guideSource, /Android PWA[\s\S]*?YouTube Music[\s\S]*?뮤키/s);
-  assert.match(guideSource, /iPhone \/ iPad[\s\S]*?직접 선택하는 공유는 아직 지원하지 않아요/s);
+  assert.match(settingsSource, /첫 기록, 링크 가져오기, 홈 화면 추가/);
+  assert.match(guideSource, /곡 하나로 시작하세요[\s\S]*?곡 찾기[\s\S]*?기억 남기기[\s\S]*?챕터에 모으기/s);
+  assert.match(guideSource, /뮤키에서 바로 검색[\s\S]*?음악 앱 링크 붙여넣기/s);
+  assert.match(guideSource, /Android에서는 더 간단해요[\s\S]*?공유 메뉴에서 뮤키를 선택/s);
+  assert.match(guideSource, /Android Chrome[\s\S]*?앱 설치[\s\S]*?iPhone Safari[\s\S]*?홈 화면에 추가/s);
+  assert.doesNotMatch(guideSource, /MusicKit|PWA|지원 현황|Spotify|준비 중/);
   assert.match(guideSource, /href="\/capture\?guide=1"/);
   assert.match(guideRouteSource, /MusicWorldApp view="guide"/);
 });

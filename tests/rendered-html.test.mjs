@@ -717,6 +717,7 @@ test("connects the mandatory guided tour to onboarding, demo data, and manual re
   assert.match(providerSource, /guidedTourActive/);
   assert.match(providerSource, /startGuidedTour/);
   assert.match(providerSource, /completeGuidedTour/);
+  assert.match(providerSource, /saveArchive\(removeSeedData\(localArchiveRef\.current\)\)/);
   assert.match(onboardingApiSource, /guidedTourVersion:\s*number/);
   assert.match(appSource, /guidedTourActive\s*\?\s*guidedTourArchive\s*:\s*persistedArchive/);
   assert.match(shellSource, /<GuidedTourOverlay/);

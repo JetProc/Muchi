@@ -11,7 +11,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createEmptyArchive, publicProjectionSignature, type ArchiveEnvelopeV1 } from "@/lib/archive";
+import {
+  createEmptyArchive,
+  publicProjectionSignature,
+  removeSeedData,
+  type ArchiveEnvelopeV1,
+} from "@/lib/archive";
 import { applyArchivePatch, createArchivePatch, type ArchivePatchOperation } from "@/lib/archive-patch";
 import {
   createDiscoveryInteractionState,
@@ -539,6 +544,7 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     setGuidedTourError(null);
     try {
       const guidedTourVersion = await saveGuidedTourComplete(CURRENT_GUIDED_TOUR_VERSION);
+      saveArchive(removeSeedData(localArchiveRef.current));
       setOnboarding((current) => current ? { ...current, guidedTourVersion } : current);
       setGuidedTourMode(null);
       setGuidedTourStep(0);
@@ -549,7 +555,7 @@ export function MuchiDataProvider({ children }: { children: ReactNode }) {
     } finally {
       setGuidedTourSaving(false);
     }
-  }, []);
+  }, [saveArchive]);
 
   const updateProfile = useCallback(async (update: ProfileUpdate) => {
     setOnboardingSaving(true);

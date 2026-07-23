@@ -2940,13 +2940,14 @@ test("keeps personal space private by default and strips private records from vi
   assert.deepEqual(space.data.space.featuredCubeIds, [chapter.cube.id]);
 });
 
-test("includes public child chapters in visitor projections", async () => {
+test("exposes only public root chapters in visitor projections", async () => {
   const archiveDomain = await loadArchiveDomain();
-  const parent = archiveDomain.createCube(archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z"), { name: "상위 챕터" });
+  const parent = archiveDomain.createCube(archiveDomain.createEmptyArchive("2026-07-01T00:00:00.000Z"), { name: "상위 챕터", visibility: "public" });
   const child = archiveDomain.createCube(parent.archive, { name: "공개 하위 챕터", parentId: parent.cube.id, visibility: "public" });
   const projection = archiveDomain.getVisitorSpaceChapters(child.archive);
   assert.equal(projection.length, 1);
-  assert.equal(projection[0].chapter.id, child.cube.id);
+  assert.equal(projection[0].chapter.id, parent.cube.id);
+  assert.doesNotMatch(archiveDomain.publicProjectionSignature(child.archive), new RegExp(child.cube.id));
 });
 
 test("stores a custom chapter cover while keeping the album collage as the null default", async () => {

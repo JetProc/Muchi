@@ -2834,7 +2834,7 @@ export type VisitorSpaceChapter = {
 export function getVisitorSpaceChapters(archive: ArchiveEnvelopeV1): VisitorSpaceChapter[] {
   const normalized = withPersonalSpaceDefaults(archive);
   return getUserVisibleChapters(normalized)
-    .filter((chapter) => chapter.visibility === "public")
+    .filter((chapter) => isManualRootChapter(chapter) && chapter.visibility === "public")
     .map((chapter) => ({
       chapter,
       tracks: getCubeTracks(normalized, chapter.id).map((entry) => ({

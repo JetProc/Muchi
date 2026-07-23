@@ -85,3 +85,7 @@ npm run lint
 npm run typecheck
 npm test
 ```
+
+## Supabase 마이그레이션
+
+새 Supabase 환경에는 `supabase/migrations/`의 SQL을 시간순으로 모두 적용합니다. 기존 운영 프로젝트를 CLI와 연결할 때는 과거 이력을 다시 실행하지 말고, [마이그레이션 정합성 안내](docs/SUPABASE_MIGRATION_RECONCILIATION.md)를 따라 적용 이력만 먼저 맞춥니다.
